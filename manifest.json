@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "StickySites",
+  "version": "1.0.0",
+  "description": "Sticky notes for every website. One global note everywhere, plus per-site notes that stay with each domain.",
+  "permissions": ["storage", "activeTab"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_icon": "icons/icon48.png",
+    "default_title": "StickySites"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/sticky-inject.js"],
+      "css": ["src/content/sticky-inject.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  }
+}

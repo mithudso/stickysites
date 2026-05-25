@@ -1,0 +1,13 @@
+{
+  "name": "stickysites",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Sticky notes for every website",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.0"
+  }
+}
