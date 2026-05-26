@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=400">
+  <link rel="stylesheet" href="popup.css">
+  <title>StickySites</title>
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <span class="header-icon">📝</span>
+      <span class="header-title">StickySites</span>
+      <button id="toggle-cluster-btn" class="header-btn">Hide cluster</button>
+    </header>
+
+    <div id="search-bar">
+      <input type="text" id="search-input" placeholder="Search notes...">
+    </div>
+
+    <div id="filters">
+      <div id="type-filters">
+        <button class="type-pill active" data-type="all">All</button>
+        <button class="type-pill" data-type="global">Global</button>
+        <button class="type-pill" data-type="site">Sites</button>
+        <button class="type-pill" data-type="page">Pages</button>
+      </div>
+      <button id="sort-btn" class="sort-btn">Recent ▾</button>
+    </div>
+
+    <div id="tag-filters"></div>
+
+    <div id="notes-list"></div>
+
+    <footer id="footer">
+      <button id="save-all-btn" class="footer-btn">Save all as .md</button>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
