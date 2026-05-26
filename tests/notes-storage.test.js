@@ -22,7 +22,8 @@ import {
   getPageKey, readPageNote, writePageNote, deletePageNote, readAllPageNotes,
   readPrefs, writePrefs,
   readTodo, writeTodo, deleteTodo, readAllTodos,
-  readOutline, writeOutline, deleteOutline, readAllOutlines
+  readOutline, writeOutline, deleteOutline, readAllOutlines,
+  getDailyKey, readDailyNote, writeDailyNote, deleteDailyNote, readAllDailyNotes
 } from '../src/shared/notes-storage.js';
 
 describe('getSiteKey', () => {
@@ -261,6 +262,49 @@ describe('outline', () => {
     await writeOutline('a.com', { items: [] });
     await writeOutline('b.com', { items: [] });
     const all = await readAllOutlines();
+    expect(all).toHaveLength(2);
+  });
+});
+
+describe('daily note', () => {
+  beforeEach(() => { store = {}; });
+
+  it('getDailyKey returns YYYY-MM-DD format', () => {
+    var key = getDailyKey();
+    expect(key).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('returns null for missing daily', async () => {
+    expect(await readDailyNote('2026-05-26')).toBeNull();
+  });
+
+  it('writes and reads back', async () => {
+    await writeDailyNote('2026-05-26', { body: 'daily note', tags: ['#today'] });
+    var note = await readDailyNote('2026-05-26');
+    expect(note.body).toBe('daily note');
+    expect(note.tags).toEqual(['#today']);
+    expect(note.dateKey).toBe('2026-05-26');
+  });
+
+  it('preserves createdAt on update', async () => {
+    await writeDailyNote('2026-05-26', { body: 'first' });
+    var first = await readDailyNote('2026-05-26');
+    await writeDailyNote('2026-05-26', { body: 'second' });
+    var second = await readDailyNote('2026-05-26');
+    expect(second.createdAt).toBe(first.createdAt);
+    expect(second.body).toBe('second');
+  });
+
+  it('deletes a daily note', async () => {
+    await writeDailyNote('2026-05-26', { body: 'bye' });
+    await deleteDailyNote('2026-05-26');
+    expect(await readDailyNote('2026-05-26')).toBeNull();
+  });
+
+  it('reads all daily notes', async () => {
+    await writeDailyNote('2026-05-25', { body: 'yesterday' });
+    await writeDailyNote('2026-05-26', { body: 'today' });
+    var all = await readAllDailyNotes();
     expect(all).toHaveLength(2);
   });
 });
