@@ -1,222 +1,259 @@
-(async () => {
-  if (document.getElementById('stickysites-strip')) return;
+(async function () {
+  if (document.getElementById('stickysites-cluster')) return;
 
-  const GLOBAL_NOTE_KEY = 'stickysites_global_v1';
-  const SITE_NOTES_KEY = 'stickysites_sites_v1';
+  var SS = window.StickySites;
+  var noteTypes = SS.noteTypes;
 
-  function getSiteKey() {
-    try { return location.hostname.replace(/^www\./, ''); }
-    catch { return ''; }
+  function findNoteType(id) {
+    for (var i = 0; i < noteTypes.length; i++) {
+      if (noteTypes[i].id === id) return noteTypes[i];
+    }
+    return null;
   }
 
-  function formatSaved(iso) {
-    if (!iso) return '';
-    try { return 'Saved ' + new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-    catch { return ''; }
+  async function checkUnlocked() {
+    if (!window.StickySites.Crypto) return true;
+    var enabled = await window.StickySites.Crypto.isEnabled();
+    if (!enabled) return true;
+    var key = await window.StickySites.Crypto.getCachedKey();
+    return !!key;
   }
 
-  function clearChildren(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+  function showLockOverlay(pendingTypeId) {
+    SS.Panel.close();
+    var overlay = document.getElementById('stickysites-lock');
+    if (overlay) overlay.remove();
 
-  function debounce(fn, ms = 500) {
-    let t = null;
-    return (...a) => { if (t) clearTimeout(t); t = setTimeout(() => { t = null; fn(...a); }, ms); };
+    overlay = document.createElement('div');
+    overlay.id = 'stickysites-lock';
+
+    var title = document.createElement('div');
+    title.className = 'stickysites-lock-title';
+    title.textContent = 'StickySites Locked';
+
+    var input = document.createElement('input');
+    input.type = 'password';
+    input.className = 'stickysites-lock-input';
+    input.placeholder = 'Enter passphrase...';
+
+    var btn = document.createElement('button');
+    btn.className = 'stickysites-lock-btn';
+    btn.textContent = 'Unlock';
+
+    var error = document.createElement('div');
+    error.className = 'stickysites-lock-error';
+
+    async function doUnlock() {
+      if (!input.value) return;
+      var ok = await window.StickySites.Crypto.unlock(input.value);
+      if (ok) {
+        overlay.remove();
+        if (pendingTypeId) handleIconClick(pendingTypeId);
+      } else {
+        error.textContent = 'Wrong passphrase';
+        input.value = '';
+        input.focus();
+      }
+    }
+
+    btn.addEventListener('click', doUnlock);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doUnlock();
+    });
+
+    overlay.append(title, input, btn, error);
+    document.documentElement.appendChild(overlay);
+    input.focus();
   }
 
-  // Storage helpers (inline to avoid module import in content script)
-  async function readGlobal() {
-    try {
-      const s = await chrome.storage.local.get(GLOBAL_NOTE_KEY);
-      const r = s?.[GLOBAL_NOTE_KEY];
-      return { body: String(r?.body ?? ''), updatedAt: String(r?.updatedAt ?? '') };
-    } catch { return { body: '', updatedAt: '' }; }
+  async function handleIconClick(typeId) {
+    if (!typeId) {
+      SS.Panel.close();
+      return;
+    }
+    var unlocked = await checkUnlocked();
+    if (!unlocked) {
+      showLockOverlay(typeId);
+      return;
+    }
+    var noteType = findNoteType(typeId);
+    if (noteType) SS.Panel.open(noteType);
+    else SS.Panel.close();
   }
-  async function writeGlobal(body) {
-    const rec = { body: String(body), updatedAt: new Date().toISOString() };
-    await chrome.storage.local.set({ [GLOBAL_NOTE_KEY]: rec });
-    return rec;
+
+  // Toast notification
+  function showToast(message) {
+    var existing = document.getElementById('stickysites-toast');
+    if (existing) existing.remove();
+    var toast = document.createElement('div');
+    toast.id = 'stickysites-toast';
+    toast.textContent = message;
+    document.documentElement.appendChild(toast);
+    requestAnimationFrame(function () {
+      toast.classList.add('is-visible');
+    });
+    setTimeout(function () {
+      toast.classList.remove('is-visible');
+      setTimeout(function () { toast.remove(); }, 300);
+    }, 2000);
   }
-  async function readSite(key) {
-    if (!key) return null;
-    try {
-      const s = await chrome.storage.local.get(SITE_NOTES_KEY);
-      const m = s?.[SITE_NOTES_KEY] || {};
-      return m[key] || null;
-    } catch { return null; }
-  }
-  async function writeSite(key, body, tags = []) {
-    if (!key) return;
-    try {
-      const s = await chrome.storage.local.get(SITE_NOTES_KEY);
-      const m = s?.[SITE_NOTES_KEY] || {};
-      const existing = m[key];
-      m[key] = {
-        siteKey: key, siteLabel: key, body: String(body),
-        tags: Array.isArray(tags) ? tags : [],
-        createdAt: existing?.createdAt || new Date().toISOString(),
+
+  // Clip text into a note
+  async function clipToNote(noteTypeId, text) {
+    var nt = findNoteType(noteTypeId);
+    if (!nt || !text) return;
+    var key = nt.getKey(location);
+    var C = window.StickySites.Crypto;
+
+    if (nt.storagePattern === 'structured') {
+      var stored = await chrome.storage.local.get(nt.storageKey);
+      var rawMap = stored?.[nt.storageKey] || {};
+      if (C && C.isEncrypted(rawMap)) rawMap = await C.decryptValue(rawMap);
+      var map = rawMap;
+      var record = map[key];
+      var items = (record && Array.isArray(record.items)) ? record.items : [];
+      var newId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+      if (noteTypeId === 'todo') {
+        items.push({ id: newId, text: text, done: false });
+      } else if (noteTypeId === 'outline') {
+        items.push({ id: newId, text: text, children: [], collapsed: false });
+      }
+
+      map[key] = {
+        siteKey: key,
+        items: items,
+        createdAt: (record && record.createdAt) || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      await chrome.storage.local.set({ [SITE_NOTES_KEY]: m });
-    } catch { /* best effort */ }
-  }
+      var mapToStore = map;
+      if (C && await C.isEnabled() && await C.getCachedKey()) {
+        mapToStore = await C.encryptValue(map);
+      }
+      await chrome.storage.local.set({ [nt.storageKey]: mapToStore });
+    } else {
+      var stored = await chrome.storage.local.get(nt.storageKey);
+      var raw = stored?.[nt.storageKey];
+      if (raw && C && C.isEncrypted(raw)) raw = await C.decryptValue(raw);
+      var htmlSnippet = '<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
 
-  const siteKey = getSiteKey();
-  let activeDrawer = null;
-
-  // Build strip
-  const strip = document.createElement('div');
-  strip.id = 'stickysites-strip';
-
-  const yellowBtn = document.createElement('button');
-  yellowBtn.className = 'stickysites-icon is-yellow';
-  yellowBtn.title = 'Global note';
-  yellowBtn.textContent = '\u{1F4DD}';
-  yellowBtn.addEventListener('click', () => toggleDrawer('yellow'));
-
-  const greenBtn = document.createElement('button');
-  greenBtn.className = 'stickysites-icon is-green';
-  greenBtn.title = 'Site note: ' + siteKey;
-  greenBtn.textContent = '\u{1F4DD}';
-  greenBtn.addEventListener('click', () => toggleDrawer('green'));
-
-  strip.appendChild(yellowBtn);
-  strip.appendChild(greenBtn);
-
-  // Build drawer
-  const drawer = document.createElement('div');
-  drawer.id = 'stickysites-drawer';
-
-  document.documentElement.appendChild(strip);
-  document.documentElement.appendChild(drawer);
-
-  function toggleDrawer(type) {
-    if (activeDrawer === type) { closeDrawer(); return; }
-    openDrawer(type);
-  }
-
-  function closeDrawer() {
-    activeDrawer = null;
-    drawer.classList.remove('is-open');
-    yellowBtn.classList.remove('is-active');
-    greenBtn.classList.remove('is-active');
-  }
-
-  async function openDrawer(type) {
-    activeDrawer = type;
-    yellowBtn.classList.toggle('is-active', type === 'yellow');
-    greenBtn.classList.toggle('is-active', type === 'green');
-    if (type === 'yellow') await renderYellow();
-    else await renderGreen();
-    drawer.classList.add('is-open');
-  }
-
-  async function renderYellow() {
-    const note = await readGlobal();
-    clearChildren(drawer);
-    const header = document.createElement('div');
-    header.className = 'stickysites-drawer-header is-yellow';
-    const title = document.createElement('span');
-    title.className = 'stickysites-drawer-title';
-    title.textContent = 'Global note';
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'stickysites-drawer-btn';
-    closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', closeDrawer);
-    header.append(title, closeBtn);
-
-    const textarea = document.createElement('textarea');
-    textarea.className = 'stickysites-textarea';
-    textarea.value = note.body;
-    textarea.placeholder = 'Type a note here. Visible on every website.';
-    textarea.style.flex = '1';
-
-    const footer = document.createElement('div');
-    footer.className = 'stickysites-footer';
-    const chars = document.createElement('span');
-    chars.textContent = note.body.length + ' chars';
-    const saved = document.createElement('span');
-    saved.className = 'stickysites-saved';
-    saved.textContent = formatSaved(note.updatedAt);
-    footer.append(chars, saved);
-
-    const save = debounce(async () => {
-      const r = await writeGlobal(textarea.value);
-      chars.textContent = textarea.value.length + ' chars';
-      saved.textContent = formatSaved(r.updatedAt);
-    });
-    textarea.addEventListener('input', save);
-    drawer.append(header, textarea, footer);
-  }
-
-  async function renderGreen() {
-    let note = await readSite(siteKey);
-    if (!note) {
-      await writeSite(siteKey, siteKey + '\n---\n', []);
-      note = await readSite(siteKey);
+      if (nt.storagePattern === 'single') {
+        var body = (raw && raw.body) || '';
+        var newBody = body ? body + '<p><br></p>' + htmlSnippet : htmlSnippet;
+        var record = { body: newBody, updatedAt: new Date().toISOString() };
+        var toStore = record;
+        if (C && await C.isEnabled() && await C.getCachedKey()) {
+          toStore = await C.encryptValue(record);
+        }
+        await chrome.storage.local.set({ [nt.storageKey]: toStore });
+      } else {
+        var map = raw || {};
+        var record = map[key];
+        var body = (record && record.body) || '';
+        var newBody = body ? body + '<p><br></p>' + htmlSnippet : htmlSnippet;
+        map[key] = {
+          key: key,
+          label: nt.getLabel(location),
+          body: newBody,
+          tags: (record && Array.isArray(record.tags)) ? record.tags : [],
+          createdAt: (record && record.createdAt) || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        var mapToStore = map;
+        if (C && await C.isEnabled() && await C.getCachedKey()) {
+          mapToStore = await C.encryptValue(map);
+        }
+        await chrome.storage.local.set({ [nt.storageKey]: mapToStore });
+      }
     }
-    clearChildren(drawer);
-    const header = document.createElement('div');
-    header.className = 'stickysites-drawer-header is-green';
-    const title = document.createElement('span');
-    title.className = 'stickysites-drawer-title';
-    title.textContent = 'Site note: ' + siteKey;
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'stickysites-drawer-btn';
-    closeBtn.textContent = '✕';
-    closeBtn.addEventListener('click', closeDrawer);
-    header.append(title, closeBtn);
-
-    const textarea = document.createElement('textarea');
-    textarea.className = 'stickysites-textarea';
-    textarea.value = note?.body || '';
-    textarea.placeholder = 'Notes for ' + siteKey + '. Only visible on this site.';
-    textarea.style.flex = '1';
-
-    const footer = document.createElement('div');
-    footer.className = 'stickysites-footer';
-    const tagInput = document.createElement('input');
-    tagInput.type = 'text';
-    tagInput.placeholder = '#tags';
-    tagInput.value = (note?.tags || []).join(', ');
-    const saved = document.createElement('span');
-    saved.className = 'stickysites-saved';
-    saved.textContent = formatSaved(note?.updatedAt);
-    footer.append(tagInput, saved);
-
-    const parseTags = (v) => {
-      if (!v) return [];
-      return [...new Set(v.split(/[,\s]+/).map(t => t.trim().toLowerCase()).filter(Boolean).map(t => t.startsWith('#') ? t : '#' + t))];
-    };
-
-    const save = debounce(async () => {
-      await writeSite(siteKey, textarea.value, parseTags(tagInput.value));
-      saved.textContent = formatSaved(new Date().toISOString());
-    });
-    textarea.addEventListener('input', save);
-    tagInput.addEventListener('input', save);
-    drawer.append(header, textarea, footer);
+    showToast('Added to ' + nt.label + ' ✓');
   }
 
-  // Listen for toggle from browser action
-  chrome.runtime.onMessage.addListener((msg) => {
-    if (msg?.type === 'STICKYSITES_TOGGLE') {
-      strip.classList.toggle('is-hidden');
-      if (strip.classList.contains('is-hidden')) closeDrawer();
+  // Number badges on cluster icons
+  var badgeTimeout = null;
+  function showBadges() {
+    if (badgeTimeout) clearTimeout(badgeTimeout);
+    SS.Cluster.buttons.forEach(function (b, i) {
+      var existing = b.el.querySelector('.stickysites-cluster-badge');
+      if (existing) existing.remove();
+      var badge = document.createElement('span');
+      badge.className = 'stickysites-cluster-badge';
+      badge.textContent = (i < 5) ? String(i + 1) : '';
+      b.el.style.position = 'relative';
+      b.el.appendChild(badge);
+      requestAnimationFrame(function () { badge.classList.add('is-visible'); });
+    });
+    badgeTimeout = setTimeout(function () {
+      var badges = document.querySelectorAll('.stickysites-cluster-badge');
+      badges.forEach(function (b) { b.classList.remove('is-visible'); });
+      setTimeout(function () {
+        badges.forEach(function (b) { b.remove(); });
+      }, 300);
+    }, 3000);
+  }
+
+  // Chord hotkey system
+  var chordCycleIndex = 0;
+  document.addEventListener('keydown', function (e) {
+    if (SS.Cluster.hidden) return;
+    var active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+
+    var key = e.key;
+    if (key >= '1' && key <= '5') {
+      var idx = parseInt(key) - 1;
+      if (idx < noteTypes.length) {
+        e.preventDefault();
+        SS.Cluster.setActive(noteTypes[idx].id);
+        SS.Panel.open(noteTypes[idx]);
+      }
+    }
+    if (key === 'a' || key === 'A') {
+      e.preventDefault();
+      chordCycleIndex = (chordCycleIndex + 1) % noteTypes.length;
+      var nt = noteTypes[chordCycleIndex];
+      SS.Cluster.setActive(nt.id);
+      SS.Panel.open(nt);
     }
   });
 
-  // Sync across tabs
-  chrome.storage.onChanged.addListener((changes, area) => {
+  SS.Panel.init(function () {
+    SS.Cluster.setActive(null);
+    SS.Panel.close();
+  });
+
+  await SS.Cluster.init(noteTypes, handleIconClick);
+
+  // Show badges on initial load if cluster is visible
+  if (!SS.Cluster.hidden) showBadges();
+
+  // Patch toggle to show badges when cluster becomes visible
+  var originalToggle = SS.Cluster.toggle.bind(SS.Cluster);
+  SS.Cluster.toggle = function () {
+    originalToggle();
+    if (!SS.Cluster.hidden) showBadges();
+  };
+
+  chrome.runtime.onMessage.addListener(function (msg) {
+    if (msg?.type === 'STICKYSITES_TOGGLE') {
+      SS.Cluster.toggle();
+      if (SS.Cluster.hidden) SS.Panel.close();
+    }
+    if (msg?.type === 'STICKYSITES_OPEN') {
+      var noteType = findNoteType(msg.noteTypeId);
+      if (noteType) {
+        if (SS.Cluster.hidden) SS.Cluster.toggle();
+        SS.Cluster.setActive(noteType.id);
+        SS.Panel.open(noteType);
+      }
+    }
+    if (msg?.type === 'STICKYSITES_CLIP') {
+      clipToNote(msg.noteTypeId, msg.text);
+    }
+  });
+
+  chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
-    if (activeDrawer === 'yellow' && changes[GLOBAL_NOTE_KEY]) {
-      const ta = drawer.querySelector('.stickysites-textarea');
-      const nv = changes[GLOBAL_NOTE_KEY].newValue;
-      if (ta && nv && ta.value !== nv.body) ta.value = nv.body;
-    }
-    if (activeDrawer === 'green' && changes[SITE_NOTES_KEY]) {
-      const ta = drawer.querySelector('.stickysites-textarea');
-      const nm = changes[SITE_NOTES_KEY].newValue || {};
-      const note = nm[siteKey];
-      if (ta && note && ta.value !== note.body) ta.value = note.body;
-    }
+    SS.Panel.syncFromStorage(changes);
   });
 })();

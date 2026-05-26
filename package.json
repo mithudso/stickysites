@@ -1,13 +1,17 @@
 {
   "name": "stickysites",
   "private": true,
-  "version": "1.0.0",
-  "description": "Sticky notes for every website",
+  "version": "1.8.0",
+  "description": "Sticky notes for every website — global, site, page, daily, todo, and outline notes with rich text, encryption, and sync",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "canvas": "^3.2.3",
     "vitest": "^4.1.0"
   }
 }
