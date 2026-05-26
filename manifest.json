@@ -3,7 +3,7 @@
   "name": "StickySites",
   "version": "1.8.0",
   "description": "Sticky notes for every website. Global notes, per-site notes, and per-page notes in a floating workspace.",
-  "permissions": ["storage", "activeTab", "contextMenus", "session", "identity"],
+  "permissions": ["storage", "activeTab", "contextMenus", "identity"],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
