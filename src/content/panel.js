@@ -536,10 +536,21 @@ window.StickySites = window.StickySites || {};
     _renderTodo: function (noteType, note) {
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
       var self = this;
-      var items = (note && note.items) ? note.items.slice() : [];
+      var Todo = window.StickySites.Todo;
+      var data = Todo.normalizeData(note);
+      var items = data.items;
+      var sections = data.sections;
+      var tagColors = data.tagColors;
       var updatedAt = (note && note.updatedAt) || '';
 
-      // Header (same pattern as existing)
+      // Local UI state (not persisted)
+      var expandedNotes = {};
+      var searchQuery = '';
+      var sortMode = 'manual';
+      var activeFilters = { priorities: [], tags: [], colors: [] };
+      var completedCollapsed = true;
+
+      // ── Header ──────────────────────────────────────────────
       var header = document.createElement('div');
       header.className = 'stickysites-panel-header';
       header.style.background = noteType.tint;
@@ -573,11 +584,82 @@ window.StickySites = window.StickySites || {};
 
       header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
 
-      // Todo list container
+      // ── Toolbar ─────────────────────────────────────────────
+      var toolbar = document.createElement('div');
+      toolbar.className = 'stickysites-todo-toolbar';
+
+      var searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.className = 'stickysites-todo-search';
+      searchInput.placeholder = 'Search tasks...';
+      searchInput.addEventListener('input', function () {
+        searchQuery = searchInput.value.toLowerCase();
+        renderAll();
+      });
+
+      var sortSelect = document.createElement('select');
+      sortSelect.className = 'stickysites-todo-sort';
+      var sortOptions = [
+        { label: 'Manual', value: 'manual' },
+        { label: 'Priority', value: 'priority' },
+        { label: 'A-Z', value: 'az' },
+        { label: 'Date added', value: 'date' }
+      ];
+      sortOptions.forEach(function (opt) {
+        var o = document.createElement('option');
+        o.textContent = opt.label;
+        o.value = opt.value;
+        sortSelect.appendChild(o);
+      });
+      sortSelect.addEventListener('change', function () {
+        sortMode = sortSelect.value;
+        renderAll();
+      });
+
+      var filterBtn = document.createElement('button');
+      filterBtn.className = 'stickysites-todo-filter-btn';
+      filterBtn.textContent = '⚙ Filter';
+      filterBtn.addEventListener('click', function () {
+        showFilterPopup();
+      });
+
+      toolbar.append(searchInput, sortSelect, filterBtn);
+
+      // ── List container ──────────────────────────────────────
       var listEl = document.createElement('div');
       listEl.className = 'stickysites-todo-list';
 
-      // Footer
+      // ── Actions row ─────────────────────────────────────────
+      var actionsRow = document.createElement('div');
+      actionsRow.className = 'stickysites-todo-actions';
+
+      var addTaskBtn = document.createElement('button');
+      addTaskBtn.className = 'stickysites-todo-add';
+      addTaskBtn.textContent = '+ Add task';
+      addTaskBtn.addEventListener('click', function () {
+        var newItem = Todo.normalizeItem({ id: Todo.genId(), text: '' });
+        items.push(newItem);
+        renderAll();
+        updateCount();
+        save();
+        var lastInput = listEl.querySelector('[data-item-id="' + newItem.id + '"] .stickysites-todo-text');
+        if (lastInput) lastInput.focus();
+      });
+
+      var addSectionBtn = document.createElement('button');
+      addSectionBtn.className = 'stickysites-todo-add';
+      addSectionBtn.textContent = '+ Add section';
+      addSectionBtn.addEventListener('click', function () {
+        var name = prompt('Section name:');
+        if (!name || !name.trim()) return;
+        sections.push({ id: Todo.genId(), name: name.trim(), collapsed: false });
+        renderAll();
+        save();
+      });
+
+      actionsRow.append(addTaskBtn, addSectionBtn);
+
+      // ── Footer ──────────────────────────────────────────────
       var footer = document.createElement('div');
       footer.className = 'stickysites-panel-footer';
       var countEl = document.createElement('span');
@@ -587,36 +669,337 @@ window.StickySites = window.StickySites || {};
       saved.textContent = formatSaved(updatedAt);
       footer.append(countEl, saved);
 
-      function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-
+      // ── Helper: updateCount ─────────────────────────────────
       function updateCount() {
         var done = items.filter(function (i) { return i.done; }).length;
         countEl.textContent = done + '/' + items.length + ' done';
       }
 
+      // ── Helper: save (debounced 500ms) ──────────────────────
       function save() {
         if (self._saveTimer) clearTimeout(self._saveTimer);
         self._saveTimer = setTimeout(async function () {
-          var result = await self._writeStructured(noteType, { items: items });
+          var result = await self._writeStructured(noteType, {
+            items: items,
+            sections: sections,
+            tagColors: tagColors
+          });
           if (result) saved.textContent = formatSaved(result.updatedAt);
         }, 500);
       }
 
-      function renderItem(item, index) {
+      // ── Helper: itemMatches ─────────────────────────────────
+      function itemMatches(item) {
+        // Search filter
+        if (searchQuery) {
+          var q = searchQuery;
+          var textMatch = item.text.toLowerCase().indexOf(q) !== -1;
+          var tagMatch = item.tags.some(function (t) { return t.toLowerCase().indexOf(q) !== -1; });
+          var noteMatch = item.note.toLowerCase().indexOf(q) !== -1;
+          if (!textMatch && !tagMatch && !noteMatch) return false;
+        }
+        // Priority filter
+        if (activeFilters.priorities.length > 0) {
+          if (activeFilters.priorities.indexOf(item.priority) === -1) return false;
+        }
+        // Tag filter
+        if (activeFilters.tags.length > 0) {
+          var hasTag = activeFilters.tags.some(function (ft) {
+            return item.tags.indexOf(ft) !== -1;
+          });
+          if (!hasTag) return false;
+        }
+        // Color filter
+        if (activeFilters.colors.length > 0) {
+          if (activeFilters.colors.indexOf(item.color) === -1) return false;
+        }
+        return true;
+      }
+
+      // ── Helper: sortItems ───────────────────────────────────
+      function sortItems(arr) {
+        if (sortMode === 'manual') return arr;
+        var sorted = arr.slice();
+        if (sortMode === 'priority') {
+          sorted.sort(function (a, b) {
+            var ap = a.priority || 6;
+            var bp = b.priority || 6;
+            return ap - bp;
+          });
+        } else if (sortMode === 'az') {
+          sorted.sort(function (a, b) {
+            return a.text.toLowerCase().localeCompare(b.text.toLowerCase());
+          });
+        } else if (sortMode === 'date') {
+          sorted.sort(function (a, b) {
+            return a.id.localeCompare(b.id);
+          });
+        }
+        return sorted;
+      }
+
+      // ── Helper: renderMarkdown ──────────────────────────────
+      function renderMarkdown(text) {
+        if (!text) return '';
+        var lines = text.split('\n');
+        var html = '';
+        var inList = false;
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i];
+          // List items
+          var listMatch = line.match(/^- (.*)$/);
+          if (listMatch) {
+            if (!inList) { html += '<ul>'; inList = true; }
+            var content = listMatch[1];
+            content = applyInlineMarkdown(content);
+            html += '<li>' + content + '</li>';
+            continue;
+          }
+          if (inList) { html += '</ul>'; inList = false; }
+          // Regular line
+          var processed = applyInlineMarkdown(line);
+          html += (processed || '<br>');
+          if (i < lines.length - 1) html += '<br>';
+        }
+        if (inList) html += '</ul>';
+        return html;
+      }
+
+      function applyInlineMarkdown(text) {
+        // Bold **text**
+        text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Italic *text*
+        text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        // Links [text](url) — only http/https
+        text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+        return text;
+      }
+
+      // ── Helper: showColorPalette ────────────────────────────
+      function showColorPalette(anchorEl, item) {
+        // Remove any existing palette
+        var existing = self.el.querySelector('.stickysites-todo-palette');
+        if (existing) existing.remove();
+
+        var palette = document.createElement('div');
+        palette.className = 'stickysites-todo-palette';
+
+        Todo.COLORS.forEach(function (c) {
+          var swatch = document.createElement('span');
+          swatch.className = 'stickysites-todo-swatch';
+          swatch.style.background = c;
+          swatch.addEventListener('click', function (e) {
+            e.stopPropagation();
+            item.color = c;
+            palette.remove();
+            renderAll();
+            save();
+          });
+          palette.appendChild(swatch);
+        });
+
+        // Clear option
+        var clearSwatch = document.createElement('span');
+        clearSwatch.className = 'stickysites-todo-swatch stickysites-todo-swatch-clear';
+        clearSwatch.textContent = '✕';
+        clearSwatch.addEventListener('click', function (e) {
+          e.stopPropagation();
+          item.color = '';
+          palette.remove();
+          renderAll();
+          save();
+        });
+        palette.appendChild(clearSwatch);
+
+        // Position relative to anchor
+        anchorEl.style.position = 'relative';
+        anchorEl.parentElement.style.position = 'relative';
+        anchorEl.parentElement.appendChild(palette);
+
+        // Dismiss on outside click
+        setTimeout(function () {
+          var dismiss = function (e) {
+            if (!palette.contains(e.target)) {
+              palette.remove();
+              document.removeEventListener('click', dismiss, true);
+            }
+          };
+          document.addEventListener('click', dismiss, true);
+        }, 0);
+      }
+
+      // ── Helper: showFilterPopup ─────────────────────────────
+      function showFilterPopup() {
+        var existing = self.el.querySelector('.stickysites-todo-filter-popup');
+        if (existing) { existing.remove(); return; }
+
+        var popup = document.createElement('div');
+        popup.className = 'stickysites-todo-filter-popup';
+
+        // Priority group
+        var priLabel = document.createElement('div');
+        priLabel.className = 'stickysites-todo-filter-label';
+        priLabel.textContent = 'Priority';
+        popup.appendChild(priLabel);
+        for (var p = 1; p <= 5; p++) {
+          (function (pv) {
+            var row = document.createElement('label');
+            row.className = 'stickysites-todo-filter-row';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = activeFilters.priorities.indexOf(pv) !== -1;
+            cb.addEventListener('change', function () {
+              if (cb.checked) {
+                activeFilters.priorities.push(pv);
+              } else {
+                activeFilters.priorities = activeFilters.priorities.filter(function (x) { return x !== pv; });
+              }
+              renderAll();
+            });
+            var span = document.createElement('span');
+            span.textContent = 'P' + pv;
+            span.style.color = Todo.PRIORITY_COLORS[pv] || '#94a3b8';
+            row.append(cb, span);
+            popup.appendChild(row);
+          })(p);
+        }
+
+        // Tags group
+        var allTags = [];
+        items.forEach(function (item) {
+          item.tags.forEach(function (t) {
+            if (allTags.indexOf(t) === -1) allTags.push(t);
+          });
+        });
+        if (allTags.length > 0) {
+          var tagLabel = document.createElement('div');
+          tagLabel.className = 'stickysites-todo-filter-label';
+          tagLabel.textContent = 'Tags';
+          popup.appendChild(tagLabel);
+          allTags.forEach(function (tag) {
+            var row = document.createElement('label');
+            row.className = 'stickysites-todo-filter-row';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = activeFilters.tags.indexOf(tag) !== -1;
+            cb.addEventListener('change', function () {
+              if (cb.checked) {
+                activeFilters.tags.push(tag);
+              } else {
+                activeFilters.tags = activeFilters.tags.filter(function (x) { return x !== tag; });
+              }
+              renderAll();
+            });
+            var span = document.createElement('span');
+            span.textContent = tag;
+            if (tagColors[tag]) span.style.color = tagColors[tag];
+            row.append(cb, span);
+            popup.appendChild(row);
+          });
+        }
+
+        // Colors group
+        var usedColors = [];
+        items.forEach(function (item) {
+          if (item.color && usedColors.indexOf(item.color) === -1) usedColors.push(item.color);
+        });
+        if (usedColors.length > 0) {
+          var colorLabel = document.createElement('div');
+          colorLabel.className = 'stickysites-todo-filter-label';
+          colorLabel.textContent = 'Colors';
+          popup.appendChild(colorLabel);
+          usedColors.forEach(function (col) {
+            var row = document.createElement('label');
+            row.className = 'stickysites-todo-filter-row';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = activeFilters.colors.indexOf(col) !== -1;
+            cb.addEventListener('change', function () {
+              if (cb.checked) {
+                activeFilters.colors.push(col);
+              } else {
+                activeFilters.colors = activeFilters.colors.filter(function (x) { return x !== col; });
+              }
+              renderAll();
+            });
+            var dot = document.createElement('span');
+            dot.className = 'stickysites-todo-filter-color-dot';
+            dot.style.background = col;
+            row.append(cb, dot);
+            popup.appendChild(row);
+          });
+        }
+
+        // Clear filters button
+        var clearBtn = document.createElement('button');
+        clearBtn.className = 'stickysites-todo-filter-clear';
+        clearBtn.textContent = 'Clear filters';
+        clearBtn.addEventListener('click', function () {
+          activeFilters = { priorities: [], tags: [], colors: [] };
+          popup.remove();
+          renderAll();
+        });
+        popup.appendChild(clearBtn);
+
+        toolbar.style.position = 'relative';
+        toolbar.appendChild(popup);
+
+        // Dismiss on outside click
+        setTimeout(function () {
+          var dismiss = function (e) {
+            if (!popup.contains(e.target) && e.target !== filterBtn) {
+              popup.remove();
+              document.removeEventListener('click', dismiss, true);
+            }
+          };
+          document.addEventListener('click', dismiss, true);
+        }, 0);
+      }
+
+      // ── Helper: renderItem ──────────────────────────────────
+      function renderItem(item) {
+        var container = document.createElement('div');
+        container.className = 'stickysites-todo-item-container';
+        container.setAttribute('data-item-id', item.id);
+
         var row = document.createElement('div');
         row.className = 'stickysites-todo-item' + (item.done ? ' is-done' : '');
+        row.style.paddingLeft = (item.indent * 20 + 4) + 'px';
 
+        // Drag grip
+        var grip = document.createElement('span');
+        grip.className = 'stickysites-todo-grip';
+        grip.textContent = '⠇';
+
+        // Checkbox
         var cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = item.done;
         cb.className = 'stickysites-todo-checkbox';
         cb.addEventListener('change', function () {
           item.done = cb.checked;
-          row.classList.toggle('is-done', item.done);
+          if (item.done) {
+            item.completedAt = new Date().toISOString();
+          } else {
+            item.completedAt = '';
+          }
+          renderAll();
           updateCount();
           save();
         });
 
+        // Color dot
+        var colorDot = document.createElement('span');
+        colorDot.className = 'stickysites-todo-color-dot' + (item.color ? '' : ' is-empty');
+        if (item.color) {
+          colorDot.style.background = item.color;
+        }
+        colorDot.addEventListener('click', function (e) {
+          e.stopPropagation();
+          showColorPalette(colorDot, item);
+        });
+
+        // Text input
         var input = document.createElement('input');
         input.type = 'text';
         input.className = 'stickysites-todo-text';
@@ -627,85 +1010,389 @@ window.StickySites = window.StickySites || {};
           save();
         });
         input.addEventListener('keydown', function (e) {
+          if (e.key === 'Tab' && !e.shiftKey) {
+            e.preventDefault();
+            if (item.indent < 3) {
+              item.indent = item.indent + 1;
+              row.style.paddingLeft = (item.indent * 20 + 4) + 'px';
+              save();
+            }
+          }
+          if (e.key === 'Tab' && e.shiftKey) {
+            e.preventDefault();
+            if (item.indent > 0) {
+              item.indent = item.indent - 1;
+              row.style.paddingLeft = (item.indent * 20 + 4) + 'px';
+              save();
+            }
+          }
           if (e.key === 'Enter') {
             e.preventDefault();
-            var newItem = { id: genId(), text: '', done: false };
-            items.splice(index + 1, 0, newItem);
-            renderList();
+            var newItem = Todo.normalizeItem({ id: Todo.genId(), text: '', section: item.section, indent: item.indent });
+            var idx = items.indexOf(item);
+            if (idx !== -1) {
+              items.splice(idx + 1, 0, newItem);
+            } else {
+              items.push(newItem);
+            }
+            renderAll();
             updateCount();
             save();
-            var nextInput = listEl.children[index + 1];
-            if (nextInput) {
-              var ni = nextInput.querySelector('.stickysites-todo-text');
-              if (ni) ni.focus();
-            }
+            var newInput = listEl.querySelector('[data-item-id="' + newItem.id + '"] .stickysites-todo-text');
+            if (newInput) newInput.focus();
           }
           if (e.key === 'Backspace' && input.value === '' && items.length > 1) {
             e.preventDefault();
-            items.splice(index, 1);
-            renderList();
-            updateCount();
-            save();
-            var prevIdx = Math.max(0, index - 1);
-            var prevInput = listEl.children[prevIdx];
-            if (prevInput) {
-              var pi = prevInput.querySelector('.stickysites-todo-text');
-              if (pi) pi.focus();
+            var idx = items.indexOf(item);
+            if (idx !== -1) {
+              items.splice(idx, 1);
+              renderAll();
+              updateCount();
+              save();
+              // Focus previous item
+              var allInputs = listEl.querySelectorAll('.stickysites-todo-text');
+              var prevIdx = Math.max(0, idx - 1);
+              if (allInputs[prevIdx]) allInputs[prevIdx].focus();
             }
           }
+          if (e.key === 'Escape') {
+            input.blur();
+          }
+        });
+        input.addEventListener('dblclick', function () {
+          if (expandedNotes[item.id]) {
+            delete expandedNotes[item.id];
+          } else {
+            expandedNotes[item.id] = true;
+          }
+          renderAll();
+          // Re-focus the text input after re-render
+          var refocused = listEl.querySelector('[data-item-id="' + item.id + '"] .stickysites-todo-text');
+          if (refocused) refocused.focus();
         });
 
+        // Note indicator
+        var noteIndicator = document.createElement('span');
+        noteIndicator.className = 'stickysites-todo-note-indicator';
+        if (item.note) {
+          noteIndicator.textContent = '📝';
+          noteIndicator.title = 'Has notes';
+        }
+
+        // Priority badge
+        var priBadge = document.createElement('span');
+        priBadge.className = 'stickysites-todo-priority';
+        if (item.priority > 0) {
+          priBadge.textContent = 'P' + item.priority;
+          priBadge.style.color = Todo.PRIORITY_COLORS[item.priority] || '#94a3b8';
+        }
+        priBadge.addEventListener('click', function (e) {
+          e.stopPropagation();
+          item.priority = (item.priority + 1) % 6;
+          if (item.priority > 0) {
+            priBadge.textContent = 'P' + item.priority;
+            priBadge.style.color = Todo.PRIORITY_COLORS[item.priority] || '#94a3b8';
+          } else {
+            priBadge.textContent = '';
+            priBadge.style.color = '';
+          }
+          save();
+        });
+
+        // Tag chips
+        var tagsContainer = document.createElement('span');
+        tagsContainer.className = 'stickysites-todo-tags';
+        item.tags.forEach(function (tag) {
+          var chip = document.createElement('span');
+          chip.className = 'stickysites-todo-tag';
+          chip.textContent = tag;
+          if (tagColors[tag]) chip.style.background = tagColors[tag];
+          chip.addEventListener('click', function (e) {
+            e.stopPropagation();
+            item.tags = item.tags.filter(function (t) { return t !== tag; });
+            renderAll();
+            save();
+          });
+          tagsContainer.appendChild(chip);
+        });
+
+        // Add tag "+" chip
+        var addTagChip = document.createElement('span');
+        addTagChip.className = 'stickysites-todo-tag stickysites-todo-tag-add';
+        addTagChip.textContent = '+';
+        addTagChip.addEventListener('click', function (e) {
+          e.stopPropagation();
+          // Replace the "+" chip with an inline input
+          var tagInput = document.createElement('input');
+          tagInput.type = 'text';
+          tagInput.className = 'stickysites-todo-tag-input';
+          tagInput.placeholder = '#tag';
+          addTagChip.style.display = 'none';
+          tagsContainer.appendChild(tagInput);
+          tagInput.focus();
+          tagInput.addEventListener('keydown', function (ev) {
+            if (ev.key === 'Enter') {
+              ev.preventDefault();
+              var val = tagInput.value.trim().toLowerCase();
+              if (val) {
+                if (!val.startsWith('#')) val = '#' + val;
+                if (item.tags.indexOf(val) === -1) {
+                  item.tags.push(val);
+                  // If item has a color, save it to tagColors for this tag
+                  if (item.color && !tagColors[val]) {
+                    tagColors[val] = item.color;
+                  }
+                }
+              }
+              renderAll();
+              save();
+            }
+            if (ev.key === 'Escape') {
+              tagInput.remove();
+              addTagChip.style.display = '';
+            }
+          });
+          tagInput.addEventListener('blur', function () {
+            tagInput.remove();
+            addTagChip.style.display = '';
+          });
+        });
+        tagsContainer.appendChild(addTagChip);
+
+        // Delete button
         var delBtn = document.createElement('button');
         delBtn.className = 'stickysites-todo-delete';
         delBtn.textContent = '×';
         delBtn.addEventListener('click', function () {
-          items.splice(index, 1);
-          renderList();
-          updateCount();
+          var idx = items.indexOf(item);
+          if (idx !== -1) {
+            items.splice(idx, 1);
+            renderAll();
+            updateCount();
+            save();
+          }
+        });
+
+        row.append(grip, cb, colorDot, input, noteIndicator, priBadge, tagsContainer, delBtn);
+        container.appendChild(row);
+
+        // Expanded note area
+        if (expandedNotes[item.id]) {
+          var noteArea = document.createElement('div');
+          noteArea.className = 'stickysites-todo-note-area';
+          noteArea.style.paddingLeft = (item.indent * 20 + 28) + 'px';
+
+          if (!item.note || expandedNotes[item.id] === 'editing') {
+            // Show textarea for editing
+            var textarea = document.createElement('textarea');
+            textarea.className = 'stickysites-todo-note-edit';
+            textarea.placeholder = 'Add notes...';
+            textarea.value = item.note || '';
+            textarea.addEventListener('input', function () {
+              item.note = textarea.value;
+              // Update note indicator
+              noteIndicator.textContent = item.note ? '📝' : '';
+              noteIndicator.title = item.note ? 'Has notes' : '';
+              save();
+            });
+            textarea.addEventListener('blur', function () {
+              if (item.note) {
+                expandedNotes[item.id] = true; // Switch to rendered view
+                renderAll();
+              }
+            });
+            noteArea.appendChild(textarea);
+            // If we just opened it for editing, focus the textarea
+            if (expandedNotes[item.id] === 'editing') {
+              setTimeout(function () { textarea.focus(); }, 0);
+            }
+          } else {
+            // Show rendered markdown
+            // Safe: item.note is user-authored content from extension-isolated chrome.storage.local
+            var rendered = document.createElement('div');
+            rendered.className = 'stickysites-todo-note-rendered';
+            rendered.textContent = ''; // clear first
+            var mdHtml = renderMarkdown(item.note);
+            // nosec — user-authored content from isolated extension storage (same pattern as editor.innerHTML on line 479)
+            var mdTemp = document.createElement('div');
+            mdTemp.textContent = '';
+            rendered.appendChild(mdTemp);
+            mdTemp.outerHTML = mdHtml;
+            rendered.addEventListener('click', function () {
+              expandedNotes[item.id] = 'editing';
+              renderAll();
+            });
+            noteArea.appendChild(rendered);
+          }
+
+          container.appendChild(noteArea);
+        }
+
+        return container;
+      }
+
+      // ── Helper: renderSectionHeader ─────────────────────────
+      function renderSectionHeader(sec) {
+        var secHeader = document.createElement('div');
+        secHeader.className = 'stickysites-todo-section-header';
+
+        var chevron = document.createElement('span');
+        chevron.className = 'stickysites-todo-section-chevron';
+        chevron.textContent = sec.collapsed ? '▸' : '▾';
+        chevron.addEventListener('click', function () {
+          sec.collapsed = !sec.collapsed;
+          renderAll();
           save();
         });
 
-        row.append(cb, input, delBtn);
-        return row;
-      }
+        var nameEl = document.createElement('span');
+        nameEl.className = 'stickysites-todo-section-name';
+        nameEl.textContent = sec.name;
 
-      function renderList() {
-        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
-        items.forEach(function (item, i) {
-          listEl.appendChild(renderItem(item, i));
+        var secAddBtn = document.createElement('button');
+        secAddBtn.className = 'stickysites-todo-section-add';
+        secAddBtn.textContent = '+ Add';
+        secAddBtn.addEventListener('click', function () {
+          var newItem = Todo.normalizeItem({ id: Todo.genId(), text: '', section: sec.id });
+          items.push(newItem);
+          renderAll();
+          updateCount();
+          save();
+          var newInput = listEl.querySelector('[data-item-id="' + newItem.id + '"] .stickysites-todo-text');
+          if (newInput) newInput.focus();
         });
+
+        var menuBtn = document.createElement('button');
+        menuBtn.className = 'stickysites-todo-section-menu';
+        menuBtn.textContent = '⋯';
+        menuBtn.addEventListener('click', function () {
+          var existingMenu = self.el.querySelector('.stickysites-todo-section-menu-popup');
+          if (existingMenu) existingMenu.remove();
+
+          var menu = document.createElement('div');
+          menu.className = 'stickysites-todo-section-menu-popup';
+
+          var renameOpt = document.createElement('button');
+          renameOpt.className = 'stickysites-todo-section-menu-item';
+          renameOpt.textContent = 'Rename';
+          renameOpt.addEventListener('click', function () {
+            var newName = prompt('Rename section:', sec.name);
+            if (newName && newName.trim()) {
+              sec.name = newName.trim();
+              renderAll();
+              save();
+            }
+            menu.remove();
+          });
+
+          var deleteOpt = document.createElement('button');
+          deleteOpt.className = 'stickysites-todo-section-menu-item';
+          deleteOpt.textContent = 'Delete';
+          deleteOpt.addEventListener('click', function () {
+            // Move section items to unsectioned
+            items.forEach(function (item) {
+              if (item.section === sec.id) item.section = '';
+            });
+            var secIdx = sections.indexOf(sec);
+            if (secIdx !== -1) sections.splice(secIdx, 1);
+            renderAll();
+            save();
+            menu.remove();
+          });
+
+          menu.append(renameOpt, deleteOpt);
+          secHeader.style.position = 'relative';
+          secHeader.appendChild(menu);
+
+          setTimeout(function () {
+            var dismiss = function (e) {
+              if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', dismiss, true);
+              }
+            };
+            document.addEventListener('click', dismiss, true);
+          }, 0);
+        });
+
+        secHeader.append(chevron, nameEl, secAddBtn, menuBtn);
+        return secHeader;
       }
 
-      // Add button
-      var addBtn = document.createElement('button');
-      addBtn.className = 'stickysites-todo-add';
-      addBtn.textContent = '+ Add task';
-      addBtn.addEventListener('click', function () {
-        items.push({ id: genId(), text: '', done: false });
-        renderList();
-        updateCount();
-        save();
-        var last = listEl.lastChild;
-        if (last) {
-          var li = last.querySelector('.stickysites-todo-text');
-          if (li) li.focus();
+      // ── Helper: renderCompletedSection ──────────────────────
+      function renderCompletedSection(completedItems) {
+        var section = document.createElement('div');
+        section.className = 'stickysites-todo-completed-section';
+
+        var compHeader = document.createElement('div');
+        compHeader.className = 'stickysites-todo-completed-header';
+        compHeader.textContent = (completedCollapsed ? '▸' : '▾') + ' Completed (' + completedItems.length + ')';
+        compHeader.addEventListener('click', function () {
+          completedCollapsed = !completedCollapsed;
+          renderAll();
+        });
+        section.appendChild(compHeader);
+
+        if (!completedCollapsed) {
+          // Sort by completedAt descending
+          var sorted = completedItems.slice().sort(function (a, b) {
+            return (b.completedAt || '').localeCompare(a.completedAt || '');
+          });
+          sorted.forEach(function (item) {
+            section.appendChild(renderItem(item));
+          });
         }
-      });
 
-      // Initialize with at least one empty item if empty
-      if (items.length === 0) {
-        items.push({ id: genId(), text: '', done: false });
+        return section;
       }
 
-      renderList();
+      // ── Helper: renderAll ───────────────────────────────────
+      function renderAll() {
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+
+        // Separate active vs completed items
+        var activeItems = items.filter(function (i) { return !i.done && itemMatches(i); });
+        var completedItems = items.filter(function (i) { return i.done && itemMatches(i); });
+
+        // Unsectioned active items (section is '' or undefined)
+        var unsectioned = activeItems.filter(function (i) { return !i.section; });
+        var sortedUnsectioned = sortItems(unsectioned);
+        sortedUnsectioned.forEach(function (item) {
+          listEl.appendChild(renderItem(item));
+        });
+
+        // Named sections
+        sections.forEach(function (sec) {
+          listEl.appendChild(renderSectionHeader(sec));
+          if (!sec.collapsed) {
+            var secItems = activeItems.filter(function (i) { return i.section === sec.id; });
+            var sortedSecItems = sortItems(secItems);
+            sortedSecItems.forEach(function (item) {
+              listEl.appendChild(renderItem(item));
+            });
+          }
+        });
+
+        // Completed section (always at bottom)
+        if (completedItems.length > 0) {
+          listEl.appendChild(renderCompletedSection(completedItems));
+        }
+      }
+
+      // ── Initialize ──────────────────────────────────────────
+      if (items.length === 0) {
+        items.push(Todo.normalizeItem({ id: Todo.genId(), text: '' }));
+      }
+
+      renderAll();
       updateCount();
 
-      // If no existing note, create one
+      // If no existing note, create initial record
       if (!note) {
-        self._writeStructured(noteType, { items: items });
+        self._writeStructured(noteType, { items: items, sections: sections, tagColors: tagColors });
       }
 
-      this.el.append(header, listEl, addBtn, footer);
+      this.el.append(header, toolbar, listEl, actionsRow, footer);
     },
 
     _renderOutline: function (noteType, note) {
