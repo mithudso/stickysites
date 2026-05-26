@@ -290,7 +290,47 @@
       typesContainer.appendChild(row);
     });
 
-    settingsEl.append(typesLabel, typesContainer);
+    // --- Cluster Layout ---
+    var layoutLabel = document.createElement('div');
+    layoutLabel.className = 'settings-label';
+    layoutLabel.textContent = 'Cluster Layout';
+
+    var layoutRow = document.createElement('div');
+    layoutRow.className = 'settings-layout-row';
+
+    var currentLayout = prefsData.clusterLayout || 'vertical';
+
+    var vertBtn = document.createElement('button');
+    vertBtn.className = 'settings-layout-btn' + (currentLayout === 'vertical' ? ' active' : '');
+    vertBtn.textContent = 'Vertical';
+    vertBtn.addEventListener('click', async function () {
+      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
+      var p = stored?.stickysites_prefs_v1 || {};
+      p.clusterLayout = 'vertical';
+      await chrome.storage.local.set({ stickysites_prefs_v1: p });
+      vertBtn.classList.add('active');
+      horizBtn.classList.remove('active');
+    });
+
+    var horizBtn = document.createElement('button');
+    horizBtn.className = 'settings-layout-btn' + (currentLayout === 'horizontal' ? ' active' : '');
+    horizBtn.textContent = 'Horizontal';
+    horizBtn.addEventListener('click', async function () {
+      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
+      var p = stored?.stickysites_prefs_v1 || {};
+      p.clusterLayout = 'horizontal';
+      await chrome.storage.local.set({ stickysites_prefs_v1: p });
+      horizBtn.classList.add('active');
+      vertBtn.classList.remove('active');
+    });
+
+    layoutRow.append(vertBtn, horizBtn);
+
+    var layoutHint = document.createElement('div');
+    layoutHint.className = 'settings-info';
+    layoutHint.textContent = 'Reload page to apply layout change. Hold an icon to reorder.';
+
+    settingsEl.append(typesLabel, typesContainer, layoutLabel, layoutRow, layoutHint);
 
     panel.append(header, section);
     document.body.appendChild(panel);

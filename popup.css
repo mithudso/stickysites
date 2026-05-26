@@ -390,3 +390,26 @@ body {
   width: 14px;
   height: 14px;
 }
+
+.settings-layout-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.settings-layout-btn {
+  flex: 1;
+  padding: 6px;
+  background: #334155;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+.settings-layout-btn:hover { background: #475569; color: #e2e8f0; }
+.settings-layout-btn.active {
+  background: #475569;
+  border-color: #6366f1;
+  color: #e2e8f0;
+}

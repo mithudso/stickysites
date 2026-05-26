@@ -19,6 +19,9 @@
   user-select: none;
 }
 #stickysites-cluster.is-hidden { display: none; }
+#stickysites-cluster.is-horizontal { flex-direction: row; }
+#stickysites-cluster.is-reorder-mode { outline: 2px dashed rgba(148, 163, 184, 0.3); outline-offset: 2px; }
+.stickysites-cluster-icon.is-reordering { opacity: 0.6; transform: scale(1.15); z-index: 1; }
 
 .stickysites-cluster-icon {
   width: 32px;

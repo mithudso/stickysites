@@ -7,6 +7,8 @@ window.StickySites = window.StickySites || {};
     activeTypeId: null,
     hidden: false,
     onIconClick: null,
+    _wasDragging: false,
+    _reorderTarget: null,
 
     async init(noteTypes, onIconClick) {
       this.onIconClick = onIconClick;
@@ -14,13 +16,33 @@ window.StickySites = window.StickySites || {};
       var cluster = document.createElement('div');
       cluster.id = 'stickysites-cluster';
 
-      for (var i = 0; i < noteTypes.length; i++) {
-        var nt = noteTypes[i];
+      var prefs = await window.StickySites.Prefs.read();
+      var iconOrder = prefs.iconOrder || null;
+      var clusterLayout = prefs.clusterLayout || 'vertical';
+
+      if (clusterLayout === 'horizontal') {
+        cluster.classList.add('is-horizontal');
+      }
+
+      var ordered = noteTypes.slice();
+      if (iconOrder && Array.isArray(iconOrder)) {
+        ordered.sort(function (a, b) {
+          var ai = iconOrder.indexOf(a.id);
+          var bi = iconOrder.indexOf(b.id);
+          if (ai === -1) ai = 999;
+          if (bi === -1) bi = 999;
+          return ai - bi;
+        });
+      }
+
+      for (var i = 0; i < ordered.length; i++) {
+        var nt = ordered[i];
         var btn = document.createElement('button');
         btn.className = 'stickysites-cluster-icon ' + nt.cssClass;
         btn.title = nt.label;
         btn.textContent = nt.emoji;
         btn.dataset.typeId = nt.id;
+        btn.draggable = false;
         btn.addEventListener('click', this._makeClickHandler(nt.id));
         cluster.appendChild(btn);
         this.buttons.push({ el: btn, typeId: nt.id });
@@ -29,7 +51,6 @@ window.StickySites = window.StickySites || {};
       this.el = cluster;
       document.documentElement.appendChild(cluster);
 
-      var prefs = await window.StickySites.Prefs.read();
       if (prefs.clusterPosition.x !== null && prefs.clusterPosition.y !== null) {
         cluster.style.top = prefs.clusterPosition.y + 'px';
         cluster.style.right = 'auto';
@@ -45,6 +66,7 @@ window.StickySites = window.StickySites || {};
       }
 
       this._initDrag();
+      this._initReorder();
     },
 
     _makeClickHandler: function (typeId) {
@@ -81,6 +103,86 @@ window.StickySites = window.StickySites || {};
         this.setActive(null);
         if (this.onIconClick) this.onIconClick(null);
       }
+    },
+
+    _initReorder: function () {
+      var self = this;
+      var holdTimer = null;
+      var isReordering = false;
+      var dragBtn = null;
+      var placeholder = null;
+      var startIdx = -1;
+
+      this.buttons.forEach(function (b) {
+        b.el.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          var target = b;
+          holdTimer = setTimeout(function () {
+            holdTimer = null;
+            isReordering = true;
+            dragBtn = target;
+            startIdx = self._getVisibleIndex(target.el);
+            target.el.classList.add('is-reordering');
+            self.el.classList.add('is-reorder-mode');
+            e.preventDefault();
+          }, 400);
+        });
+
+        b.el.addEventListener('mouseup', function () {
+          if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+        });
+
+        b.el.addEventListener('mouseleave', function () {
+          if (holdTimer && !isReordering) { clearTimeout(holdTimer); holdTimer = null; }
+        });
+      });
+
+      document.addEventListener('mousemove', function (e) {
+        if (!isReordering || !dragBtn) return;
+        var cluster = self.el;
+        var icons = Array.from(cluster.querySelectorAll('.stickysites-cluster-icon:not([style*="display: none"])'));
+        var mousePos = cluster.classList.contains('is-horizontal') ? e.clientX : e.clientY;
+
+        for (var i = 0; i < icons.length; i++) {
+          if (icons[i] === dragBtn.el) continue;
+          var rect = icons[i].getBoundingClientRect();
+          var mid = cluster.classList.contains('is-horizontal')
+            ? rect.left + rect.width / 2
+            : rect.top + rect.height / 2;
+          if (mousePos < mid) {
+            cluster.insertBefore(dragBtn.el, icons[i]);
+            break;
+          } else if (i === icons.length - 1) {
+            cluster.appendChild(dragBtn.el);
+          }
+        }
+      });
+
+      document.addEventListener('mouseup', async function () {
+        if (!isReordering) return;
+        isReordering = false;
+        if (dragBtn) {
+          dragBtn.el.classList.remove('is-reordering');
+          self.el.classList.remove('is-reorder-mode');
+
+          var icons = Array.from(self.el.querySelectorAll('.stickysites-cluster-icon'));
+          var newOrder = icons.map(function (el) { return el.dataset.typeId; });
+          self.buttons = newOrder.map(function (id) {
+            for (var i = 0; i < self.buttons.length; i++) {
+              if (self.buttons[i].typeId === id) return self.buttons[i];
+            }
+            return null;
+          }).filter(Boolean);
+
+          await window.StickySites.Prefs.write({ iconOrder: newOrder });
+          dragBtn = null;
+        }
+      });
+    },
+
+    _getVisibleIndex: function (el) {
+      var icons = Array.from(this.el.querySelectorAll('.stickysites-cluster-icon:not([style*="display: none"])'));
+      return icons.indexOf(el);
     },
 
     _initDrag: function () {
