@@ -29,6 +29,17 @@
       SS.Cluster.toggle();
       if (SS.Cluster.hidden) SS.Panel.close();
     }
+    if (msg?.type === 'STICKYSITES_OPEN') {
+      var noteType = null;
+      for (var i = 0; i < noteTypes.length; i++) {
+        if (noteTypes[i].id === msg.noteTypeId) { noteType = noteTypes[i]; break; }
+      }
+      if (noteType) {
+        if (SS.Cluster.hidden) SS.Cluster.toggle();
+        SS.Cluster.setActive(noteType.id);
+        SS.Panel.open(noteType);
+      }
+    }
   });
 
   chrome.storage.onChanged.addListener(function (changes, area) {

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StickySites",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Sticky notes for every website. Global notes, per-site notes, and per-page notes in a floating workspace.",
   "permissions": ["storage", "activeTab"],
   "icons": {
@@ -11,7 +11,14 @@
   },
   "action": {
     "default_icon": "icons/icon48.png",
-    "default_title": "StickySites"
+    "default_title": "StickySites",
+    "default_popup": "popup.html"
+  },
+  "commands": {
+    "toggle-cluster": {
+      "suggested_key": { "default": "Alt+S" },
+      "description": "Toggle StickySites cluster visibility"
+    }
   },
   "content_scripts": [
     {
