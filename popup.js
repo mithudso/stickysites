@@ -2,6 +2,8 @@
   var GLOBAL_KEY = 'stickysites_global_v1';
   var SITES_KEY = 'stickysites_sites_v1';
   var PAGES_KEY = 'stickysites_pages_v1';
+  var TODOS_KEY = 'stickysites_todos_v1';
+  var OUTLINES_KEY = 'stickysites_outlines_v1';
 
   var SORT_MODES = ['recent', 'oldest', 'alpha'];
   var SORT_LABELS = { recent: 'Recent ▾', oldest: 'Oldest ▾', alpha: 'A–Z ▾' };
@@ -69,7 +71,7 @@
   }
 
   async function loadAllNotes() {
-    var stored = await chrome.storage.local.get([GLOBAL_KEY, SITES_KEY, PAGES_KEY]);
+    var stored = await chrome.storage.local.get([GLOBAL_KEY, SITES_KEY, PAGES_KEY, TODOS_KEY, OUTLINES_KEY]);
     var notes = [];
 
     var global = stored[GLOBAL_KEY];
@@ -101,6 +103,33 @@
         body: String(r.body || ''), tags: Array.isArray(r.tags) ? r.tags : [],
         createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
         borderClass: 'border-blue', sectionClass: 'is-blue', noteTypeId: 'page'
+      });
+    });
+
+    var todos = stored[TODOS_KEY] || {};
+    Object.values(todos).forEach(function (r) {
+      var items = Array.isArray(r.items) ? r.items : [];
+      var firstItem = items.length ? items[0].text : '';
+      var done = items.filter(function (i) { return i.done; }).length;
+      var preview = items.slice(0, 4).map(function (i) { return (i.done ? '✓ ' : '☐ ') + i.text; }).join('\n');
+      notes.push({
+        type: 'todo', key: String(r.siteKey || ''), label: 'To-do — ' + (r.siteKey || ''),
+        body: firstItem + '\n' + preview, tags: [],
+        createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
+        borderClass: 'border-purple', sectionClass: 'is-purple', noteTypeId: 'todo'
+      });
+    });
+
+    var outlines = stored[OUTLINES_KEY] || {};
+    Object.values(outlines).forEach(function (r) {
+      var items = Array.isArray(r.items) ? r.items : [];
+      var firstNode = items.length ? items[0].text : '';
+      var preview = items.slice(0, 4).map(function (n) { return '• ' + n.text; }).join('\n');
+      notes.push({
+        type: 'outline', key: String(r.siteKey || ''), label: 'Outline — ' + (r.siteKey || ''),
+        body: firstNode + '\n' + preview, tags: [],
+        createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
+        borderClass: 'border-orange', sectionClass: 'is-orange', noteTypeId: 'outline'
       });
     });
 
@@ -144,7 +173,9 @@
     var groups = [
       { type: 'global', label: 'Global', cssClass: 'is-yellow', notes: [] },
       { type: 'site', label: 'Site Notes', cssClass: 'is-green', notes: [] },
-      { type: 'page', label: 'Page Notes', cssClass: 'is-blue', notes: [] }
+      { type: 'page', label: 'Page Notes', cssClass: 'is-blue', notes: [] },
+      { type: 'todo', label: 'To-Do Lists', cssClass: 'is-purple', notes: [] },
+      { type: 'outline', label: 'Outlines', cssClass: 'is-orange', notes: [] }
     ];
     notes.forEach(function (n) {
       for (var i = 0; i < groups.length; i++) {

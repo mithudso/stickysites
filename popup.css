@@ -122,6 +122,8 @@ body {
 .section-header.is-yellow { color: #fde68a; }
 .section-header.is-green { color: #6ee7b7; }
 .section-header.is-blue { color: #93c5fd; }
+.section-header.is-purple { color: #c4b5fd; }
+.section-header.is-orange { color: #fdba74; }
 
 .note-card {
   margin: 0 4px 6px;
@@ -137,6 +139,8 @@ body {
 .note-card.border-yellow { border-left: 3px solid #fbbf24; }
 .note-card.border-green { border-left: 3px solid #34d399; }
 .note-card.border-blue { border-left: 3px solid #60a5fa; }
+.note-card.border-purple { border-left: 3px solid #a78bfa; }
+.note-card.border-orange { border-left: 3px solid #fb923c; }
 
 .note-subject {
   font-weight: 600;
