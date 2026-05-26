@@ -8,6 +8,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "canvas": "^3.2.3",
     "vitest": "^4.1.0"
   }
 }
