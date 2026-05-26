@@ -89,7 +89,7 @@
   }
 
   // --- Settings panel ---
-  function showSettings() {
+  async function showSettings() {
     var app = document.getElementById('app');
     app.style.display = 'none';
 
@@ -186,6 +186,66 @@
 
     toggleRow.append(toggleLabel, toggleBtn);
     section.append(sectionTitle, sectionDesc, toggleRow, statusMsg);
+
+    // --- Sync section ---
+    var settingsEl = section;
+
+    var syncLabel = document.createElement('div');
+    syncLabel.className = 'settings-label';
+    syncLabel.textContent = 'Google Drive Sync';
+
+    var syncMeta = await window.StickySites?.Sync?.getMeta() || { signedIn: false, lastSync: null };
+
+    var syncBtn = document.createElement('button');
+    syncBtn.className = 'settings-btn';
+    syncBtn.textContent = syncMeta.signedIn ? 'Sign out' : 'Sign in to Google';
+    syncBtn.addEventListener('click', async function () {
+      if (syncMeta.signedIn) {
+        window.StickySites.Sync.signOut();
+        syncBtn.textContent = 'Sign in to Google';
+        syncNowBtn.style.display = 'none';
+        syncInfo.textContent = '';
+        updateSyncStatus();
+      } else {
+        syncBtn.textContent = 'Signing in...';
+        syncBtn.disabled = true;
+        window.StickySites.Sync.signIn();
+        setTimeout(async function () {
+          syncMeta = await window.StickySites.Sync.getMeta();
+          syncBtn.textContent = syncMeta.signedIn ? 'Sign out' : 'Sign in to Google';
+          syncBtn.disabled = false;
+          if (syncMeta.signedIn) {
+            syncNowBtn.style.display = '';
+            syncInfo.textContent = 'Synced!';
+          }
+          updateSyncStatus();
+        }, 3000);
+      }
+    });
+
+    var syncNowBtn = document.createElement('button');
+    syncNowBtn.className = 'settings-btn';
+    syncNowBtn.textContent = 'Sync now';
+    syncNowBtn.style.display = syncMeta.signedIn ? '' : 'none';
+    syncNowBtn.addEventListener('click', function () {
+      syncNowBtn.textContent = 'Syncing...';
+      window.StickySites.Sync.requestSync();
+      setTimeout(async function () {
+        syncNowBtn.textContent = 'Sync now';
+        var m = await window.StickySites.Sync.getMeta();
+        if (m.lastSync) syncInfo.textContent = 'Last: ' + new Date(m.lastSync).toLocaleString();
+        updateSyncStatus();
+      }, 2000);
+    });
+
+    var syncInfo = document.createElement('div');
+    syncInfo.className = 'settings-info';
+    if (syncMeta.lastSync) {
+      syncInfo.textContent = 'Last: ' + new Date(syncMeta.lastSync).toLocaleString();
+    }
+
+    settingsEl.append(syncLabel, syncBtn, syncNowBtn, syncInfo);
+
     panel.append(header, section);
     document.body.appendChild(panel);
     updateToggleState();
@@ -641,6 +701,24 @@
     render();
   }
 
+  // Sync status indicator
+  async function updateSyncStatus() {
+    var indicator = document.getElementById('sync-status');
+    if (!indicator) return;
+    if (!window.StickySites?.Sync) { indicator.style.display = 'none'; return; }
+    var meta = await window.StickySites.Sync.getMeta();
+    if (!meta.signedIn) {
+      indicator.style.color = '#475569';
+      indicator.title = 'Sync: not signed in';
+    } else if (meta.lastSync) {
+      indicator.style.color = '#34d399';
+      indicator.title = 'Last synced: ' + new Date(meta.lastSync).toLocaleString();
+    } else {
+      indicator.style.color = '#fbbf24';
+      indicator.title = 'Sync: pending first sync';
+    }
+  }
+
   // Settings button (always available)
   document.getElementById('settings-btn').addEventListener('click', function () {
     showSettings();
@@ -650,5 +728,6 @@
   var unlocked = await checkAndShowLock();
   if (unlocked) {
     await initPopup();
+    updateSyncStatus();
   }
 })();

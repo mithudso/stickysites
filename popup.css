@@ -331,3 +331,36 @@ body {
   padding-top: 12px;
   border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
+
+/* Sync status */
+.sync-status {
+  font-size: 10px;
+  cursor: help;
+  margin-right: 4px;
+}
+
+/* Settings buttons and labels */
+.settings-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+  margin-top: 12px;
+}
+.settings-btn {
+  width: 100%;
+  padding: 6px;
+  background: #334155;
+  border: none;
+  color: #94a3b8;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 6px;
+}
+.settings-btn:hover { background: #475569; color: #e2e8f0; }
+.settings-btn:disabled { opacity: 0.5; cursor: default; }
+.settings-info {
+  font-size: 10px;
+  color: #475569;
+  margin-top: 4px;
+}
