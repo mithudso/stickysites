@@ -368,3 +368,50 @@
 }
 .stickysites-outline-node:hover .stickysites-outline-delete { opacity: 1; }
 .stickysites-outline-delete:hover { color: #ef4444; }
+
+/* Toast notification */
+#stickysites-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(30, 41, 59, 0.95);
+  color: #e2e8f0;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 2147483641;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+#stickysites-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Chord hotkey badges */
+.stickysites-cluster-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.9);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.stickysites-cluster-badge.is-visible {
+  opacity: 1;
+}
