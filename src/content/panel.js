@@ -209,6 +209,8 @@ window.StickySites = window.StickySites || {};
           if (!record) return null;
           return {
             items: Array.isArray(record.items) ? record.items : [],
+            sections: Array.isArray(record.sections) ? record.sections : [],
+            tagColors: (record.tagColors && typeof record.tagColors === 'object') ? record.tagColors : {},
             updatedAt: String(record.updatedAt ?? '')
           };
         }
@@ -260,7 +262,7 @@ window.StickySites = window.StickySites || {};
       } catch { return null; }
     },
 
-    _writeStructured: async function (noteType, items) {
+    _writeStructured: async function (noteType, data) {
       var key = noteType.getKey(location);
       var now = new Date().toISOString();
       try {
@@ -273,7 +275,9 @@ window.StickySites = window.StickySites || {};
         var existing = map[key];
         map[key] = {
           siteKey: key,
-          items: Array.isArray(items) ? items : [],
+          items: Array.isArray(data.items) ? data.items : [],
+          sections: Array.isArray(data.sections) ? data.sections : (existing?.sections || []),
+          tagColors: (data.tagColors && typeof data.tagColors === 'object') ? data.tagColors : (existing?.tagColors || {}),
           createdAt: existing?.createdAt || now,
           updatedAt: now
         };
@@ -593,7 +597,7 @@ window.StickySites = window.StickySites || {};
       function save() {
         if (self._saveTimer) clearTimeout(self._saveTimer);
         self._saveTimer = setTimeout(async function () {
-          var result = await self._writeStructured(noteType, items);
+          var result = await self._writeStructured(noteType, { items: items });
           if (result) saved.textContent = formatSaved(result.updatedAt);
         }, 500);
       }
@@ -698,7 +702,7 @@ window.StickySites = window.StickySites || {};
 
       // If no existing note, create one
       if (!note) {
-        self._writeStructured(noteType, items);
+        self._writeStructured(noteType, { items: items });
       }
 
       this.el.append(header, listEl, addBtn, footer);
@@ -773,7 +777,7 @@ window.StickySites = window.StickySites || {};
       function save() {
         if (self._saveTimer) clearTimeout(self._saveTimer);
         self._saveTimer = setTimeout(async function () {
-          var result = await self._writeStructured(noteType, items);
+          var result = await self._writeStructured(noteType, { items: items });
           if (result) saved.textContent = formatSaved(result.updatedAt);
         }, 500);
       }
@@ -940,7 +944,7 @@ window.StickySites = window.StickySites || {};
       updateNodeCount();
 
       if (!note) {
-        self._writeStructured(noteType, items);
+        self._writeStructured(noteType, { items: items });
       }
 
       this.el.append(header, listEl, addBtn, footer);
