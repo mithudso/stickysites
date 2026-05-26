@@ -210,17 +210,18 @@
       } else {
         syncBtn.textContent = 'Signing in...';
         syncBtn.disabled = true;
-        window.StickySites.Sync.signIn();
-        setTimeout(async function () {
-          syncMeta = await window.StickySites.Sync.getMeta();
-          syncBtn.textContent = syncMeta.signedIn ? 'Sign out' : 'Sign in to Google';
-          syncBtn.disabled = false;
-          if (syncMeta.signedIn) {
-            syncNowBtn.style.display = '';
-            syncInfo.textContent = 'Synced!';
-          }
-          updateSyncStatus();
-        }, 3000);
+        var result = await window.StickySites.Sync.signIn();
+        syncMeta = await window.StickySites.Sync.getMeta();
+        syncBtn.textContent = syncMeta.signedIn ? 'Sign out' : 'Sign in to Google';
+        syncBtn.disabled = false;
+        if (syncMeta.signedIn) {
+          syncNowBtn.style.display = '';
+          syncInfo.textContent = 'Synced!';
+        } else {
+          syncInfo.textContent = result.error || 'Sign-in failed';
+          syncInfo.style.color = '#f87171';
+        }
+        updateSyncStatus();
       }
     });
 

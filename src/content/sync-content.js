@@ -3,6 +3,14 @@ window.StickySites = window.StickySites || {};
 (function () {
   var SYNC_META_KEY = 'stickysites_sync_meta';
 
+  function sendAndWait(msg) {
+    return new Promise(function (resolve) {
+      chrome.runtime.sendMessage(msg, function (response) {
+        resolve(response || { ok: false, error: 'No response from service worker' });
+      });
+    });
+  }
+
   window.StickySites.Sync = {
     isSignedIn: async function () {
       var stored = await chrome.storage.local.get(SYNC_META_KEY);
@@ -16,15 +24,15 @@ window.StickySites = window.StickySites || {};
     },
 
     requestSync: function () {
-      chrome.runtime.sendMessage({ type: 'STICKYSITES_SYNC_NOW' });
+      return sendAndWait({ type: 'STICKYSITES_SYNC_NOW' });
     },
 
     signIn: function () {
-      chrome.runtime.sendMessage({ type: 'STICKYSITES_SYNC_SIGNIN' });
+      return sendAndWait({ type: 'STICKYSITES_SYNC_SIGNIN' });
     },
 
     signOut: function () {
-      chrome.runtime.sendMessage({ type: 'STICKYSITES_SYNC_SIGNOUT' });
+      return sendAndWait({ type: 'STICKYSITES_SYNC_SIGNOUT' });
     }
   };
 })();
