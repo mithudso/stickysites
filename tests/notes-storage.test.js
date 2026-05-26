@@ -18,7 +18,9 @@ globalThis.chrome = {
 import {
   getSiteKey, readGlobalNote, writeGlobalNote,
   readSiteNote, writeSiteNote, deleteSiteNote, readAllSiteNotes,
-  parseTags, createDebouncedSaver
+  parseTags, createDebouncedSaver,
+  getPageKey, readPageNote, writePageNote, deletePageNote, readAllPageNotes,
+  readPrefs, writePrefs
 } from '../src/shared/notes-storage.js';
 
 describe('getSiteKey', () => {
@@ -105,5 +107,84 @@ describe('site note', () => {
     const all = await readAllSiteNotes();
     expect(all).toHaveLength(2);
     expect(all.map(n => n.body).sort()).toEqual(['a', 'b']);
+  });
+});
+
+describe('getPageKey', () => {
+  it('returns origin + pathname', () => {
+    expect(getPageKey('https://facebook.com/john.doe')).toBe('https://facebook.com/john.doe');
+  });
+  it('strips query params', () => {
+    expect(getPageKey('https://amazon.com/dp/B09V3?ref=nav')).toBe('https://amazon.com/dp/B09V3');
+  });
+  it('strips hash', () => {
+    expect(getPageKey('https://docs.google.com/doc/d/abc#heading')).toBe('https://docs.google.com/doc/d/abc');
+  });
+  it('returns empty string for invalid URL', () => {
+    expect(getPageKey('not-a-url')).toBe('');
+  });
+});
+
+describe('page note', () => {
+  beforeEach(() => { store = {}; });
+
+  it('returns null for missing page', async () => {
+    expect(await readPageNote('https://example.com/path')).toBeNull();
+  });
+
+  it('writes and reads back', async () => {
+    await writePageNote('https://example.com/path', { body: 'page note', tags: ['#test'] });
+    const note = await readPageNote('https://example.com/path');
+    expect(note.body).toBe('page note');
+    expect(note.tags).toEqual(['#test']);
+    expect(note.pageKey).toBe('https://example.com/path');
+  });
+
+  it('preserves createdAt on update', async () => {
+    await writePageNote('https://example.com/p', { body: 'first' });
+    const first = await readPageNote('https://example.com/p');
+    await writePageNote('https://example.com/p', { body: 'second' });
+    const second = await readPageNote('https://example.com/p');
+    expect(second.createdAt).toBe(first.createdAt);
+    expect(second.body).toBe('second');
+  });
+
+  it('deletes a page note', async () => {
+    await writePageNote('https://example.com/p', { body: 'bye' });
+    await deletePageNote('https://example.com/p');
+    expect(await readPageNote('https://example.com/p')).toBeNull();
+  });
+
+  it('reads all page notes', async () => {
+    await writePageNote('https://a.com/1', { body: 'a' });
+    await writePageNote('https://b.com/2', { body: 'b' });
+    const all = await readAllPageNotes();
+    expect(all).toHaveLength(2);
+    expect(all.map(n => n.body).sort()).toEqual(['a', 'b']);
+  });
+});
+
+describe('preferences', () => {
+  beforeEach(() => { store = {}; });
+
+  it('returns defaults when none saved', async () => {
+    const prefs = await readPrefs();
+    expect(prefs.clusterPosition).toEqual({ x: null, y: null });
+    expect(prefs.panelMode).toBe('fixed');
+  });
+
+  it('writes and reads back', async () => {
+    await writePrefs({ panelMode: 'modal' });
+    const prefs = await readPrefs();
+    expect(prefs.panelMode).toBe('modal');
+    expect(prefs.clusterPosition).toEqual({ x: null, y: null });
+  });
+
+  it('merges partial updates', async () => {
+    await writePrefs({ clusterPosition: { x: 100, y: 200 } });
+    await writePrefs({ panelMode: 'anchored' });
+    const prefs = await readPrefs();
+    expect(prefs.clusterPosition).toEqual({ x: 100, y: 200 });
+    expect(prefs.panelMode).toBe('anchored');
   });
 });
