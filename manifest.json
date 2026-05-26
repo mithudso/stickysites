@@ -29,6 +29,7 @@
         "src/content/note-types.js",
         "src/content/prefs.js",
         "src/content/cluster.js",
+        "src/content/mentions.js",
         "src/content/panel.js",
         "src/content/sticky-inject.js"
       ],

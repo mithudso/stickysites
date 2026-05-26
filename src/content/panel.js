@@ -381,6 +381,10 @@ window.StickySites = window.StickySites || {};
       }
 
       this.el.append(header, actions, toolbar, editor, footer);
+
+      if (window.StickySites.Mentions) {
+        window.StickySites.Mentions.attach(editor);
+      }
     },
 
     _renderTodo: function (noteType, note) {
