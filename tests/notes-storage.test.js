@@ -20,7 +20,9 @@ import {
   readSiteNote, writeSiteNote, deleteSiteNote, readAllSiteNotes,
   parseTags, createDebouncedSaver,
   getPageKey, readPageNote, writePageNote, deletePageNote, readAllPageNotes,
-  readPrefs, writePrefs
+  readPrefs, writePrefs,
+  readTodo, writeTodo, deleteTodo, readAllTodos,
+  readOutline, writeOutline, deleteOutline, readAllOutlines
 } from '../src/shared/notes-storage.js';
 
 describe('getSiteKey', () => {
@@ -186,5 +188,79 @@ describe('preferences', () => {
     const prefs = await readPrefs();
     expect(prefs.clusterPosition).toEqual({ x: 100, y: 200 });
     expect(prefs.panelMode).toBe('anchored');
+  });
+});
+
+describe('todo', () => {
+  beforeEach(() => { store = {}; });
+
+  it('returns null for missing todo', async () => {
+    expect(await readTodo('example.com')).toBeNull();
+  });
+
+  it('writes and reads back', async () => {
+    const items = [{ id: '1', text: 'Buy milk', done: false }];
+    await writeTodo('example.com', { items });
+    const todo = await readTodo('example.com');
+    expect(todo.items).toEqual(items);
+    expect(todo.siteKey).toBe('example.com');
+  });
+
+  it('preserves createdAt on update', async () => {
+    await writeTodo('example.com', { items: [] });
+    const first = await readTodo('example.com');
+    await writeTodo('example.com', { items: [{ id: '1', text: 'test', done: true }] });
+    const second = await readTodo('example.com');
+    expect(second.createdAt).toBe(first.createdAt);
+  });
+
+  it('deletes a todo', async () => {
+    await writeTodo('example.com', { items: [] });
+    await deleteTodo('example.com');
+    expect(await readTodo('example.com')).toBeNull();
+  });
+
+  it('reads all todos', async () => {
+    await writeTodo('a.com', { items: [] });
+    await writeTodo('b.com', { items: [{ id: '1', text: 'x', done: false }] });
+    const all = await readAllTodos();
+    expect(all).toHaveLength(2);
+  });
+});
+
+describe('outline', () => {
+  beforeEach(() => { store = {}; });
+
+  it('returns null for missing outline', async () => {
+    expect(await readOutline('example.com')).toBeNull();
+  });
+
+  it('writes and reads back', async () => {
+    const items = [{ id: '1', text: 'Root', children: [], collapsed: false }];
+    await writeOutline('example.com', { items });
+    const outline = await readOutline('example.com');
+    expect(outline.items).toEqual(items);
+    expect(outline.siteKey).toBe('example.com');
+  });
+
+  it('preserves createdAt on update', async () => {
+    await writeOutline('example.com', { items: [] });
+    const first = await readOutline('example.com');
+    await writeOutline('example.com', { items: [{ id: '1', text: 'x', children: [], collapsed: false }] });
+    const second = await readOutline('example.com');
+    expect(second.createdAt).toBe(first.createdAt);
+  });
+
+  it('deletes an outline', async () => {
+    await writeOutline('example.com', { items: [] });
+    await deleteOutline('example.com');
+    expect(await readOutline('example.com')).toBeNull();
+  });
+
+  it('reads all outlines', async () => {
+    await writeOutline('a.com', { items: [] });
+    await writeOutline('b.com', { items: [] });
+    const all = await readAllOutlines();
+    expect(all).toHaveLength(2);
   });
 });

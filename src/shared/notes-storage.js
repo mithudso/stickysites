@@ -2,6 +2,8 @@ const GLOBAL_NOTE_KEY = 'stickysites_global_v1';
 const SITE_NOTES_KEY = 'stickysites_sites_v1';
 const PAGE_NOTES_KEY = 'stickysites_pages_v1';
 const PREFS_KEY = 'stickysites_prefs_v1';
+const TODOS_KEY = 'stickysites_todos_v1';
+const OUTLINES_KEY = 'stickysites_outlines_v1';
 const DEFAULT_PREFS = { clusterPosition: { x: null, y: null }, panelMode: 'fixed' };
 
 export function getSiteKey(url) {
@@ -187,4 +189,116 @@ export async function writePrefs(updates = {}) {
     await chrome.storage.local.set({ [PREFS_KEY]: merged });
     return merged;
   } catch { return null; }
+}
+
+export async function readTodo(siteKey) {
+  if (!siteKey) return null;
+  try {
+    const stored = await chrome.storage.local.get(TODOS_KEY);
+    const map = stored?.[TODOS_KEY] || {};
+    const record = map[siteKey];
+    if (!record) return null;
+    return {
+      siteKey: String(record.siteKey || siteKey),
+      items: Array.isArray(record.items) ? record.items : [],
+      createdAt: String(record.createdAt || ''),
+      updatedAt: String(record.updatedAt || '')
+    };
+  } catch { return null; }
+}
+
+export async function writeTodo(siteKey, { items = [] } = {}) {
+  if (!siteKey) return null;
+  try {
+    const stored = await chrome.storage.local.get(TODOS_KEY);
+    const map = stored?.[TODOS_KEY] || {};
+    const existing = map[siteKey];
+    const record = {
+      siteKey,
+      items: Array.isArray(items) ? items : [],
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    map[siteKey] = record;
+    await chrome.storage.local.set({ [TODOS_KEY]: map });
+    return record;
+  } catch { return null; }
+}
+
+export async function deleteTodo(siteKey) {
+  try {
+    const stored = await chrome.storage.local.get(TODOS_KEY);
+    const map = stored?.[TODOS_KEY] || {};
+    delete map[siteKey];
+    await chrome.storage.local.set({ [TODOS_KEY]: map });
+  } catch { /* best effort */ }
+}
+
+export async function readAllTodos() {
+  try {
+    const stored = await chrome.storage.local.get(TODOS_KEY);
+    const map = stored?.[TODOS_KEY] || {};
+    return Object.values(map).map(r => ({
+      siteKey: String(r.siteKey || ''),
+      items: Array.isArray(r.items) ? r.items : [],
+      createdAt: String(r.createdAt || ''),
+      updatedAt: String(r.updatedAt || '')
+    }));
+  } catch { return []; }
+}
+
+export async function readOutline(siteKey) {
+  if (!siteKey) return null;
+  try {
+    const stored = await chrome.storage.local.get(OUTLINES_KEY);
+    const map = stored?.[OUTLINES_KEY] || {};
+    const record = map[siteKey];
+    if (!record) return null;
+    return {
+      siteKey: String(record.siteKey || siteKey),
+      items: Array.isArray(record.items) ? record.items : [],
+      createdAt: String(record.createdAt || ''),
+      updatedAt: String(record.updatedAt || '')
+    };
+  } catch { return null; }
+}
+
+export async function writeOutline(siteKey, { items = [] } = {}) {
+  if (!siteKey) return null;
+  try {
+    const stored = await chrome.storage.local.get(OUTLINES_KEY);
+    const map = stored?.[OUTLINES_KEY] || {};
+    const existing = map[siteKey];
+    const record = {
+      siteKey,
+      items: Array.isArray(items) ? items : [],
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    map[siteKey] = record;
+    await chrome.storage.local.set({ [OUTLINES_KEY]: map });
+    return record;
+  } catch { return null; }
+}
+
+export async function deleteOutline(siteKey) {
+  try {
+    const stored = await chrome.storage.local.get(OUTLINES_KEY);
+    const map = stored?.[OUTLINES_KEY] || {};
+    delete map[siteKey];
+    await chrome.storage.local.set({ [OUTLINES_KEY]: map });
+  } catch { /* best effort */ }
+}
+
+export async function readAllOutlines() {
+  try {
+    const stored = await chrome.storage.local.get(OUTLINES_KEY);
+    const map = stored?.[OUTLINES_KEY] || {};
+    return Object.values(map).map(r => ({
+      siteKey: String(r.siteKey || ''),
+      items: Array.isArray(r.items) ? r.items : [],
+      createdAt: String(r.createdAt || ''),
+      updatedAt: String(r.updatedAt || '')
+    }));
+  } catch { return []; }
 }
