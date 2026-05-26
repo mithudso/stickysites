@@ -42,6 +42,8 @@ window.StickySites = window.StickySites || {};
     activeNoteType: null,
     onClose: null,
     _saveTimer: null,
+    _isExpanded: false,
+    _normalSize: null,
 
     init: function (onClose) {
       this.onClose = onClose;
@@ -49,20 +51,133 @@ window.StickySites = window.StickySites || {};
       panel.id = 'stickysites-panel';
       this.el = panel;
       document.documentElement.appendChild(panel);
+      this._initDrag();
+      this._initResize();
     },
 
     open: async function (noteType) {
       this.activeNoteType = noteType;
       var note = await this._readNote(noteType);
       this._render(noteType, note);
+
+      // Restore saved size
+      var prefs = await window.StickySites.Prefs.read();
+      if (prefs.panelSize) {
+        this.el.style.width = prefs.panelSize.width + 'px';
+        this.el.style.height = prefs.panelSize.height + 'px';
+      }
+      // Restore saved position
+      if (prefs.panelPosition) {
+        this.el.style.bottom = 'auto';
+        this.el.style.right = 'auto';
+        this.el.style.left = prefs.panelPosition.x + 'px';
+        this.el.style.top = prefs.panelPosition.y + 'px';
+      }
+
       this.el.classList.add('is-open');
     },
 
     close: function () {
       this.activeNoteType = null;
+      this._isExpanded = false;
       this.el.classList.remove('is-open');
       if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
+    },
+
+    _initDrag: function () {
+      var self = this;
+      var isDragging = false;
+      var startX, startY, startLeft, startTop;
+
+      self.el.addEventListener('mousedown', function (e) {
+        if (!e.target.closest('.stickysites-panel-header')) return;
+        if (e.target.closest('button')) return;
+        isDragging = true;
+        var rect = self.el.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+        self.el.style.cursor = 'grabbing';
+        e.preventDefault();
+      });
+
+      document.addEventListener('mousemove', function (e) {
+        if (!isDragging) return;
+        var dx = e.clientX - startX;
+        var dy = e.clientY - startY;
+        var newLeft = startLeft + dx;
+        var newTop = startTop + dy;
+        var rect = self.el.getBoundingClientRect();
+        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - rect.width));
+        newTop = Math.max(0, Math.min(newTop, window.innerHeight - rect.height));
+        self.el.style.bottom = 'auto';
+        self.el.style.right = 'auto';
+        self.el.style.left = newLeft + 'px';
+        self.el.style.top = newTop + 'px';
+      });
+
+      document.addEventListener('mouseup', async function () {
+        if (!isDragging) return;
+        isDragging = false;
+        self.el.style.cursor = '';
+        var rect = self.el.getBoundingClientRect();
+        await window.StickySites.Prefs.write({
+          panelPosition: { x: Math.round(rect.left), y: Math.round(rect.top) }
+        });
+      });
+    },
+
+    _initResize: function () {
+      var self = this;
+      var handle = document.createElement('div');
+      handle.className = 'stickysites-panel-resize';
+      self.el.appendChild(handle);
+
+      var isResizing = false;
+      var startX, startY, startW, startH;
+
+      handle.addEventListener('mousedown', function (e) {
+        isResizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startW = self.el.offsetWidth;
+        startH = self.el.offsetHeight;
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      document.addEventListener('mousemove', function (e) {
+        if (!isResizing) return;
+        var newW = Math.max(350, Math.min(startW + (e.clientX - startX), window.innerWidth * 0.9));
+        var newH = Math.max(250, Math.min(startH + (e.clientY - startY), window.innerHeight * 0.9));
+        self.el.style.width = newW + 'px';
+        self.el.style.height = newH + 'px';
+      });
+
+      document.addEventListener('mouseup', async function () {
+        if (!isResizing) return;
+        isResizing = false;
+        await window.StickySites.Prefs.write({
+          panelSize: { width: self.el.offsetWidth, height: self.el.offsetHeight }
+        });
+      });
+    },
+
+    _toggleExpand: function () {
+      if (!this._isExpanded) {
+        this._normalSize = { width: this.el.offsetWidth, height: this.el.offsetHeight };
+        this.el.style.width = '900px';
+        this.el.style.height = Math.min(800, window.innerHeight * 0.9) + 'px';
+        this._isExpanded = true;
+      } else {
+        if (this._normalSize) {
+          this.el.style.width = this._normalSize.width + 'px';
+          this.el.style.height = this._normalSize.height + 'px';
+        }
+        this._isExpanded = false;
+      }
     },
 
     _readNote: async function (noteType) {
@@ -306,7 +421,22 @@ window.StickySites = window.StickySites || {};
         if (self.onClose) self.onClose();
       });
 
-      header.append(iconEl, title, closeBtn);
+      var expandBtn = document.createElement('button');
+      expandBtn.className = 'stickysites-panel-headerbtn';
+      expandBtn.textContent = '⤢';
+      expandBtn.title = 'Expand';
+      expandBtn.addEventListener('click', function () {
+        self._toggleExpand();
+        expandBtn.textContent = self._isExpanded ? '⤡' : '⤢';
+        expandBtn.title = self._isExpanded ? 'Shrink' : 'Expand';
+      });
+
+      var popoutBtn = document.createElement('button');
+      popoutBtn.className = 'stickysites-panel-headerbtn';
+      popoutBtn.textContent = '⧉';
+      popoutBtn.title = 'Open in window (coming soon)';
+
+      header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
 
       var actions = document.createElement('div');
       actions.className = 'stickysites-panel-actions';
@@ -409,7 +539,23 @@ window.StickySites = window.StickySites || {};
       closeBtn.className = 'stickysites-panel-close';
       closeBtn.textContent = '✕';
       closeBtn.addEventListener('click', function () { if (self.onClose) self.onClose(); });
-      header.append(iconEl, title, closeBtn);
+
+      var expandBtn = document.createElement('button');
+      expandBtn.className = 'stickysites-panel-headerbtn';
+      expandBtn.textContent = '⤢';
+      expandBtn.title = 'Expand';
+      expandBtn.addEventListener('click', function () {
+        self._toggleExpand();
+        expandBtn.textContent = self._isExpanded ? '⤡' : '⤢';
+        expandBtn.title = self._isExpanded ? 'Shrink' : 'Expand';
+      });
+
+      var popoutBtn = document.createElement('button');
+      popoutBtn.className = 'stickysites-panel-headerbtn';
+      popoutBtn.textContent = '⧉';
+      popoutBtn.title = 'Open in window (coming soon)';
+
+      header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
 
       // Todo list container
       var listEl = document.createElement('div');
@@ -568,7 +714,23 @@ window.StickySites = window.StickySites || {};
       closeBtn.className = 'stickysites-panel-close';
       closeBtn.textContent = '✕';
       closeBtn.addEventListener('click', function () { if (self.onClose) self.onClose(); });
-      header.append(iconEl, title, closeBtn);
+
+      var expandBtn = document.createElement('button');
+      expandBtn.className = 'stickysites-panel-headerbtn';
+      expandBtn.textContent = '⤢';
+      expandBtn.title = 'Expand';
+      expandBtn.addEventListener('click', function () {
+        self._toggleExpand();
+        expandBtn.textContent = self._isExpanded ? '⤡' : '⤢';
+        expandBtn.title = self._isExpanded ? 'Shrink' : 'Expand';
+      });
+
+      var popoutBtn = document.createElement('button');
+      popoutBtn.className = 'stickysites-panel-headerbtn';
+      popoutBtn.textContent = '⧉';
+      popoutBtn.title = 'Open in window (coming soon)';
+
+      header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
 
       var listEl = document.createElement('div');
       listEl.className = 'stickysites-outline-list';
