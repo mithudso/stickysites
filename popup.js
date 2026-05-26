@@ -15,15 +15,29 @@
     currentTabUrl: ''
   };
 
+  // Note: body may contain HTML from the rich text editor.
+  // All note content is user-authored from chrome.storage.local (per-extension isolated storage).
+  function stripHtml(html) {
+    if (!html) return '';
+    var tmp = document.createElement('div');
+    tmp.textContent = ''; // clear
+    // Parse user-authored HTML from local storage to extract text
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+    return (doc.body.textContent || '').trim();
+  }
+
   function getSubject(body, fallbackLabel) {
     if (!body || !body.trim()) return fallbackLabel;
-    var firstLine = body.split('\n')[0].trim();
+    var text = stripHtml(body);
+    var firstLine = text.split('\n')[0].trim();
     return firstLine || fallbackLabel;
   }
 
   function getPreview(body) {
     if (!body) return '';
-    return body.split('\n').slice(1).join('\n').trim();
+    var text = stripHtml(body);
+    return text.split('\n').slice(1).join('\n').trim();
   }
 
   function relativeTime(iso) {
