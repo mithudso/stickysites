@@ -1,9 +1,11 @@
-# StickySites — Claude Code Guide
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step.
-Version: **1.7.0**
+Version: **1.8.0**
 
 ```
 stickysites/
@@ -19,15 +21,17 @@ stickysites/
     content/               # Loaded in order as classic scripts (no ES modules)
       crypto-content.js    # window.StickySites.Crypto — AES-GCM namespace (loaded first)
       sync-content.js      # window.StickySites.Sync — Drive sync namespace
-      note-types.js        # window.StickySites.noteTypes — icon registry (5 types)
+      note-types.js        # window.StickySites.noteTypes — icon registry (6 types)
       prefs.js             # window.StickySites.Prefs — cluster position / panel mode
       cluster.js           # window.StickySites.Cluster — floating draggable pill + drag
+      mentions.js          # window.StickySites.Mentions — @-mention autocomplete (links,
+                           #   dates, contacts, files)
       panel.js             # window.StickySites.Panel — workspace panel, rich text editor,
                            #   todo list, outliner
       sticky-inject.js     # Orchestrator: wiring, clip handler, chord keys, toast
       sticky-inject.css    # All injected styles (z-index near INT32_MAX)
     shared/                # ES modules — used by service worker and vitest tests
-      notes-storage.js     # Chrome Storage CRUD (all 5 note types + prefs)
+      notes-storage.js     # Chrome Storage CRUD (all 6 note types + prefs)
       crypto.js            # AES-GCM primitives (ES module duplicate of crypto-content.js)
       drive-sync.js        # Google Drive API client (Drive appDataFolder)
   tests/
@@ -50,8 +54,10 @@ stickysites/
 - **Shared modules** (`src/shared/`) are ES modules for use by the service worker and vitest.
 - `crypto-content.js` is the namespace-style duplicate of `crypto.js` — same algorithm,
   different packaging. Do not conflate them.
+- Content script load order in `manifest.json` matters — e.g. `mentions.js` depends on
+  namespace objects set up by earlier scripts.
 
-### Note types (5)
+### Note types (6)
 | ID       | Color  | Label       | Storage key                  | Pattern    |
 |----------|--------|-------------|------------------------------|------------|
 | global   | yellow | Global note | `stickysites_global_v1`      | single     |
@@ -59,14 +65,16 @@ stickysites/
 | page     | blue   | Page note   | `stickysites_pages_v1`       | map        |
 | todo     | purple | To-do list  | `stickysites_todos_v1`       | structured |
 | outline  | orange | Outliner    | `stickysites_outlines_v1`    | structured |
+| daily    | red    | Daily note  | `stickysites_daily_v1`       | map        |
 
-### Storage keys (7 primary)
+### Storage keys (8 primary)
 ```
 stickysites_global_v1     # Single note record { body, updatedAt }
 stickysites_sites_v1      # Map of hostname → { siteKey, siteLabel, body, tags, ... }
 stickysites_pages_v1      # Map of origin+path → { pageKey, pageLabel, body, tags, ... }
 stickysites_todos_v1      # Map of hostname → { siteKey, items: [...], ... }
 stickysites_outlines_v1   # Map of hostname → { siteKey, items: [...], ... }
+stickysites_daily_v1      # Map of YYYY-MM-DD → { body, updatedAt }
 stickysites_prefs_v1      # { clusterPosition: {x, y}, panelMode: 'fixed' }
 stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
 ```
@@ -82,12 +90,12 @@ stickysites_session_key   # JWK export of the cached AES-GCM key
 ```
 
 ### Permissions
-`storage`, `activeTab`, `contextMenus`, `session`, `identity`
+`storage`, `activeTab`, `contextMenus`, `identity`
 
 ### Encryption (opt-in, AES-256-GCM)
 - Enabled from the popup Settings panel.
 - On enable: generates a random 16-byte salt, derives an AES-GCM 256-bit key via PBKDF2
-  (600,000 iterations, SHA-256), encrypts a verify string, then re-encrypts all 5 note keys.
+  (600,000 iterations, SHA-256), encrypts a verify string, then re-encrypts all 6 note keys.
 - The derived key is exported as JWK and cached in `chrome.storage.session` for the browser
   session. Content scripts read it back via `StickySites.Crypto.getCachedKey()`.
 - Encrypted values are stored as `{ iv: string, data: string }`. `isEncrypted()` detects this
@@ -105,6 +113,8 @@ stickysites_session_key   # JWK export of the cached AES-GCM key
   `stickysites_[key]_conflict_[timestamp]` in `chrome.storage.local`.
 
 ### Rich text editor (panel.js)
+- Panel is moveable (drag header) and resizable (drag bottom-right handle), with
+  expand/shrink toggle and popout button (placeholder).
 - `contenteditable` div with a 19-tool formatting toolbar (2 rows).
 - Row 1 (buttons): Bold, Italic, Underline, Strikethrough, H1, H2, H3, Unordered list,
   Ordered list, Checkbox, Align left, Align center, Align right, HR, Indent, Outdent.
@@ -112,17 +122,29 @@ stickysites_session_key   # JWK export of the cached AES-GCM key
 - Toolbar uses `document.execCommand`. Auto-save debounced at 500 ms.
 
 ### Context menus (right-click)
-- On installed, creates a `StickySites` parent menu for `selection` contexts with 5 children:
-  Add to Global / Site / Page / To-do / Outline.
+- On installed, creates a `StickySites` parent menu for `selection` contexts with 6 children:
+  Add to Global / Site / Page / To-do / Outline / Daily.
 - Clips selected text by sending `STICKYSITES_CLIP` to the active tab's content script.
 
 ### Chord hotkeys
 - `Alt+S` (registered as a browser command in `manifest.json`) toggles the cluster
   visibility on the active tab.
-- When the cluster is visible, number keys `1`–`5` open the corresponding note type.
-- `A` cycles through note types in order.
+- When the cluster is visible, number keys `1`–`5` open the first 5 note types (daily has
+  no chord shortcut).
+- `A` cycles through all 6 note types in order.
 - Number badges appear on cluster icons for 3 seconds after the cluster becomes visible.
 - Hotkeys are suppressed when focus is in an `input`, `textarea`, or `contenteditable`.
+
+### Cluster (cluster.js)
+- Floating draggable pill with one icon per note type, positioned from saved prefs.
+- Drag-to-reorder: long-press an icon to rearrange within the cluster.
+- Layout toggle: horizontal or vertical orientation, stored in prefs as `clusterLayout`.
+
+### @-mention autocomplete (mentions.js)
+- Typing `@` in the rich text editor triggers an autocomplete dropdown.
+- Four categories: Link (paste URL, current page URL), Date (today, tomorrow, this week,
+  pick date), Contact (name, email), File (file reference).
+- Dropdown is positioned near the caret and filters as the user types.
 
 ### Popup
 - Browser action popup (`popup.html` / `popup.js` / `popup.css`).

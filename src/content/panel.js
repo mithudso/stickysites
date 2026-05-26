@@ -59,22 +59,23 @@ window.StickySites = window.StickySites || {};
       this.activeNoteType = noteType;
       var note = await this._readNote(noteType);
       this._render(noteType, note);
-
-      // Restore saved size
-      var prefs = await window.StickySites.Prefs.read();
-      if (prefs.panelSize) {
-        this.el.style.width = prefs.panelSize.width + 'px';
-        this.el.style.height = prefs.panelSize.height + 'px';
-      }
-      // Restore saved position
-      if (prefs.panelPosition) {
-        this.el.style.bottom = 'auto';
-        this.el.style.right = 'auto';
-        this.el.style.left = prefs.panelPosition.x + 'px';
-        this.el.style.top = prefs.panelPosition.y + 'px';
-      }
-
       this.el.classList.add('is-open');
+
+      try {
+        var prefs = await window.StickySites.Prefs.read();
+        if (prefs.panelSize) {
+          this.el.style.width = prefs.panelSize.width + 'px';
+          this.el.style.height = prefs.panelSize.height + 'px';
+        }
+        if (prefs.panelPosition) {
+          var x = Math.max(0, Math.min(prefs.panelPosition.x, window.innerWidth - 350));
+          var y = Math.max(0, Math.min(prefs.panelPosition.y, window.innerHeight - 250));
+          this.el.style.bottom = 'auto';
+          this.el.style.right = 'auto';
+          this.el.style.left = x + 'px';
+          this.el.style.top = y + 'px';
+        }
+      } catch (e) { /* prefs are non-critical — panel is already visible */ }
     },
 
     close: function () {
@@ -83,17 +84,25 @@ window.StickySites = window.StickySites || {};
       this.el.classList.remove('is-open');
       if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
+      this.el.style.left = '';
+      this.el.style.top = '';
+      this.el.style.right = '';
+      this.el.style.bottom = '';
+      this.el.style.width = '';
+      this.el.style.height = '';
     },
 
     _initDrag: function () {
       var self = this;
       var isDragging = false;
+      var hasMoved = false;
       var startX, startY, startLeft, startTop;
 
       self.el.addEventListener('mousedown', function (e) {
         if (!e.target.closest('.stickysites-panel-header')) return;
         if (e.target.closest('button')) return;
         isDragging = true;
+        hasMoved = false;
         var rect = self.el.getBoundingClientRect();
         startX = e.clientX;
         startY = e.clientY;
@@ -107,6 +116,7 @@ window.StickySites = window.StickySites || {};
         if (!isDragging) return;
         var dx = e.clientX - startX;
         var dy = e.clientY - startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
         var newLeft = startLeft + dx;
         var newTop = startTop + dy;
         var rect = self.el.getBoundingClientRect();
@@ -122,10 +132,12 @@ window.StickySites = window.StickySites || {};
         if (!isDragging) return;
         isDragging = false;
         self.el.style.cursor = '';
-        var rect = self.el.getBoundingClientRect();
-        await window.StickySites.Prefs.write({
-          panelPosition: { x: Math.round(rect.left), y: Math.round(rect.top) }
-        });
+        if (hasMoved) {
+          var rect = self.el.getBoundingClientRect();
+          await window.StickySites.Prefs.write({
+            panelPosition: { x: Math.round(rect.left), y: Math.round(rect.top) }
+          });
+        }
       });
     },
 
