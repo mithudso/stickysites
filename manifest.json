@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StickySites",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Sticky notes for every website. Global notes, per-site notes, and per-page notes in a floating workspace.",
   "permissions": ["storage", "activeTab", "contextMenus", "session", "identity"],
   "icons": {
