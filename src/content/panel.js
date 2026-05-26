@@ -1393,6 +1393,11 @@ window.StickySites = window.StickySites || {};
       }
 
       this.el.append(header, toolbar, listEl, actionsRow, footer);
+
+      Todo.DragController.init(listEl, function () { return items; }, function () { return sections; }, function () {
+        renderAll();
+        save();
+      });
     },
 
     _renderOutline: function (noteType, note) {
