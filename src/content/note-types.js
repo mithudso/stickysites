@@ -70,5 +70,25 @@ window.StickySites.noteTypes = [
     getKey: function (loc) { return loc.hostname.replace(/^www\./, ''); },
     getLabel: function (loc) { return 'Outline — ' + loc.hostname.replace(/^www\./, ''); },
     getPlaceholder: function () { return 'Organize your thoughts for this site.'; }
+  },
+  {
+    id: 'daily',
+    color: '#f87171',
+    tint: 'rgba(248,113,113,0.15)',
+    tintText: '#fca5a5',
+    label: 'Daily note',
+    emoji: '\u{1F4C5}',
+    cssClass: 'is-red',
+    storageKey: 'stickysites_daily_v1',
+    storagePattern: 'map',
+    getKey: function () {
+      var d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    },
+    getLabel: function () {
+      var d = new Date();
+      return 'Daily — ' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    },
+    getPlaceholder: function () { return 'What happened today?'; }
   }
 ];

@@ -4,6 +4,7 @@
   var PAGES_KEY = 'stickysites_pages_v1';
   var TODOS_KEY = 'stickysites_todos_v1';
   var OUTLINES_KEY = 'stickysites_outlines_v1';
+  var DAILY_KEY = 'stickysites_daily_v1';
 
   var SORT_MODES = ['recent', 'oldest', 'alpha'];
   var SORT_LABELS = { recent: 'Recent ▾', oldest: 'Oldest ▾', alpha: 'A–Z ▾' };
@@ -246,6 +247,51 @@
 
     settingsEl.append(syncLabel, syncBtn, syncNowBtn, syncInfo);
 
+    // --- Note Type Visibility ---
+    var typesLabel = document.createElement('div');
+    typesLabel.className = 'settings-label';
+    typesLabel.textContent = 'Note Types';
+
+    var typesContainer = document.createElement('div');
+    typesContainer.className = 'settings-types';
+
+    var prefs = await chrome.storage.local.get('stickysites_prefs_v1');
+    var prefsData = prefs?.stickysites_prefs_v1 || {};
+    var enabledTypes = prefsData.enabledTypes || { global: true, site: true, page: true, todo: true, outline: true, daily: true };
+
+    var typeNames = {
+      global: 'Global (Yellow)',
+      site: 'Site (Green)',
+      page: 'Page (Blue)',
+      todo: 'To-do (Purple)',
+      outline: 'Outliner (Orange)',
+      daily: 'Daily (Red)'
+    };
+
+    Object.keys(typeNames).forEach(function (typeId) {
+      var row = document.createElement('label');
+      row.className = 'settings-type-row';
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = enabledTypes[typeId] !== false;
+      cb.addEventListener('change', async function () {
+        enabledTypes[typeId] = cb.checked;
+        var stored = await chrome.storage.local.get('stickysites_prefs_v1');
+        var p = stored?.stickysites_prefs_v1 || {};
+        p.enabledTypes = enabledTypes;
+        await chrome.storage.local.set({ stickysites_prefs_v1: p });
+      });
+
+      var label = document.createElement('span');
+      label.textContent = typeNames[typeId];
+
+      row.append(cb, label);
+      typesContainer.appendChild(row);
+    });
+
+    settingsEl.append(typesLabel, typesContainer);
+
     panel.append(header, section);
     document.body.appendChild(panel);
     updateToggleState();
@@ -346,10 +392,10 @@
   }
 
   async function loadAllNotes() {
-    var stored = await chrome.storage.local.get([GLOBAL_KEY, SITES_KEY, PAGES_KEY, TODOS_KEY, OUTLINES_KEY]);
+    var stored = await chrome.storage.local.get([GLOBAL_KEY, SITES_KEY, PAGES_KEY, TODOS_KEY, OUTLINES_KEY, DAILY_KEY]);
     // Decrypt any encrypted storage values
     if (Crypto) {
-      var keys = [GLOBAL_KEY, SITES_KEY, PAGES_KEY, TODOS_KEY, OUTLINES_KEY];
+      var keys = [GLOBAL_KEY, SITES_KEY, PAGES_KEY, TODOS_KEY, OUTLINES_KEY, DAILY_KEY];
       for (var di = 0; di < keys.length; di++) {
         var dk = keys[di];
         if (stored[dk] && Crypto.isEncrypted(stored[dk])) {
@@ -418,6 +464,16 @@
       });
     });
 
+    var dailies = stored[DAILY_KEY] || {};
+    Object.values(dailies).forEach(function (r) {
+      notes.push({
+        type: 'daily', key: String(r.dateKey || ''), label: 'Daily — ' + (r.dateKey || ''),
+        body: String(r.body || ''), tags: Array.isArray(r.tags) ? r.tags : [],
+        createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
+        borderClass: 'border-red', sectionClass: 'is-red', noteTypeId: 'daily'
+      });
+    });
+
     return notes;
   }
 
@@ -460,7 +516,8 @@
       { type: 'site', label: 'Site Notes', cssClass: 'is-green', notes: [] },
       { type: 'page', label: 'Page Notes', cssClass: 'is-blue', notes: [] },
       { type: 'todo', label: 'To-Do Lists', cssClass: 'is-purple', notes: [] },
-      { type: 'outline', label: 'Outlines', cssClass: 'is-orange', notes: [] }
+      { type: 'outline', label: 'Outlines', cssClass: 'is-orange', notes: [] },
+      { type: 'daily', label: 'Daily Notes', cssClass: 'is-red', notes: [] }
     ];
     notes.forEach(function (n) {
       for (var i = 0; i < groups.length; i++) {
@@ -661,6 +718,13 @@
     var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     state.currentTabUrl = (tabs[0] && tabs[0].url) || '';
     state.allNotes = await loadAllNotes();
+
+    // Filter by enabled types from prefs
+    var prefsStored = await chrome.storage.local.get('stickysites_prefs_v1');
+    var enabledTypes = (prefsStored?.stickysites_prefs_v1 || {}).enabledTypes || {};
+    state.allNotes = state.allNotes.filter(function (n) {
+      return enabledTypes[n.type] !== false; // default to enabled
+    });
 
     document.getElementById('search-input').addEventListener('input', function (e) {
       state.searchQuery = e.target.value;

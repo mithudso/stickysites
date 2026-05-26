@@ -16,7 +16,8 @@ chrome.runtime.onInstalled.addListener(() => {
     { id: 'clip-site', title: 'Add to Site note' },
     { id: 'clip-page', title: 'Add to Page note' },
     { id: 'clip-todo', title: 'Add to To-do list' },
-    { id: 'clip-outline', title: 'Add to Outline' }
+    { id: 'clip-outline', title: 'Add to Outline' },
+    { id: 'clip-daily', title: 'Add to Daily note' }
   ];
 
   items.forEach(item => {
@@ -37,7 +38,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     'clip-site': 'site',
     'clip-page': 'page',
     'clip-todo': 'todo',
-    'clip-outline': 'outline'
+    'clip-outline': 'outline',
+    'clip-daily': 'daily'
   };
   const noteTypeId = idToType[info.menuItemId];
   if (!noteTypeId) return;

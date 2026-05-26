@@ -6,7 +6,8 @@ const NOTE_KEYS = [
   'stickysites_sites_v1',
   'stickysites_pages_v1',
   'stickysites_todos_v1',
-  'stickysites_outlines_v1'
+  'stickysites_outlines_v1',
+  'stickysites_daily_v1'
 ];
 
 async function getToken() {

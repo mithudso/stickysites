@@ -157,7 +157,7 @@ window.StickySites = window.StickySites || {};
     _encryptAllNotes: async function (key) {
       var noteKeys = [
         'stickysites_global_v1', 'stickysites_sites_v1', 'stickysites_pages_v1',
-        'stickysites_todos_v1', 'stickysites_outlines_v1'
+        'stickysites_todos_v1', 'stickysites_outlines_v1', 'stickysites_daily_v1'
       ];
       var stored = await chrome.storage.local.get(noteKeys);
       var updates = {};
@@ -176,7 +176,7 @@ window.StickySites = window.StickySites || {};
     _decryptAllNotes: async function (key) {
       var noteKeys = [
         'stickysites_global_v1', 'stickysites_sites_v1', 'stickysites_pages_v1',
-        'stickysites_todos_v1', 'stickysites_outlines_v1'
+        'stickysites_todos_v1', 'stickysites_outlines_v1', 'stickysites_daily_v1'
       ];
       var stored = await chrome.storage.local.get(noteKeys);
       var updates = {};

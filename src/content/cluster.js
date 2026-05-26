@@ -36,6 +36,14 @@ window.StickySites = window.StickySites || {};
         cluster.style.left = prefs.clusterPosition.x + 'px';
       }
 
+      var enabledTypes = prefs.enabledTypes || {};
+      for (var j = 0; j < this.buttons.length; j++) {
+        var b = this.buttons[j];
+        if (enabledTypes[b.typeId] === false) {
+          b.el.style.display = 'none';
+        }
+      }
+
       this._initDrag();
     },
 

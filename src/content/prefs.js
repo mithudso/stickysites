@@ -2,7 +2,7 @@ window.StickySites = window.StickySites || {};
 
 (function () {
   var PREFS_KEY = 'stickysites_prefs_v1';
-  var DEFAULT_PREFS = { clusterPosition: { x: null, y: null }, panelMode: 'fixed' };
+  var DEFAULT_PREFS = { clusterPosition: { x: null, y: null }, panelMode: 'fixed', enabledTypes: { global: true, site: true, page: true, todo: true, outline: true, daily: true } };
 
   window.StickySites.Prefs = {
     async read() {
