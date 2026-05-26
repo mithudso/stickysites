@@ -8,6 +8,8 @@
   var SORT_MODES = ['recent', 'oldest', 'alpha'];
   var SORT_LABELS = { recent: 'Recent ▾', oldest: 'Oldest ▾', alpha: 'A–Z ▾' };
 
+  var Crypto = window.StickySites?.Crypto || null;
+
   var state = {
     allNotes: [],
     typeFilter: 'all',
@@ -16,6 +18,219 @@
     activeTags: [],
     currentTabUrl: ''
   };
+
+  // --- Lock screen for popup ---
+  async function checkAndShowLock() {
+    if (!Crypto) return true;
+    var enabled = await Crypto.isEnabled();
+    if (!enabled) return true;
+    var key = await Crypto.getCachedKey();
+    if (key) return true;
+    showPopupLock();
+    return false;
+  }
+
+  function showPopupLock() {
+    var app = document.getElementById('app');
+    app.style.display = 'none';
+
+    var existing = document.getElementById('popup-lock');
+    if (existing) existing.remove();
+
+    var lock = document.createElement('div');
+    lock.id = 'popup-lock';
+
+    var title = document.createElement('div');
+    title.className = 'popup-lock-title';
+    title.textContent = 'StickySites Locked';
+
+    var desc = document.createElement('div');
+    desc.className = 'popup-lock-desc';
+    desc.textContent = 'Enter your passphrase to access notes.';
+
+    var input = document.createElement('input');
+    input.type = 'password';
+    input.className = 'popup-lock-input';
+    input.placeholder = 'Passphrase...';
+
+    var btn = document.createElement('button');
+    btn.className = 'popup-lock-btn';
+    btn.textContent = 'Unlock';
+
+    var error = document.createElement('div');
+    error.className = 'popup-lock-error';
+
+    async function doUnlock() {
+      if (!input.value) return;
+      btn.disabled = true;
+      btn.textContent = 'Unlocking...';
+      var ok = await Crypto.unlock(input.value);
+      if (ok) {
+        lock.remove();
+        app.style.display = '';
+        await initPopup();
+      } else {
+        error.textContent = 'Wrong passphrase';
+        input.value = '';
+        input.focus();
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+      }
+    }
+
+    btn.addEventListener('click', doUnlock);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doUnlock();
+    });
+
+    lock.append(title, desc, input, btn, error);
+    document.body.appendChild(lock);
+    input.focus();
+  }
+
+  // --- Settings panel ---
+  function showSettings() {
+    var app = document.getElementById('app');
+    app.style.display = 'none';
+
+    var existing = document.getElementById('popup-settings');
+    if (existing) existing.remove();
+
+    var panel = document.createElement('div');
+    panel.id = 'popup-settings';
+
+    var header = document.createElement('div');
+    header.className = 'settings-header';
+    var title = document.createElement('span');
+    title.textContent = 'Settings';
+    title.className = 'settings-title';
+    var backBtn = document.createElement('button');
+    backBtn.className = 'header-btn';
+    backBtn.textContent = 'Back';
+    backBtn.addEventListener('click', function () {
+      panel.remove();
+      app.style.display = '';
+    });
+    header.append(title, backBtn);
+
+    // Encryption section
+    var section = document.createElement('div');
+    section.className = 'settings-section';
+
+    var sectionTitle = document.createElement('div');
+    sectionTitle.className = 'settings-section-title';
+    sectionTitle.textContent = 'Encryption';
+
+    var sectionDesc = document.createElement('div');
+    sectionDesc.className = 'settings-section-desc';
+    sectionDesc.textContent = 'Encrypt all notes at rest with AES-256-GCM.';
+
+    var toggleRow = document.createElement('div');
+    toggleRow.className = 'settings-toggle-row';
+
+    var toggleLabel = document.createElement('span');
+    toggleLabel.textContent = 'Encryption';
+
+    var toggleBtn = document.createElement('button');
+    toggleBtn.className = 'settings-toggle-btn';
+
+    var statusMsg = document.createElement('div');
+    statusMsg.className = 'settings-status';
+
+    async function updateToggleState() {
+      if (!Crypto) {
+        toggleBtn.textContent = 'Unavailable';
+        toggleBtn.disabled = true;
+        return;
+      }
+      var enabled = await Crypto.isEnabled();
+      if (enabled) {
+        toggleBtn.textContent = 'Disable';
+        toggleBtn.className = 'settings-toggle-btn is-on';
+        statusMsg.textContent = 'Encryption is enabled.';
+        statusMsg.style.color = '#34d399';
+      } else {
+        toggleBtn.textContent = 'Enable';
+        toggleBtn.className = 'settings-toggle-btn';
+        statusMsg.textContent = 'Encryption is disabled.';
+        statusMsg.style.color = '#94a3b8';
+      }
+    }
+
+    toggleBtn.addEventListener('click', async function () {
+      if (!Crypto) return;
+      var enabled = await Crypto.isEnabled();
+      if (enabled) {
+        // Disable encryption
+        toggleBtn.disabled = true;
+        toggleBtn.textContent = 'Disabling...';
+        await Crypto.disable();
+        await updateToggleState();
+        toggleBtn.disabled = false;
+        // Remove passphrase form if present
+        var form = panel.querySelector('.settings-passphrase-form');
+        if (form) form.remove();
+      } else {
+        // Show passphrase setup form
+        showPassphraseForm(section, async function (passphrase) {
+          toggleBtn.disabled = true;
+          toggleBtn.textContent = 'Enabling...';
+          await Crypto.enable(passphrase);
+          await updateToggleState();
+          toggleBtn.disabled = false;
+          var form = panel.querySelector('.settings-passphrase-form');
+          if (form) form.remove();
+        });
+      }
+    });
+
+    toggleRow.append(toggleLabel, toggleBtn);
+    section.append(sectionTitle, sectionDesc, toggleRow, statusMsg);
+    panel.append(header, section);
+    document.body.appendChild(panel);
+    updateToggleState();
+  }
+
+  function showPassphraseForm(parent, onSubmit) {
+    var existing = parent.querySelector('.settings-passphrase-form');
+    if (existing) existing.remove();
+
+    var form = document.createElement('div');
+    form.className = 'settings-passphrase-form';
+
+    var input1 = document.createElement('input');
+    input1.type = 'password';
+    input1.className = 'popup-lock-input';
+    input1.placeholder = 'New passphrase...';
+
+    var input2 = document.createElement('input');
+    input2.type = 'password';
+    input2.className = 'popup-lock-input';
+    input2.placeholder = 'Confirm passphrase...';
+
+    var error = document.createElement('div');
+    error.className = 'popup-lock-error';
+
+    var confirmBtn = document.createElement('button');
+    confirmBtn.className = 'popup-lock-btn';
+    confirmBtn.textContent = 'Set Passphrase';
+
+    confirmBtn.addEventListener('click', function () {
+      if (!input1.value) { error.textContent = 'Passphrase required'; return; }
+      if (input1.value.length < 4) { error.textContent = 'At least 4 characters'; return; }
+      if (input1.value !== input2.value) { error.textContent = 'Passphrases do not match'; return; }
+      error.textContent = '';
+      onSubmit(input1.value);
+    });
+
+    input2.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') confirmBtn.click();
+    });
+
+    form.append(input1, input2, error, confirmBtn);
+    parent.appendChild(form);
+    input1.focus();
+  }
 
   // Note: body may contain HTML from the rich text editor.
   // All note content is user-authored from chrome.storage.local (per-extension isolated storage).
@@ -72,6 +287,16 @@
 
   async function loadAllNotes() {
     var stored = await chrome.storage.local.get([GLOBAL_KEY, SITES_KEY, PAGES_KEY, TODOS_KEY, OUTLINES_KEY]);
+    // Decrypt any encrypted storage values
+    if (Crypto) {
+      var keys = [GLOBAL_KEY, SITES_KEY, PAGES_KEY, TODOS_KEY, OUTLINES_KEY];
+      for (var di = 0; di < keys.length; di++) {
+        var dk = keys[di];
+        if (stored[dk] && Crypto.isEncrypted(stored[dk])) {
+          stored[dk] = await Crypto.decryptValue(stored[dk]);
+        }
+      }
+    }
     var notes = [];
 
     var global = stored[GLOBAL_KEY];
@@ -372,45 +597,58 @@
     });
   }
 
-  var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  state.currentTabUrl = (tabs[0] && tabs[0].url) || '';
-  state.allNotes = await loadAllNotes();
+  async function initPopup() {
+    var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    state.currentTabUrl = (tabs[0] && tabs[0].url) || '';
+    state.allNotes = await loadAllNotes();
 
-  document.getElementById('search-input').addEventListener('input', function (e) {
-    state.searchQuery = e.target.value;
-    render();
-  });
-
-  document.querySelectorAll('.type-pill').forEach(function (pill) {
-    pill.addEventListener('click', function () {
-      document.querySelectorAll('.type-pill').forEach(function (p) { p.classList.remove('active'); });
-      pill.classList.add('active');
-      state.typeFilter = pill.dataset.type;
+    document.getElementById('search-input').addEventListener('input', function (e) {
+      state.searchQuery = e.target.value;
       render();
     });
-  });
 
-  var sortBtn = document.getElementById('sort-btn');
-  sortBtn.addEventListener('click', function () {
-    var idx = SORT_MODES.indexOf(state.sortMode);
-    state.sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length];
-    sortBtn.textContent = SORT_LABELS[state.sortMode];
-    render();
-  });
-
-  document.getElementById('toggle-cluster-btn').addEventListener('click', function () {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      if (tabs[0] && tabs[0].id) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: 'STICKYSITES_TOGGLE' });
-      }
+    document.querySelectorAll('.type-pill').forEach(function (pill) {
+      pill.addEventListener('click', function () {
+        document.querySelectorAll('.type-pill').forEach(function (p) { p.classList.remove('active'); });
+        pill.classList.add('active');
+        state.typeFilter = pill.dataset.type;
+        render();
+      });
     });
-    var btn = document.getElementById('toggle-cluster-btn');
-    btn.textContent = btn.textContent === 'Hide cluster' ? 'Show cluster' : 'Hide cluster';
+
+    var sortBtn = document.getElementById('sort-btn');
+    sortBtn.addEventListener('click', function () {
+      var idx = SORT_MODES.indexOf(state.sortMode);
+      state.sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length];
+      sortBtn.textContent = SORT_LABELS[state.sortMode];
+      render();
+    });
+
+    document.getElementById('toggle-cluster-btn').addEventListener('click', function () {
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        if (tabs[0] && tabs[0].id) {
+          chrome.tabs.sendMessage(tabs[0].id, { type: 'STICKYSITES_TOGGLE' });
+        }
+      });
+      var btn = document.getElementById('toggle-cluster-btn');
+      btn.textContent = btn.textContent === 'Hide cluster' ? 'Show cluster' : 'Hide cluster';
+    });
+
+    document.getElementById('save-all-btn').addEventListener('click', function () {
+      downloadMarkdown('stickysites-export.md', allNotesToMarkdown(state.allNotes));
+    });
+
+    render();
+  }
+
+  // Settings button (always available)
+  document.getElementById('settings-btn').addEventListener('click', function () {
+    showSettings();
   });
 
-  document.getElementById('save-all-btn').addEventListener('click', function () {
-    downloadMarkdown('stickysites-export.md', allNotesToMarkdown(state.allNotes));
-  });
-
-  render();
+  // Check lock state before initializing
+  var unlocked = await checkAndShowLock();
+  if (unlocked) {
+    await initPopup();
+  }
 })();

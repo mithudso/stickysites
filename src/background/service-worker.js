@@ -1,5 +1,8 @@
 // Create context menus on install
 chrome.runtime.onInstalled.addListener(() => {
+  // Allow content scripts to access session storage for encryption key caching
+  chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' });
+
   chrome.contextMenus.create({
     id: 'stickysites-parent',
     title: 'StickySites',

@@ -11,9 +11,69 @@
     return null;
   }
 
-  function handleIconClick(typeId) {
+  async function checkUnlocked() {
+    if (!window.StickySites.Crypto) return true;
+    var enabled = await window.StickySites.Crypto.isEnabled();
+    if (!enabled) return true;
+    var key = await window.StickySites.Crypto.getCachedKey();
+    return !!key;
+  }
+
+  function showLockOverlay(pendingTypeId) {
+    SS.Panel.close();
+    var overlay = document.getElementById('stickysites-lock');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'stickysites-lock';
+
+    var title = document.createElement('div');
+    title.className = 'stickysites-lock-title';
+    title.textContent = 'StickySites Locked';
+
+    var input = document.createElement('input');
+    input.type = 'password';
+    input.className = 'stickysites-lock-input';
+    input.placeholder = 'Enter passphrase...';
+
+    var btn = document.createElement('button');
+    btn.className = 'stickysites-lock-btn';
+    btn.textContent = 'Unlock';
+
+    var error = document.createElement('div');
+    error.className = 'stickysites-lock-error';
+
+    async function doUnlock() {
+      if (!input.value) return;
+      var ok = await window.StickySites.Crypto.unlock(input.value);
+      if (ok) {
+        overlay.remove();
+        if (pendingTypeId) handleIconClick(pendingTypeId);
+      } else {
+        error.textContent = 'Wrong passphrase';
+        input.value = '';
+        input.focus();
+      }
+    }
+
+    btn.addEventListener('click', doUnlock);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doUnlock();
+    });
+
+    overlay.append(title, input, btn, error);
+    document.documentElement.appendChild(overlay);
+    input.focus();
+  }
+
+  async function handleIconClick(typeId) {
     if (!typeId) {
       SS.Panel.close();
+      return;
+    }
+    var unlocked = await checkUnlocked();
+    if (!unlocked) {
+      showLockOverlay(typeId);
       return;
     }
     var noteType = findNoteType(typeId);
@@ -43,10 +103,13 @@
     var nt = findNoteType(noteTypeId);
     if (!nt || !text) return;
     var key = nt.getKey(location);
+    var C = window.StickySites.Crypto;
 
     if (nt.storagePattern === 'structured') {
       var stored = await chrome.storage.local.get(nt.storageKey);
-      var map = stored?.[nt.storageKey] || {};
+      var rawMap = stored?.[nt.storageKey] || {};
+      if (C && C.isEncrypted(rawMap)) rawMap = await C.decryptValue(rawMap);
+      var map = rawMap;
       var record = map[key];
       var items = (record && Array.isArray(record.items)) ? record.items : [];
       var newId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -63,16 +126,26 @@
         createdAt: (record && record.createdAt) || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
-      await chrome.storage.local.set({ [nt.storageKey]: map });
+      var mapToStore = map;
+      if (C && await C.isEnabled() && await C.getCachedKey()) {
+        mapToStore = await C.encryptValue(map);
+      }
+      await chrome.storage.local.set({ [nt.storageKey]: mapToStore });
     } else {
       var stored = await chrome.storage.local.get(nt.storageKey);
       var raw = stored?.[nt.storageKey];
+      if (raw && C && C.isEncrypted(raw)) raw = await C.decryptValue(raw);
       var htmlSnippet = '<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
 
       if (nt.storagePattern === 'single') {
         var body = (raw && raw.body) || '';
         var newBody = body ? body + '<p><br></p>' + htmlSnippet : htmlSnippet;
-        await chrome.storage.local.set({ [nt.storageKey]: { body: newBody, updatedAt: new Date().toISOString() } });
+        var record = { body: newBody, updatedAt: new Date().toISOString() };
+        var toStore = record;
+        if (C && await C.isEnabled() && await C.getCachedKey()) {
+          toStore = await C.encryptValue(record);
+        }
+        await chrome.storage.local.set({ [nt.storageKey]: toStore });
       } else {
         var map = raw || {};
         var record = map[key];
@@ -86,7 +159,11 @@
           createdAt: (record && record.createdAt) || new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        await chrome.storage.local.set({ [nt.storageKey]: map });
+        var mapToStore = map;
+        if (C && await C.isEnabled() && await C.getCachedKey()) {
+          mapToStore = await C.encryptValue(map);
+        }
+        await chrome.storage.local.set({ [nt.storageKey]: mapToStore });
       }
     }
     showToast('Added to ' + nt.label + ' ✓');

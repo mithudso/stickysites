@@ -70,6 +70,9 @@ window.StickySites = window.StickySites || {};
       try {
         var stored = await chrome.storage.local.get(noteType.storageKey);
         var raw = stored?.[noteType.storageKey];
+        if (raw && window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(raw)) {
+          raw = await window.StickySites.Crypto.decryptValue(raw);
+        }
         if (noteType.storagePattern === 'single') {
           return { body: String(raw?.body ?? ''), tags: [], updatedAt: String(raw?.updatedAt ?? '') };
         }
@@ -99,11 +102,19 @@ window.StickySites = window.StickySites || {};
       try {
         if (noteType.storagePattern === 'single') {
           var record = { body: String(body), updatedAt: now };
-          await chrome.storage.local.set({ [noteType.storageKey]: record });
+          var toStore = record;
+          if (window.StickySites.Crypto && await window.StickySites.Crypto.isEnabled() && await window.StickySites.Crypto.getCachedKey()) {
+            toStore = await window.StickySites.Crypto.encryptValue(record);
+          }
+          await chrome.storage.local.set({ [noteType.storageKey]: toStore });
           return record;
         }
         var stored = await chrome.storage.local.get(noteType.storageKey);
-        var map = stored?.[noteType.storageKey] || {};
+        var rawMap = stored?.[noteType.storageKey] || {};
+        if (window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(rawMap)) {
+          rawMap = await window.StickySites.Crypto.decryptValue(rawMap);
+        }
+        var map = rawMap;
         var existing = map[key];
         map[key] = {
           key: key,
@@ -113,7 +124,11 @@ window.StickySites = window.StickySites || {};
           createdAt: existing?.createdAt || now,
           updatedAt: now
         };
-        await chrome.storage.local.set({ [noteType.storageKey]: map });
+        var mapToStore = map;
+        if (window.StickySites.Crypto && await window.StickySites.Crypto.isEnabled() && await window.StickySites.Crypto.getCachedKey()) {
+          mapToStore = await window.StickySites.Crypto.encryptValue(map);
+        }
+        await chrome.storage.local.set({ [noteType.storageKey]: mapToStore });
         return map[key];
       } catch { return null; }
     },
@@ -123,7 +138,11 @@ window.StickySites = window.StickySites || {};
       var now = new Date().toISOString();
       try {
         var stored = await chrome.storage.local.get(noteType.storageKey);
-        var map = stored?.[noteType.storageKey] || {};
+        var rawMap = stored?.[noteType.storageKey] || {};
+        if (window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(rawMap)) {
+          rawMap = await window.StickySites.Crypto.decryptValue(rawMap);
+        }
+        var map = rawMap;
         var existing = map[key];
         map[key] = {
           siteKey: key,
@@ -131,7 +150,11 @@ window.StickySites = window.StickySites || {};
           createdAt: existing?.createdAt || now,
           updatedAt: now
         };
-        await chrome.storage.local.set({ [noteType.storageKey]: map });
+        var mapToStore = map;
+        if (window.StickySites.Crypto && await window.StickySites.Crypto.isEnabled() && await window.StickySites.Crypto.getCachedKey()) {
+          mapToStore = await window.StickySites.Crypto.encryptValue(map);
+        }
+        await chrome.storage.local.set({ [noteType.storageKey]: mapToStore });
         return map[key];
       } catch { return null; }
     },
