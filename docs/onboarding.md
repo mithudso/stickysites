@@ -16,7 +16,7 @@ npm install
 npm test
 ```
 
-Expected: 42 tests pass across 2 test files.
+Expected: 48 tests pass across 2 test files.
 
 ## 3. Load the extension
 
@@ -28,7 +28,7 @@ Expected: 42 tests pass across 2 test files.
 ## 4. Verify it works
 
 - Visit any webpage
-- You should see a floating pill with 5 colored circles (top-right corner)
+- You should see a floating pill with 6 colored circles (top-right corner)
 - Click any circle to open the note workspace panel
 - Click the toolbar icon to open the all-notes popup
 

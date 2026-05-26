@@ -17,7 +17,7 @@ encryption and optional Google Drive sync. There are no external servers or anal
     +-- Service Worker (background, type: module)
     |     Context menus, keyboard commands, Drive sync orchestration
     |
-    +-- Content Scripts (per tab, 7 files loaded in order)
+    +-- Content Scripts (per tab, 8 files loaded in order)
     |     Floating cluster pill + slide-in panel UI
     |     Reads/writes notes via chrome.storage.local
     |     Encryption/decryption via WebCrypto API
@@ -41,7 +41,7 @@ when the user has explicitly signed in to Drive sync.
    initializes the cluster (floating pill) and panel UI.
 
 2. **Open note** — User clicks a note-type icon in the cluster (or presses a digit key
-   1–5, or uses the chord key `a`). `sticky-inject.js` calls `SS.Panel.open(noteType)`.
+   1–6, or uses the chord key `a`). `sticky-inject.js` calls `SS.Panel.open(noteType)`.
    If encryption is enabled and the session key is not cached, a lock overlay is shown
    instead.
 
@@ -82,8 +82,9 @@ attach themselves to the `window.StickySites` namespace in a defined load order:
 | 3 | `note-types.js` | `window.StickySites.noteTypes` |
 | 4 | `prefs.js` | `window.StickySites.Prefs` |
 | 5 | `cluster.js` | `window.StickySites.Cluster` |
-| 6 | `panel.js` | `window.StickySites.Panel` |
-| 7 | `sticky-inject.js` | (orchestrator — consumes all of the above) |
+| 6 | `mentions.js` | `window.StickySites.Mentions` |
+| 7 | `panel.js` | `window.StickySites.Panel` |
+| 8 | `sticky-inject.js` | (orchestrator — consumes all of the above) |
 
 The service worker and popup use ES modules (`import`/`export`) and can reference the
 shared modules in `src/shared/` directly.
@@ -100,6 +101,7 @@ values are replaced with `{ iv: base64, data: base64 }` envelopes.
 | `stickysites_pages_v1` | `{ [origin+path]: PageNote }` | Map keyed by `origin + pathname` |
 | `stickysites_todos_v1` | `{ [domain]: TodoRecord }` | Map keyed by hostname |
 | `stickysites_outlines_v1` | `{ [domain]: OutlineRecord }` | Map keyed by hostname |
+| `stickysites_daily_v1` | `{ [YYYY-MM-DD]: DailyNote }` | Map keyed by date string |
 | `stickysites_prefs_v1` | `{ clusterPosition: { x, y }, panelMode: string }` | User preferences |
 | `stickysites_crypto_v1` | `{ enabled: bool, salt: base64, verify: envelope }` | Encryption config |
 | `stickysites_sync_meta` | `{ signedIn: bool, lastSync: ISO8601, perKey: { [key]: SyncKeyMeta } }` | Drive sync state |
@@ -125,7 +127,6 @@ values are replaced with `{ iv: base64, data: base64 }` envelopes.
 | `storage` | Read/write `chrome.storage.local` and `chrome.storage.session` |
 | `activeTab` | Send messages to the current tab |
 | `contextMenus` | Register the "StickySites" right-click submenu |
-| `session` | Access `chrome.storage.session` for encryption key caching |
 | `identity` | Google OAuth token acquisition for Drive sync |
 
 ## Design decisions

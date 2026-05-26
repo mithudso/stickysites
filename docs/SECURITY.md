@@ -26,7 +26,6 @@ optionally syncs notes to Google Drive.
 | `storage` | Note persistence in `chrome.storage.local`; session key in `chrome.storage.session` | Yes |
 | `activeTab` | Send messages to the currently active tab | Yes — does not grant broad host access |
 | `contextMenus` | Register the "StickySites" right-click submenu | Yes |
-| `session` | Access `chrome.storage.session` for encryption key caching | Yes — session storage is cleared on browser close |
 | `identity` | Google OAuth token for Drive sync | Yes — limited to `drive.appdata` scope (app-private folder only) |
 
 No `tabs`, `webRequest`, `cookies`, `history`, or broad host permissions are requested.
@@ -70,7 +69,7 @@ Encryption is opt-in and requires the user to set a passphrase.
 
 ### Caveats
 
-- Encryption covers only the five note storage keys. Prefs and sync metadata are not
+- Encryption covers only the six note storage keys. Prefs and sync metadata are not
   encrypted.
 - PBKDF2 at 600 K iterations can take 1–3 seconds on low-end devices.
 - Conflict copies created by Drive sync (`_conflict_<timestamp>` keys) are stored
