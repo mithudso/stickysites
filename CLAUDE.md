@@ -84,9 +84,9 @@ Plus in `chrome.storage.local`:
 stickysites_sync_meta     # { lastSync, signedIn, perKey: { [key]: { lastSyncedAt, driveFileId } } }
 ```
 
-Plus in `chrome.storage.session` (cleared on browser close):
+Also in `chrome.storage.local`:
 ```
-stickysites_session_key   # JWK export of the cached AES-GCM key
+stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until manually locked)
 ```
 
 ### Permissions
@@ -96,8 +96,9 @@ stickysites_session_key   # JWK export of the cached AES-GCM key
 - Enabled from the popup Settings panel.
 - On enable: generates a random 16-byte salt, derives an AES-GCM 256-bit key via PBKDF2
   (600,000 iterations, SHA-256), encrypts a verify string, then re-encrypts all 6 note keys.
-- The derived key is exported as JWK and cached in `chrome.storage.session` for the browser
-  session. Content scripts read it back via `StickySites.Crypto.getCachedKey()`.
+- The derived key is exported as JWK and cached in `chrome.storage.local` as
+  `stickysites_cached_key`. It persists until manually locked via the popup "Lock Now"
+  button or by calling `StickySites.Crypto.clearCachedKey()`.
 - Encrypted values are stored as `{ iv: string, data: string }`. `isEncrypted()` detects this
   shape (must not have `body`, `items`, or `siteKey` keys).
 - The lock overlay appears in-page if the cluster is opened while locked.

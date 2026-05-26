@@ -74,18 +74,17 @@ window.StickySites = window.StickySites || {};
       return stored?.[CRYPTO_CONFIG_KEY] || null;
     },
 
-    // Cache the key as an exported JWK in chrome.storage.session
     cacheKey: async function (key) {
       var jwk = await crypto.subtle.exportKey('jwk', key);
-      await chrome.storage.session.set({ stickysites_session_key: jwk });
+      await chrome.storage.local.set({ stickysites_cached_key: jwk });
       this._cachedKey = key;
     },
 
     getCachedKey: async function () {
       if (this._cachedKey) return this._cachedKey;
       try {
-        var stored = await chrome.storage.session.get('stickysites_session_key');
-        var jwk = stored?.stickysites_session_key;
+        var stored = await chrome.storage.local.get('stickysites_cached_key');
+        var jwk = stored?.stickysites_cached_key;
         if (!jwk) return null;
         var key = await crypto.subtle.importKey('jwk', jwk, { name: ALGO }, true, ['encrypt', 'decrypt']);
         this._cachedKey = key;
@@ -95,7 +94,7 @@ window.StickySites = window.StickySites || {};
 
     clearCachedKey: async function () {
       this._cachedKey = null;
-      try { await chrome.storage.session.remove('stickysites_session_key'); } catch {}
+      try { await chrome.storage.local.remove('stickysites_cached_key'); } catch {}
     },
 
     // Setup: enable encryption with a new passphrase

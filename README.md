@@ -1,99 +1,96 @@
 # StickySites
 
-Sticky notes for every website. A Chrome Extension (v1.7.0) with five note types, a floating
-draggable icon cluster, a rich-text workspace panel, full-text search, markdown export,
-AES-256-GCM encryption at rest, and Google Drive sync.
+Sticky notes for every website. A Chrome Extension (v1.8.0) with six note types, a floating
+draggable icon cluster, a rich-text workspace panel with @-mention autocomplete, AES-256-GCM
+encryption at rest, and Google Drive sync.
 
 ## Note types
 
-| Color | Scope | Description |
-|-------|-------|-------------|
-| **Yellow** | Global | One shared note visible on every site |
-| **Green** | Site / Domain | One note per domain |
-| **Blue** | Page / URL | One note per exact URL |
-| **Purple** | To-do list | Checkbox task list, per-page or global |
-| **Orange** | Outliner | Hierarchical bullet outline |
+| Color      | Type        | Scope                     |
+|------------|-------------|---------------------------|
+| Yellow     | Global      | One shared note, visible on every site |
+| Green      | Site        | One note per domain |
+| Blue       | Page        | One note per exact URL path |
+| Purple     | To-do list  | Checkbox task list per site |
+| Orange     | Outliner    | Hierarchical bullet outline per site |
+| Red        | Daily       | One note per calendar date (YYYY-MM-DD) |
 
 ## Features
 
-- **Floating icon cluster** — draggable button cluster on every page; Alt+S toggles it; keys 1–5
-  open the corresponding note type
-- **Workspace panel** — rich text editor with bold, italic, headings, ordered/unordered lists,
-  and inline `#tags`
-- **Browser action popup** — all-notes view with full-text search, sort, and filter by type or tag
-- **Right-click context menu** — clip highlighted text directly into any note type
-- **Keyboard shortcuts** — Alt+S toggles the cluster; while the cluster is focused, 1–5 opens
-  the matching note type
-- **Markdown export** — export a single note or all notes as `.md` files
-- **Encryption at rest** — opt-in AES-256-GCM encryption stored in Chrome local storage
-- **Google Drive sync** — OAuth-based auto-sync; see [setup instructions](#google-drive-setup)
-- **Auto-save** — notes save after 500 ms of inactivity and sync across tabs in real time
+### Floating icon cluster
+- Draggable pill with one icon per note type, anchored to a saved position
+- Drag-to-reorder icons within the cluster
+- Toggle between horizontal and vertical layout
+- **Alt+S** toggles visibility; keys **1**--**5** open note types; **A** cycles through all six
+- Number badges appear on icons for 3 seconds after the cluster appears
 
-## Install
+### Workspace panel
+- Moveable (drag header) and resizable (drag bottom-right handle)
+- Expand/shrink toggle and popout button
+- Rich text editor with a 19-tool formatting toolbar across two rows:
+  - **Row 1:** Bold, Italic, Underline, Strikethrough, H1, H2, H3, Unordered list,
+    Ordered list, Checkbox, Align left, Align center, Align right, HR, Indent, Outdent
+  - **Row 2:** Font family (5 options), Font size (4 sizes), Text color picker
+- Inline `#tags` for organizing notes
+- Auto-save after 500 ms of inactivity
 
-1. Clone this repo
+### @-mention autocomplete
+- Type `@` in the editor to trigger an autocomplete dropdown
+- Four categories: Link (paste URL, current page URL), Date (today, tomorrow, this week,
+  pick date), Contact (name, email), File (file reference)
+- Dropdown filters as you type and positions itself near the caret
+
+### Context menus
+- Right-click selected text to clip it into any of the six note types via the
+  **StickySites** context menu
+
+### Popup dashboard
+- Browser action popup with full-text search across all notes
+- Sort by Recent, Oldest, or A--Z
+- Filter by note type or by active tag
+- Export a single note or all notes as markdown
+- Settings panel for encryption and Drive sync
+
+### Encryption at rest
+- Opt-in AES-256-GCM encryption enabled from the popup Settings panel
+- Passphrase-derived key via PBKDF2 (600,000 iterations, SHA-256)
+- Derived key cached in `chrome.storage.session` for the browser session
+- Lock overlay appears in-page when notes are locked
+
+### Google Drive sync
+- OAuth via `chrome.identity.getAuthToken` with `drive.appdata` scope
+- Auto-sync 30 seconds after any storage change (debounced)
+- Manual sync, sign-in, and sign-out from the popup
+- Conflict resolution: newest `updatedAt` wins; the loser is saved as a conflict backup
+
+## Quick start
+
+1. Clone this repository
 2. Open `chrome://extensions` and enable **Developer mode**
-3. Click **Load unpacked** and select this directory
+3. Click **Load unpacked** and select the repo root
+4. Click the StickySites toolbar icon or press **Alt+S** on any page
 
-See [docs/INSTALLATION.md](docs/INSTALLATION.md) for full instructions including update and
-uninstall steps.
-
-## Usage
-
-### Opening notes
-
-- The floating icon cluster appears on the right edge of every page
-- Click any colored icon to open that note type, or use **Alt+S** to toggle the cluster, then
-  press **1–5** to open a note
-- Click the extension toolbar icon to open the all-notes popup
-
-### Writing notes
-
-- Type in the workspace panel; changes auto-save after 500 ms
-- Use the toolbar for **bold**, *italic*, headings, and lists
-- Add `#tags` inline to organise notes
-
-### Clipping text
-
-- Select any text on a page, right-click, and choose **Add to StickySites** to send it to a
-  note type of your choice
-
-### Searching and filtering
-
-- Click the toolbar icon to open the popup
-- Search across all notes with the search bar
-- Filter by note type (Yellow / Green / Blue / Purple / Orange) or by tag
-- Sort by date created, date modified, or alphabetically
-
-### Exporting
-
-- Open a note, then use the **Export** button to download it as a `.md` file
-- Use **Export All** in the popup to bulk-download all notes as a zip of markdown files
-
-### Encryption
-
-- Open the extension options page and enable **Encrypt notes at rest**
-- Notes are encrypted with AES-256-GCM before being written to Chrome Storage
-- You will be prompted to set (and confirm) a passphrase; the passphrase is never stored
-
-## Google Drive setup
-
-1. Open the extension options page (`chrome://extensions` → Details → Extension options)
-2. Click **Connect Google Drive** and complete the OAuth flow
-3. Choose a sync frequency (on-change, every 15 min, hourly, or manual)
-4. Notes are stored as JSON in a `StickySites/` folder in your Drive
-5. To disconnect, click **Disconnect** on the options page; local notes are not deleted
+For Drive sync, the `oauth2.client_id` in `manifest.json` must be registered in Google Cloud
+Console with the extension's ID as an allowed origin. See
+[docs/INSTALLATION.md](docs/INSTALLATION.md) for full setup details.
 
 ## Development
 
 ```bash
 npm install          # install dev dependencies (vitest)
-npm test             # run unit tests
-npm run test:watch   # tests in watch mode
+npm test             # run unit tests (single pass)
+npm run test:watch   # run tests in watch mode
 ```
 
-See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for debugging tips, conventions, and packaging
-instructions.
+Tests run in a Node environment and mock Chrome APIs where needed. Requires Node >= 22.
+
+## Tech stack
+
+- Chrome Extension Manifest V3
+- Vanilla JavaScript -- no frameworks, no transpilers, no build step
+- Web Crypto API (AES-256-GCM) for encryption
+- Google Drive REST API + Chrome Identity API for sync
+- Vitest for unit testing
 
 ## Documentation
 
@@ -106,16 +103,7 @@ instructions.
 | [Installation](docs/INSTALLATION.md) | Install, update, and uninstall |
 | [Security](docs/SECURITY.md) | Threat model, permissions audit, encryption details |
 | [Testing](docs/TESTING.md) | Test framework, mocking, coverage priorities |
-| [Known Issues](docs/known-issues.md) | Bugs and limitations |
-
-## Tech stack
-
-- Chrome Extension Manifest V3
-- Vanilla JavaScript (no frameworks, no build step)
-- Vanilla CSS with Tailwind-inspired Slate palette
-- Vitest for unit testing
-- Web Crypto API (AES-256-GCM) for encryption at rest
-- Google Drive REST API + Chrome Identity API for sync
+| [Known issues](docs/known-issues.md) | Bugs and limitations |
 
 ## License
 

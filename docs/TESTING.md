@@ -15,11 +15,11 @@ npm run test:watch  # watch mode with HMR
 
 ```
 tests/
-  notes-storage.test.js   — 37 tests for the shared storage module
+  notes-storage.test.js   — 43 tests for the shared storage module
   crypto.test.js          — 5 tests for the shared crypto module
 ```
 
-Total: **42 tests** across 2 files.
+Total: **48 tests** across 2 files.
 
 ## `tests/notes-storage.test.js`
 
@@ -39,6 +39,7 @@ implemented as an in-memory `store` object. Each `describe` block calls `beforeE
 | `preferences` | 3 | default values, write + read back, partial merge |
 | `todo` | 5 | null on miss, write + read round-trip, `createdAt` preservation, delete, read-all |
 | `outline` | 5 | null on miss, write + read round-trip, `createdAt` preservation, delete, read-all |
+| `daily note` | 6 | getDailyKey format, null on miss, write + read round-trip, `createdAt` preservation, delete, read-all |
 
 ### Chrome API mocking
 

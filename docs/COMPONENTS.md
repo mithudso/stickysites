@@ -5,14 +5,14 @@
 Background script running as an ES module. Handles three responsibilities:
 
 **Context menus**: On `onInstalled`, creates a "StickySites" parent menu item (shown on
-text selection) with five children: Add to Global note, Site note, Page note, To-do list,
-Outline. On click, sends `STICKYSITES_CLIP` to the active tab.
+text selection) with six children: Add to Global note, Site note, Page note, To-do list,
+Outline, Daily note. On click, sends `STICKYSITES_CLIP` to the active tab.
 
 **Keyboard commands**: Listens for the `toggle-cluster` command (`Alt+S`) and sends
 `STICKYSITES_TOGGLE` to the active tab.
 
 **Drive sync orchestration**: Watches `chrome.storage.local` for changes to any of the
-five note keys. Debounces 30 seconds, then calls `doSync()`. Also handles
+six note keys. Debounces 30 seconds, then calls `doSync()`. Also handles
 `STICKYSITES_SYNC_NOW`, `STICKYSITES_SYNC_SIGNIN`, and `STICKYSITES_SYNC_SIGNOUT` messages
 from the popup/content scripts.
 
@@ -63,7 +63,7 @@ All actual sync logic lives in the service worker.
 
 ## `src/content/note-types.js` — 74 lines
 
-Attaches `window.StickySites.noteTypes` — an array of 5 note type descriptor objects.
+Attaches `window.StickySites.noteTypes` — an array of 6 note type descriptor objects.
 Each descriptor defines the type's identity, color, storage key, storage pattern, and
 key/label/placeholder accessor functions.
 
@@ -74,6 +74,7 @@ key/label/placeholder accessor functions.
 | `page` | blue | `stickysites_pages_v1` | `map` |
 | `todo` | purple | `stickysites_todos_v1` | `structured` |
 | `outline` | orange | `stickysites_outlines_v1` | `structured` |
+| `daily` | red | `stickysites_daily_v1` | `map` |
 
 **storagePattern values**:
 - `single` — storage value is one record (`{ body, updatedAt }`)
@@ -110,6 +111,16 @@ Drag is distinguished from click by a 3-pixel movement threshold.
 currently active button deactivates it and closes the panel.
 
 **Toggle**: `toggle()` adds/removes `is-hidden` on the cluster element and closes the panel.
+
+---
+
+## `src/content/mentions.js`
+
+Attaches `window.StickySites.Mentions`. Provides @-mention autocomplete for the rich text
+editor. Typing `@` in a `contenteditable` note body opens a dropdown with categorized
+mention items: Link (paste URL, current page URL), Date (today, tomorrow, this week, pick
+date), Contact (name, email), and File (file reference). Selecting an item inserts formatted
+text at the cursor position.
 
 ---
 
@@ -153,9 +164,9 @@ if `#stickysites-cluster` already exists.
 - **Toast notifications**: Lightweight `#stickysites-toast` element for clip confirmations.
 - **Clip handler** (`clipToNote`): Receives `STICKYSITES_CLIP` messages, appends the
   selected text to the target note type (respecting encryption), and shows a toast.
-- **Number badges** (`showBadges`): Shows 1–5 number badges on cluster icons for 3 seconds
+- **Number badges** (`showBadges`): Shows 1–6 number badges on cluster icons for 3 seconds
   when the cluster becomes visible.
-- **Chord hotkeys**: Digit keys `1`–`5` open the corresponding note type. Key `a` cycles
+- **Chord hotkeys**: Digit keys `1`–`6` open the corresponding note type. Key `a` cycles
   through note types sequentially. Hotkeys are suppressed when focus is in an input field.
 - **Message listener**: Handles `STICKYSITES_TOGGLE`, `STICKYSITES_OPEN`, `STICKYSITES_CLIP`.
 - **Storage change listener**: Forwards `chrome.storage.onChanged` events to `SS.Panel.syncFromStorage`.
@@ -232,7 +243,7 @@ only by the service worker.
 | `createFile(token, name, content)` | Creates a new file in `appDataFolder` |
 | `updateFile(token, fileId, content)` | Updates an existing file (media upload) |
 | `getSyncMeta()` / `setSyncMeta(meta)` | Read/write `stickysites_sync_meta` |
-| `NOTE_KEYS` | Array of the 5 note storage keys watched for sync |
+| `NOTE_KEYS` | Array of the 6 note storage keys watched for sync |
 | `SYNC_META_KEY` | The sync meta storage key string |
 
 ---
@@ -242,7 +253,7 @@ only by the service worker.
 A separate extension page (not injected into host pages). Opened via the toolbar icon
 `default_popup`.
 
-**All-notes view**: Shows every note across all 5 types in a unified list. Supports:
+**All-notes view**: Shows every note across all 6 types in a unified list. Supports:
 - Text search across note bodies
 - Sort by updated date (newest/oldest) or by site key alphabetically
 - Filter by note type

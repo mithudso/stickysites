@@ -1,6 +1,10 @@
 ## What changed
 
-<!-- Describe what you changed and why. -->
+<!-- Describe what you changed. -->
+
+## Why
+
+<!-- Why is this change needed? Link to an issue if applicable. -->
 
 ## How to test
 
