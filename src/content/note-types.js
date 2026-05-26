@@ -42,5 +42,33 @@ window.StickySites.noteTypes = [
     getKey: function (loc) { return loc.origin + loc.pathname; },
     getLabel: function (loc) { return 'Page note — ' + loc.pathname; },
     getPlaceholder: function () { return 'Notes for this page only.'; }
+  },
+  {
+    id: 'todo',
+    color: '#a78bfa',
+    tint: 'rgba(167,139,250,0.15)',
+    tintText: '#c4b5fd',
+    label: 'To-do list',
+    emoji: '✓',
+    cssClass: 'is-purple',
+    storageKey: 'stickysites_todos_v1',
+    storagePattern: 'structured',
+    getKey: function (loc) { return loc.hostname.replace(/^www\./, ''); },
+    getLabel: function (loc) { return 'To-do — ' + loc.hostname.replace(/^www\./, ''); },
+    getPlaceholder: function () { return 'Add tasks for this site.'; }
+  },
+  {
+    id: 'outline',
+    color: '#fb923c',
+    tint: 'rgba(251,146,60,0.15)',
+    tintText: '#fdba74',
+    label: 'Outliner',
+    emoji: '≡',
+    cssClass: 'is-orange',
+    storageKey: 'stickysites_outlines_v1',
+    storagePattern: 'structured',
+    getKey: function (loc) { return loc.hostname.replace(/^www\./, ''); },
+    getLabel: function (loc) { return 'Outline — ' + loc.hostname.replace(/^www\./, ''); },
+    getPlaceholder: function () { return 'Organize your thoughts for this site.'; }
   }
 ];

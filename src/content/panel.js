@@ -73,6 +73,15 @@ window.StickySites = window.StickySites || {};
         if (noteType.storagePattern === 'single') {
           return { body: String(raw?.body ?? ''), tags: [], updatedAt: String(raw?.updatedAt ?? '') };
         }
+        if (noteType.storagePattern === 'structured') {
+          var map = raw || {};
+          var record = map[key];
+          if (!record) return null;
+          return {
+            items: Array.isArray(record.items) ? record.items : [],
+            updatedAt: String(record.updatedAt ?? '')
+          };
+        }
         var map = raw || {};
         var record = map[key];
         if (!record) return null;
@@ -101,6 +110,24 @@ window.StickySites = window.StickySites || {};
           label: noteType.getLabel(location),
           body: String(body),
           tags: Array.isArray(tags) ? tags : [],
+          createdAt: existing?.createdAt || now,
+          updatedAt: now
+        };
+        await chrome.storage.local.set({ [noteType.storageKey]: map });
+        return map[key];
+      } catch { return null; }
+    },
+
+    _writeStructured: async function (noteType, items) {
+      var key = noteType.getKey(location);
+      var now = new Date().toISOString();
+      try {
+        var stored = await chrome.storage.local.get(noteType.storageKey);
+        var map = stored?.[noteType.storageKey] || {};
+        var existing = map[key];
+        map[key] = {
+          siteKey: key,
+          items: Array.isArray(items) ? items : [],
           createdAt: existing?.createdAt || now,
           updatedAt: now
         };
@@ -225,6 +252,12 @@ window.StickySites = window.StickySites || {};
     _render: function (noteType, note) {
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
       var self = this;
+
+      if (noteType.storagePattern === 'structured') {
+        if (noteType.id === 'todo') { this._renderTodo(noteType, note); return; }
+        if (noteType.id === 'outline') { this._renderOutline(noteType, note); return; }
+      }
+
       var body = note?.body ?? '';
       var tags = note?.tags ?? [];
       var updatedAt = note?.updatedAt ?? '';
@@ -327,9 +360,395 @@ window.StickySites = window.StickySites || {};
       this.el.append(header, actions, toolbar, editor, footer);
     },
 
+    _renderTodo: function (noteType, note) {
+      while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
+      var self = this;
+      var items = (note && note.items) ? note.items.slice() : [];
+      var updatedAt = (note && note.updatedAt) || '';
+
+      // Header (same pattern as existing)
+      var header = document.createElement('div');
+      header.className = 'stickysites-panel-header';
+      header.style.background = noteType.tint;
+      header.style.color = noteType.tintText;
+      var iconEl = document.createElement('span');
+      iconEl.className = 'stickysites-panel-icon';
+      iconEl.style.background = noteType.color;
+      iconEl.textContent = noteType.emoji;
+      var title = document.createElement('span');
+      title.className = 'stickysites-panel-title';
+      title.textContent = noteType.getLabel(location);
+      var closeBtn = document.createElement('button');
+      closeBtn.className = 'stickysites-panel-close';
+      closeBtn.textContent = '✕';
+      closeBtn.addEventListener('click', function () { if (self.onClose) self.onClose(); });
+      header.append(iconEl, title, closeBtn);
+
+      // Todo list container
+      var listEl = document.createElement('div');
+      listEl.className = 'stickysites-todo-list';
+
+      // Footer
+      var footer = document.createElement('div');
+      footer.className = 'stickysites-panel-footer';
+      var countEl = document.createElement('span');
+      countEl.className = 'stickysites-todo-count';
+      var saved = document.createElement('span');
+      saved.className = 'stickysites-panel-saved';
+      saved.textContent = formatSaved(updatedAt);
+      footer.append(countEl, saved);
+
+      function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+      function updateCount() {
+        var done = items.filter(function (i) { return i.done; }).length;
+        countEl.textContent = done + '/' + items.length + ' done';
+      }
+
+      function save() {
+        if (self._saveTimer) clearTimeout(self._saveTimer);
+        self._saveTimer = setTimeout(async function () {
+          var result = await self._writeStructured(noteType, items);
+          if (result) saved.textContent = formatSaved(result.updatedAt);
+        }, 500);
+      }
+
+      function renderItem(item, index) {
+        var row = document.createElement('div');
+        row.className = 'stickysites-todo-item' + (item.done ? ' is-done' : '');
+
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = item.done;
+        cb.className = 'stickysites-todo-checkbox';
+        cb.addEventListener('change', function () {
+          item.done = cb.checked;
+          row.classList.toggle('is-done', item.done);
+          updateCount();
+          save();
+        });
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'stickysites-todo-text';
+        input.value = item.text;
+        input.placeholder = 'New task...';
+        input.addEventListener('input', function () {
+          item.text = input.value;
+          save();
+        });
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            var newItem = { id: genId(), text: '', done: false };
+            items.splice(index + 1, 0, newItem);
+            renderList();
+            updateCount();
+            save();
+            var nextInput = listEl.children[index + 1];
+            if (nextInput) {
+              var ni = nextInput.querySelector('.stickysites-todo-text');
+              if (ni) ni.focus();
+            }
+          }
+          if (e.key === 'Backspace' && input.value === '' && items.length > 1) {
+            e.preventDefault();
+            items.splice(index, 1);
+            renderList();
+            updateCount();
+            save();
+            var prevIdx = Math.max(0, index - 1);
+            var prevInput = listEl.children[prevIdx];
+            if (prevInput) {
+              var pi = prevInput.querySelector('.stickysites-todo-text');
+              if (pi) pi.focus();
+            }
+          }
+        });
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'stickysites-todo-delete';
+        delBtn.textContent = '×';
+        delBtn.addEventListener('click', function () {
+          items.splice(index, 1);
+          renderList();
+          updateCount();
+          save();
+        });
+
+        row.append(cb, input, delBtn);
+        return row;
+      }
+
+      function renderList() {
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+        items.forEach(function (item, i) {
+          listEl.appendChild(renderItem(item, i));
+        });
+      }
+
+      // Add button
+      var addBtn = document.createElement('button');
+      addBtn.className = 'stickysites-todo-add';
+      addBtn.textContent = '+ Add task';
+      addBtn.addEventListener('click', function () {
+        items.push({ id: genId(), text: '', done: false });
+        renderList();
+        updateCount();
+        save();
+        var last = listEl.lastChild;
+        if (last) {
+          var li = last.querySelector('.stickysites-todo-text');
+          if (li) li.focus();
+        }
+      });
+
+      // Initialize with at least one empty item if empty
+      if (items.length === 0) {
+        items.push({ id: genId(), text: '', done: false });
+      }
+
+      renderList();
+      updateCount();
+
+      // If no existing note, create one
+      if (!note) {
+        self._writeStructured(noteType, items);
+      }
+
+      this.el.append(header, listEl, addBtn, footer);
+    },
+
+    _renderOutline: function (noteType, note) {
+      while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
+      var self = this;
+      var items = (note && note.items) ? JSON.parse(JSON.stringify(note.items)) : [];
+      var updatedAt = (note && note.updatedAt) || '';
+
+      // Header
+      var header = document.createElement('div');
+      header.className = 'stickysites-panel-header';
+      header.style.background = noteType.tint;
+      header.style.color = noteType.tintText;
+      var iconEl = document.createElement('span');
+      iconEl.className = 'stickysites-panel-icon';
+      iconEl.style.background = noteType.color;
+      iconEl.textContent = noteType.emoji;
+      var title = document.createElement('span');
+      title.className = 'stickysites-panel-title';
+      title.textContent = noteType.getLabel(location);
+      var closeBtn = document.createElement('button');
+      closeBtn.className = 'stickysites-panel-close';
+      closeBtn.textContent = '✕';
+      closeBtn.addEventListener('click', function () { if (self.onClose) self.onClose(); });
+      header.append(iconEl, title, closeBtn);
+
+      var listEl = document.createElement('div');
+      listEl.className = 'stickysites-outline-list';
+
+      var footer = document.createElement('div');
+      footer.className = 'stickysites-panel-footer';
+      var nodeCount = document.createElement('span');
+      var saved = document.createElement('span');
+      saved.className = 'stickysites-panel-saved';
+      saved.textContent = formatSaved(updatedAt);
+      footer.append(nodeCount, saved);
+
+      function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+      function countNodes(arr) {
+        var c = 0;
+        arr.forEach(function (n) {
+          c += 1;
+          if (n.children && n.children.length) c += countNodes(n.children);
+        });
+        return c;
+      }
+
+      function updateNodeCount() {
+        nodeCount.textContent = countNodes(items) + ' nodes';
+      }
+
+      function save() {
+        if (self._saveTimer) clearTimeout(self._saveTimer);
+        self._saveTimer = setTimeout(async function () {
+          var result = await self._writeStructured(noteType, items);
+          if (result) saved.textContent = formatSaved(result.updatedAt);
+        }, 500);
+      }
+
+      function findParent(targetId, arr, parent) {
+        for (var i = 0; i < arr.length; i++) {
+          if (arr[i].id === targetId) return { parent: parent, array: arr, index: i };
+          if (arr[i].children && arr[i].children.length) {
+            var found = findParent(targetId, arr[i].children, arr[i]);
+            if (found) return found;
+          }
+        }
+        return null;
+      }
+
+      function renderNode(node, depth) {
+        var row = document.createElement('div');
+        row.className = 'stickysites-outline-node';
+        row.style.paddingLeft = (depth * 20 + 8) + 'px';
+
+        var bullet = document.createElement('span');
+        bullet.className = 'stickysites-outline-bullet';
+        bullet.textContent = (node.children && node.children.length) ? (node.collapsed ? '▸' : '▾') : '•';
+        bullet.addEventListener('click', function () {
+          if (node.children && node.children.length) {
+            node.collapsed = !node.collapsed;
+            renderAll();
+            save();
+          }
+        });
+
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'stickysites-outline-text';
+        input.value = node.text;
+        input.placeholder = 'New item...';
+        input.addEventListener('input', function () {
+          node.text = input.value;
+          save();
+        });
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            var loc = findParent(node.id, items, null);
+            if (loc) {
+              var newNode = { id: genId(), text: '', children: [], collapsed: false };
+              loc.array.splice(loc.index + 1, 0, newNode);
+              renderAll();
+              updateNodeCount();
+              save();
+              // Focus the new node's input
+              var allInputs = listEl.querySelectorAll('.stickysites-outline-text');
+              for (var j = 0; j < allInputs.length; j++) {
+                if (allInputs[j].value === '' && allInputs[j] !== input) {
+                  allInputs[j].focus();
+                  break;
+                }
+              }
+            }
+          }
+          if (e.key === 'Tab' && !e.shiftKey) {
+            e.preventDefault();
+            // Indent: move node to be child of previous sibling
+            var loc = findParent(node.id, items, null);
+            if (loc && loc.index > 0) {
+              var prevSibling = loc.array[loc.index - 1];
+              loc.array.splice(loc.index, 1);
+              if (!prevSibling.children) prevSibling.children = [];
+              prevSibling.children.push(node);
+              prevSibling.collapsed = false;
+              renderAll();
+              save();
+              // Refocus
+              var allInputs = listEl.querySelectorAll('.stickysites-outline-text');
+              allInputs.forEach(function (inp) { if (inp.dataset.nodeId === node.id) inp.focus(); });
+            }
+          }
+          if (e.key === 'Tab' && e.shiftKey) {
+            e.preventDefault();
+            // Outdent: move node to parent's level
+            var loc = findParent(node.id, items, null);
+            if (loc && loc.parent) {
+              var parentLoc = findParent(loc.parent.id, items, null);
+              if (parentLoc) {
+                loc.array.splice(loc.index, 1);
+                parentLoc.array.splice(parentLoc.index + 1, 0, node);
+                renderAll();
+                save();
+                var allInputs = listEl.querySelectorAll('.stickysites-outline-text');
+                allInputs.forEach(function (inp) { if (inp.dataset.nodeId === node.id) inp.focus(); });
+              }
+            }
+          }
+          if (e.key === 'Backspace' && input.value === '') {
+            e.preventDefault();
+            var loc = findParent(node.id, items, null);
+            if (loc && !(items.length === 1 && !loc.parent)) {
+              // Move children to parent level
+              if (node.children && node.children.length) {
+                for (var c = node.children.length - 1; c >= 0; c--) {
+                  loc.array.splice(loc.index + 1, 0, node.children[c]);
+                }
+              }
+              loc.array.splice(loc.index, 1);
+              renderAll();
+              updateNodeCount();
+              save();
+            }
+          }
+        });
+        input.dataset.nodeId = node.id;
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'stickysites-outline-delete';
+        delBtn.textContent = '×';
+        delBtn.addEventListener('click', function () {
+          var loc = findParent(node.id, items, null);
+          if (loc) {
+            loc.array.splice(loc.index, 1);
+            renderAll();
+            updateNodeCount();
+            save();
+          }
+        });
+
+        row.append(bullet, input, delBtn);
+
+        var container = document.createElement('div');
+        container.appendChild(row);
+
+        if (!node.collapsed && node.children && node.children.length) {
+          node.children.forEach(function (child) {
+            container.appendChild(renderNode(child, depth + 1));
+          });
+        }
+
+        return container;
+      }
+
+      function renderAll() {
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+        items.forEach(function (node) {
+          listEl.appendChild(renderNode(node, 0));
+        });
+      }
+
+      var addBtn = document.createElement('button');
+      addBtn.className = 'stickysites-outline-add';
+      addBtn.textContent = '+ Add node';
+      addBtn.addEventListener('click', function () {
+        items.push({ id: genId(), text: '', children: [], collapsed: false });
+        renderAll();
+        updateNodeCount();
+        save();
+        var last = listEl.querySelectorAll('.stickysites-outline-text');
+        if (last.length) last[last.length - 1].focus();
+      });
+
+      if (items.length === 0) {
+        items.push({ id: genId(), text: '', children: [], collapsed: false });
+      }
+
+      renderAll();
+      updateNodeCount();
+
+      if (!note) {
+        self._writeStructured(noteType, items);
+      }
+
+      this.el.append(header, listEl, addBtn, footer);
+    },
+
     syncFromStorage: function (changes) {
       if (!this.activeNoteType) return;
       var nt = this.activeNoteType;
+      if (nt.storagePattern === 'structured') return;
       if (!changes[nt.storageKey]) return;
 
       var ed = this.el.querySelector('.stickysites-panel-editor');
