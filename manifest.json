@@ -41,7 +41,7 @@
     "type": "module"
   },
   "oauth2": {
-    "client_id": "PLACEHOLDER.apps.googleusercontent.com",
+    "client_id": "179769127980-h96r3fkfis05n9gj7b3bfqgqhr8b3uqq.apps.googleusercontent.com",
     "scopes": ["https://www.googleapis.com/auth/drive.appdata"]
   }
 }

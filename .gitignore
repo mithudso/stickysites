@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+*.crx
+*.pem
+*.zip
+.env
+.env.local
+dist/
+coverage/
+*.log
+.vscode/.history/
+.superpowers/
+.remember/
