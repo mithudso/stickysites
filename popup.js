@@ -167,8 +167,8 @@
         toggleBtn.textContent = 'Disabling...';
         await Crypto.disable();
         await updateToggleState();
+        await updateLockBtnState();
         toggleBtn.disabled = false;
-        // Remove passphrase form if present
         var form = panel.querySelector('.settings-passphrase-form');
         if (form) form.remove();
       } else {
@@ -185,8 +185,30 @@
       }
     });
 
-    toggleRow.append(toggleLabel, toggleBtn);
+    var lockBtn = document.createElement('button');
+    lockBtn.className = 'settings-toggle-btn';
+    lockBtn.textContent = 'Lock Now';
+    lockBtn.style.display = 'none';
+
+    async function updateLockBtnState() {
+      if (!Crypto) { lockBtn.style.display = 'none'; return; }
+      var enabled = await Crypto.isEnabled();
+      if (!enabled) { lockBtn.style.display = 'none'; return; }
+      var key = await Crypto.getCachedKey();
+      lockBtn.style.display = key ? '' : 'none';
+    }
+
+    lockBtn.addEventListener('click', async function () {
+      await Crypto.clearCachedKey();
+      lockBtn.style.display = 'none';
+      statusMsg.textContent = 'Locked. Re-enter passphrase to unlock.';
+      statusMsg.style.color = '#fbbf24';
+    });
+
+    toggleRow.append(toggleLabel, toggleBtn, lockBtn);
     section.append(sectionTitle, sectionDesc, toggleRow, statusMsg);
+
+    updateLockBtnState();
 
     // --- Sync section ---
     var settingsEl = section;
