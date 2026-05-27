@@ -72,7 +72,7 @@ stickysites/
 stickysites_global_v1     # Single note record { body, updatedAt }
 stickysites_sites_v1      # Map of hostname → { siteKey, siteLabel, body, tags, ... }
 stickysites_pages_v1      # Map of origin+path → { pageKey, pageLabel, body, tags, ... }
-stickysites_todos_v1      # Map of hostname → { siteKey, items: [...], ... }
+stickysites_todos_v1      # Global todo: { __global__: { siteKey, items: [...], ... } }
 stickysites_outlines_v1   # Map of hostname → { siteKey, items: [...], ... }
 stickysites_daily_v1      # Map of YYYY-MM-DD → { body, updatedAt }
 stickysites_prefs_v1      # { clusterPosition: {x, y}, panelMode: 'fixed' }

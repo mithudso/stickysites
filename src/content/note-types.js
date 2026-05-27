@@ -53,9 +53,9 @@ window.StickySites.noteTypes = [
     cssClass: 'is-purple',
     storageKey: 'stickysites_todos_v1',
     storagePattern: 'structured',
-    getKey: function (loc) { return loc.hostname.replace(/^www\./, ''); },
-    getLabel: function (loc) { return 'To-do — ' + loc.hostname.replace(/^www\./, ''); },
-    getPlaceholder: function () { return 'Add tasks for this site.'; }
+    getKey: function () { return '__global__'; },
+    getLabel: function () { return 'To-do list'; },
+    getPlaceholder: function () { return 'Add your to-do items.'; }
   },
   {
     id: 'outline',

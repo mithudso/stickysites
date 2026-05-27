@@ -256,15 +256,13 @@ export async function writePrefs(updates = {}) {
   } catch { return null; }
 }
 
-export async function readTodo(siteKey) {
-  if (!siteKey) return null;
+export async function readTodo() {
   try {
     const stored = await chrome.storage.local.get(TODOS_KEY);
     const map = stored?.[TODOS_KEY] || {};
-    const record = map[siteKey];
+    const record = map['__global__'];
     if (!record) return null;
     return {
-      siteKey: String(record.siteKey || siteKey),
       items: Array.isArray(record.items) ? record.items : [],
       createdAt: String(record.createdAt || ''),
       updatedAt: String(record.updatedAt || '')
@@ -272,43 +270,36 @@ export async function readTodo(siteKey) {
   } catch { return null; }
 }
 
-export async function writeTodo(siteKey, { items = [] } = {}) {
-  if (!siteKey) return null;
+export async function writeTodo({ items = [] } = {}) {
   try {
     const stored = await chrome.storage.local.get(TODOS_KEY);
     const map = stored?.[TODOS_KEY] || {};
-    const existing = map[siteKey];
+    const existing = map['__global__'];
     const record = {
-      siteKey,
+      siteKey: '__global__',
       items: Array.isArray(items) ? items : [],
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    map[siteKey] = record;
+    map['__global__'] = record;
     await chrome.storage.local.set({ [TODOS_KEY]: map });
     return record;
   } catch { return null; }
 }
 
-export async function deleteTodo(siteKey) {
+export async function deleteTodo() {
   try {
     const stored = await chrome.storage.local.get(TODOS_KEY);
     const map = stored?.[TODOS_KEY] || {};
-    delete map[siteKey];
+    delete map['__global__'];
     await chrome.storage.local.set({ [TODOS_KEY]: map });
   } catch { /* best effort */ }
 }
 
 export async function readAllTodos() {
   try {
-    const stored = await chrome.storage.local.get(TODOS_KEY);
-    const map = stored?.[TODOS_KEY] || {};
-    return Object.values(map).map(r => ({
-      siteKey: String(r.siteKey || ''),
-      items: Array.isArray(r.items) ? r.items : [],
-      createdAt: String(r.createdAt || ''),
-      updatedAt: String(r.updatedAt || '')
-    }));
+    const todo = await readTodo();
+    return todo ? [todo] : [];
   } catch { return []; }
 }
 

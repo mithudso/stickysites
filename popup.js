@@ -501,18 +501,18 @@
     });
 
     var todos = stored[TODOS_KEY] || {};
-    Object.values(todos).forEach(function (r) {
-      var items = Array.isArray(r.items) ? r.items : [];
+    var globalTodo = todos['__global__'];
+    if (globalTodo) {
+      var items = Array.isArray(globalTodo.items) ? globalTodo.items : [];
       var firstItem = items.length ? items[0].text : '';
-      var done = items.filter(function (i) { return i.done; }).length;
       var preview = items.slice(0, 4).map(function (i) { return (i.done ? '✓ ' : '☐ ') + i.text; }).join('\n');
       notes.push({
-        type: 'todo', key: String(r.siteKey || ''), label: 'To-do — ' + (r.siteKey || ''),
+        type: 'todo', key: '__global__', label: 'To-do list',
         body: firstItem + '\n' + preview, tags: [],
-        createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
+        createdAt: String(globalTodo.createdAt || ''), updatedAt: String(globalTodo.updatedAt || ''),
         borderClass: 'border-purple', sectionClass: 'is-purple', noteTypeId: 'todo'
       });
-    });
+    }
 
     var outlines = stored[OUTLINES_KEY] || {};
     Object.values(outlines).forEach(function (r) {
