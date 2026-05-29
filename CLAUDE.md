@@ -14,6 +14,9 @@ stickysites/
   popup.html               # Browser action popup
   popup.js                 # Popup: search, sort, filter, export, settings, Drive sync
   popup.css                # Popup styles
+  popout.html              # Standalone popout editor window
+  popout.js                # Popout: loads note type from URL params, opens Panel full-page
+  popout.css               # Popout overrides (panel fills window, hides expand/popout btns)
   vitest.config.js         # Vitest config (node environment)
   src/
     background/
@@ -115,12 +118,33 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 
 ### Rich text editor (panel.js)
 - Panel is moveable (drag header) and resizable (drag bottom-right handle), with
-  expand/shrink toggle and popout button (placeholder).
+  expand/shrink toggle and popout button.
 - `contenteditable` div with a 19-tool formatting toolbar (2 rows).
 - Row 1 (buttons): Bold, Italic, Underline, Strikethrough, H1, H2, H3, Unordered list,
   Ordered list, Checkbox, Align left, Align center, Align right, HR, Indent, Outdent.
 - Row 2 (dropdowns + picker): Font family (5 options), Font size (4 sizes), Text color picker.
 - Toolbar uses `document.execCommand`. Auto-save debounced at 500 ms.
+- **Find & Replace**: "🔍 Find" button in actions bar (or `Cmd/Ctrl+F`/`Cmd/Ctrl+H`).
+  Search bar with ↑/↓ navigation, match counter, Replace, and Replace All. Matches
+  highlighted as `<mark>` elements; highlights stripped before saving via `getCleanHtml()`.
+
+### Popout window
+- The ⧉ button in the panel header opens the current note in its own browser window.
+- **Drag-out-to-popout**: dragging the panel by its header until the cursor leaves the
+  browser viewport also pops the note out. Detected in `_initDrag` via a `mouseout` whose
+  `relatedTarget === null` (pointer left the window). A dashed-outline hint with the label
+  "Drag off the page to pop out" (`.stickysites-panel--will-popout`) appears once the cursor
+  is within 28 px of any edge. Disabled inside the popout window itself
+  (`location.protocol === 'chrome-extension:'`).
+- Both the ⧉ button and drag-out route through `Panel._popoutActiveNote()`, which first
+  flushes the debounced save (`Panel._flushSave`, set by the rich-text renderer and cleared
+  on every `open()`/`close()`) so the popout reads the latest content from storage.
+- Content script sends `STICKYSITES_POPOUT` message to the service worker.
+- Service worker calls `chrome.windows.create()` (1400×1100) with
+  `popout.html?type=...&key=...&label=...`.
+- `popout.html` loads the same namespace scripts (crypto, note-types, prefs, todo, mentions,
+  panel) and `popout.js` overrides `getKey()`/`getLabel()` on the note type before calling
+  `Panel.open()`. CSS overrides make the panel fill the window.
 
 ### Context menus (right-click)
 - On installed, creates a `StickySites` parent menu for `selection` contexts with 6 children:
@@ -134,7 +158,16 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
   no chord shortcut).
 - `A` cycles through all 6 note types in order.
 - Number badges appear on cluster icons for 3 seconds after the cluster becomes visible.
-- Hotkeys are suppressed when focus is in an `input`, `textarea`, or `contenteditable`.
+- Number/`A` hotkeys are suppressed when focus is in an `input`, `textarea`, or
+  `contenteditable`.
+
+### Function-key shortcuts (Ctrl/Cmd + F1–F6)
+- `Ctrl+F1` → Global, `Ctrl+F2` → Site, `Ctrl+F3` → Page, `Ctrl+F4` → Todo,
+  `Ctrl+F5` → Outline, `Ctrl+F6` → Daily. `metaKey` works too on macOS.
+- Toggle semantics: closed → open; same type open → close; different type open → switch.
+- Unlike the number-chord hotkeys, these fire **regardless of cluster visibility or input
+  focus** — they're dedicated function keys, so the user always wants them to work.
+- Respect the `enabledTypes` pref (hidden note types are no-ops).
 
 ### Cluster (cluster.js)
 - Floating draggable pill with one icon per note type, positioned from saved prefs.
@@ -149,10 +182,17 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 
 ### Popup
 - Browser action popup (`popup.html` / `popup.js` / `popup.css`).
-- Features: search bar, sort (Recent / Oldest / A–Z), type filter tabs, active tag filter,
-  export button.
+- Features: **Quick-Open row** (6 colored buttons, one per note type — opens the matching
+  note in the active tab's panel, falling back to a popout window on chrome:// pages),
+  search bar, sort (Recent / Oldest / A–Z), type filter tabs, active tag filter, export
+  button.
+- Quick-Open buttons respect the same `enabledTypes` pref used to filter the cluster.
 - Settings panel: toggle AES-256 encryption, Drive sign-in/sign-out, manual sync trigger.
 - Passphrase lock screen shown if encryption is enabled and the session key is missing.
+
+### To-do auto-focus
+- When the to-do panel opens (in-page or popout), it auto-focuses the first empty task
+  input — or creates a new one if none exists — so the user can immediately start typing.
 
 ### Conventions
 - Vanilla JS only — no frameworks, no transpilers, no bundlers.
@@ -186,6 +226,7 @@ Tests run in node environment. They mock `chrome` APIs where needed.
 | `STICKYSITES_TOGGLE`        | SW → content           | Toggle cluster visibility            |
 | `STICKYSITES_OPEN`          | SW → content           | Open a specific note type            |
 | `STICKYSITES_CLIP`          | SW → content           | Clip selected text into a note       |
+| `STICKYSITES_POPOUT`        | content → SW           | Open note in standalone popout window|
 | `STICKYSITES_SYNC_NOW`      | popup → SW             | Trigger immediate Drive sync         |
 | `STICKYSITES_SYNC_SIGNIN`   | popup → SW             | Initiate Drive OAuth sign-in + sync  |
 | `STICKYSITES_SYNC_SIGNOUT`  | popup → SW             | Revoke Drive OAuth token             |

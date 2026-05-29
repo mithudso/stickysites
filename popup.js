@@ -777,6 +777,73 @@
     });
   }
 
+  var QUICK_OPEN_TYPES = [
+    { id: 'global',  label: 'Global',  emoji: '\u{1F4DD}', cssClass: 'is-yellow' },
+    { id: 'site',    label: 'Site',    emoji: '\u{1F4DD}', cssClass: 'is-green' },
+    { id: 'page',    label: 'Page',    emoji: '\u{1F4DD}', cssClass: 'is-blue' },
+    { id: 'todo',    label: 'Todo',    emoji: '✓',    cssClass: 'is-purple' },
+    { id: 'outline', label: 'Outline', emoji: '≡',    cssClass: 'is-orange' },
+    { id: 'daily',   label: 'Daily',   emoji: '\u{1F4C5}', cssClass: 'is-red' }
+  ];
+
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function computePopoutTarget(typeId, tabUrl) {
+    if (typeId === 'global') return { key: '__global__', label: 'Global note' };
+    if (typeId === 'todo') return { key: '__global__', label: 'To-do list' };
+    if (typeId === 'daily') { var d = todayKey(); return { key: d, label: 'Daily — ' + d }; }
+    try {
+      var u = new URL(tabUrl);
+      var host = u.hostname.replace(/^www\./, '');
+      if (typeId === 'site') return { key: host, label: 'Site note — ' + host };
+      if (typeId === 'outline') return { key: host, label: 'Outline — ' + host };
+      if (typeId === 'page') return { key: u.origin + u.pathname, label: 'Page note — ' + u.pathname };
+    } catch { /* fall through */ }
+    return { key: '', label: '' };
+  }
+
+  async function openNoteType(typeId, tab) {
+    if (tab && tab.id && tab.url && /^https?:/.test(tab.url)) {
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'STICKYSITES_OPEN', noteTypeId: typeId });
+        window.close();
+        return;
+      } catch { /* content script not available — fall through to popout */ }
+    }
+    var target = computePopoutTarget(typeId, tab && tab.url);
+    chrome.runtime.sendMessage({
+      type: 'STICKYSITES_POPOUT',
+      noteTypeId: typeId,
+      key: target.key,
+      label: target.label
+    });
+    window.close();
+  }
+
+  function renderQuickOpen(tab, enabledTypes) {
+    var container = document.getElementById('quick-open');
+    if (!container) return;
+    while (container.firstChild) container.removeChild(container.firstChild);
+    QUICK_OPEN_TYPES.forEach(function (nt) {
+      if (enabledTypes[nt.id] === false) return;
+      var btn = document.createElement('button');
+      btn.className = 'quick-open-btn ' + nt.cssClass;
+      btn.title = 'Open ' + nt.label.toLowerCase() + ' note';
+      var emoji = document.createElement('span');
+      emoji.className = 'qo-emoji';
+      emoji.textContent = nt.emoji;
+      var label = document.createElement('span');
+      label.className = 'qo-label';
+      label.textContent = nt.label;
+      btn.append(emoji, label);
+      btn.addEventListener('click', function () { openNoteType(nt.id, tab); });
+      container.appendChild(btn);
+    });
+  }
+
   async function initPopup() {
     var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     state.currentTabUrl = (tabs[0] && tabs[0].url) || '';
@@ -788,6 +855,8 @@
     state.allNotes = state.allNotes.filter(function (n) {
       return enabledTypes[n.type] !== false; // default to enabled
     });
+
+    renderQuickOpen(tabs[0], enabledTypes);
 
     document.getElementById('search-input').addEventListener('input', function (e) {
       state.searchQuery = e.target.value;
