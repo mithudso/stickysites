@@ -37,6 +37,17 @@ window.StickySites = window.StickySites || {};
     return editorEl.textContent || editorEl.innerText || '';
   }
 
+  function getCleanHtml(editorEl) {
+    var marks = editorEl.querySelectorAll('.stickysites-search-match');
+    if (!marks.length) return editorEl.innerHTML;
+    var clone = editorEl.cloneNode(true);
+    clone.querySelectorAll('.stickysites-search-match').forEach(function (mark) {
+      while (mark.firstChild) mark.parentNode.insertBefore(mark.firstChild, mark);
+      mark.remove();
+    });
+    return clone.innerHTML;
+  }
+
   window.StickySites.Panel = {
     el: null,
     activeNoteType: null,
@@ -44,6 +55,7 @@ window.StickySites = window.StickySites || {};
     _saveTimer: null,
     _isExpanded: false,
     _normalSize: null,
+    _flushSave: null,
 
     init: function (onClose) {
       this.onClose = onClose;
@@ -57,6 +69,9 @@ window.StickySites = window.StickySites || {};
 
     open: async function (noteType) {
       this.activeNoteType = noteType;
+      // Cleared per-open so a stale save closure from a previous note type can
+      // never write to the wrong storage key; the rich-text renderer re-sets it.
+      this._flushSave = null;
       var note = await this._readNote(noteType);
       this._render(noteType, note);
       this.el.classList.add('is-open');
@@ -81,6 +96,7 @@ window.StickySites = window.StickySites || {};
     close: function () {
       this.activeNoteType = null;
       this._isExpanded = false;
+      this._flushSave = null;
       this.el.classList.remove('is-open');
       if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
@@ -94,15 +110,27 @@ window.StickySites = window.StickySites || {};
 
     _initDrag: function () {
       var self = this;
+      // The popout window loads this same panel; there is nothing to pop out of
+      // there, so the drag-out-to-popout behavior is disabled in that context.
+      var inPopout = location.protocol === 'chrome-extension:';
+      var EDGE_HINT = 28; // px from a viewport edge where the "release to pop out" hint appears
       var isDragging = false;
       var hasMoved = false;
+      var poppedOut = false;
       var startX, startY, startLeft, startTop;
+
+      function nearEdge(x, y) {
+        return x <= EDGE_HINT || y <= EDGE_HINT ||
+          x >= window.innerWidth - EDGE_HINT ||
+          y >= window.innerHeight - EDGE_HINT;
+      }
 
       self.el.addEventListener('mousedown', function (e) {
         if (!e.target.closest('.stickysites-panel-header')) return;
         if (e.target.closest('button')) return;
         isDragging = true;
         hasMoved = false;
+        poppedOut = false;
         var rect = self.el.getBoundingClientRect();
         startX = e.clientX;
         startY = e.clientY;
@@ -117,28 +145,75 @@ window.StickySites = window.StickySites || {};
         var dx = e.clientX - startX;
         var dy = e.clientY - startY;
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+        var rect = self.el.getBoundingClientRect();
         var newLeft = startLeft + dx;
         var newTop = startTop + dy;
-        var rect = self.el.getBoundingClientRect();
-        newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - rect.width));
-        newTop = Math.max(0, Math.min(newTop, window.innerHeight - rect.height));
+        if (inPopout) {
+          // Keep the panel fully on-screen inside the standalone window.
+          newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - rect.width));
+          newTop = Math.max(0, Math.min(newTop, window.innerHeight - rect.height));
+        }
         self.el.style.bottom = 'auto';
         self.el.style.right = 'auto';
         self.el.style.left = newLeft + 'px';
         self.el.style.top = newTop + 'px';
+        if (!inPopout && hasMoved) {
+          self.el.classList.toggle('stickysites-panel--will-popout', nearEdge(e.clientX, e.clientY));
+        }
+      });
+
+      // Dragging the cursor out of the viewport pops the note into its own window.
+      // relatedTarget === null on a mouseout means the pointer left the window
+      // entirely (element-to-element moves always carry a non-null relatedTarget).
+      document.addEventListener('mouseout', function (e) {
+        if (inPopout || !isDragging || poppedOut || !hasMoved) return;
+        if (e.relatedTarget !== null) return;
+        // A real window-exit lands at a viewport edge; this also filters out the
+        // null-relatedTarget mouseout fired when the cursor crosses a mid-page iframe.
+        if (!nearEdge(e.clientX, e.clientY)) return;
+        poppedOut = true;
+        isDragging = false;
+        self.el.style.cursor = '';
+        self.el.classList.remove('stickysites-panel--will-popout');
+        self._popoutActiveNote();
       });
 
       document.addEventListener('mouseup', async function () {
         if (!isDragging) return;
         isDragging = false;
         self.el.style.cursor = '';
+        self.el.classList.remove('stickysites-panel--will-popout');
+        if (poppedOut) return;
+        // Re-clamp into view in case it was pulled partway off-screen, then persist.
+        var rect = self.el.getBoundingClientRect();
+        var left = Math.max(0, Math.min(rect.left, window.innerWidth - rect.width));
+        var top = Math.max(0, Math.min(rect.top, window.innerHeight - rect.height));
+        self.el.style.left = left + 'px';
+        self.el.style.top = top + 'px';
         if (hasMoved) {
-          var rect = self.el.getBoundingClientRect();
           await window.StickySites.Prefs.write({
-            panelPosition: { x: Math.round(rect.left), y: Math.round(rect.top) }
+            panelPosition: { x: Math.round(left), y: Math.round(top) }
           });
         }
       });
+    },
+
+    _popoutActiveNote: async function () {
+      var noteType = this.activeNoteType;
+      if (!noteType) return;
+      // Flush any pending edit so the popout window reads the latest content from
+      // storage (the popout reloads the note from chrome.storage, not from the DOM).
+      if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+      if (this._flushSave) {
+        try { await this._flushSave(); } catch (e) { /* save is best-effort */ }
+      }
+      chrome.runtime.sendMessage({
+        type: 'STICKYSITES_POPOUT',
+        noteTypeId: noteType.id,
+        key: noteType.getKey(location),
+        label: noteType.getLabel(location)
+      });
+      if (this.onClose) this.onClose();
     },
 
     _initResize: function () {
@@ -450,7 +525,10 @@ window.StickySites = window.StickySites || {};
       var popoutBtn = document.createElement('button');
       popoutBtn.className = 'stickysites-panel-headerbtn';
       popoutBtn.textContent = '⧉';
-      popoutBtn.title = 'Open in window (coming soon)';
+      popoutBtn.title = 'Open in own window';
+      popoutBtn.addEventListener('click', function () {
+        self._popoutActiveNote();
+      });
 
       header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
 
@@ -470,6 +548,11 @@ window.StickySites = window.StickySites || {};
         }
       });
       actions.appendChild(copyBtn);
+
+      var searchToggleBtn = document.createElement('button');
+      searchToggleBtn.className = 'stickysites-panel-action-btn';
+      searchToggleBtn.textContent = '🔍 Find';
+      actions.appendChild(searchToggleBtn);
 
       // Build editor — content is user-authored HTML from extension-isolated chrome.storage.local only
       var editor = document.createElement('div');
@@ -505,7 +588,7 @@ window.StickySites = window.StickySites || {};
       var doSave = async function () {
         var result = await self._writeNote(
           noteType,
-          editor.innerHTML,
+          getCleanHtml(editor),
           parseTags(tagInput.value)
         );
         if (result) {
@@ -513,6 +596,10 @@ window.StickySites = window.StickySites || {};
           saved.textContent = formatSaved(result.updatedAt);
         }
       };
+
+      // Exposed so _popoutActiveNote() can flush in-flight edits before the
+      // popout window reloads this note from storage.
+      self._flushSave = doSave;
 
       var debouncedSave = function () {
         if (self._saveTimer) clearTimeout(self._saveTimer);
@@ -522,11 +609,201 @@ window.StickySites = window.StickySites || {};
       editor.addEventListener('input', debouncedSave);
       tagInput.addEventListener('input', debouncedSave);
 
+      // ── Search & Replace ──────────────────────────────────
+      var searchBar = document.createElement('div');
+      searchBar.className = 'stickysites-search-bar';
+      searchBar.style.display = 'none';
+
+      var searchRow = document.createElement('div');
+      searchRow.className = 'stickysites-search-row';
+      var searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.className = 'stickysites-search-input';
+      searchInput.placeholder = 'Find...';
+      var prevMatchBtn = document.createElement('button');
+      prevMatchBtn.className = 'stickysites-search-nav';
+      prevMatchBtn.textContent = '↑';
+      prevMatchBtn.title = 'Previous';
+      var nextMatchBtn = document.createElement('button');
+      nextMatchBtn.className = 'stickysites-search-nav';
+      nextMatchBtn.textContent = '↓';
+      nextMatchBtn.title = 'Next';
+      var matchCount = document.createElement('span');
+      matchCount.className = 'stickysites-search-count';
+      matchCount.textContent = '0/0';
+      var closeSearchBtn = document.createElement('button');
+      closeSearchBtn.className = 'stickysites-search-close';
+      closeSearchBtn.textContent = '✕';
+      searchRow.append(searchInput, prevMatchBtn, nextMatchBtn, matchCount, closeSearchBtn);
+
+      var replaceRow = document.createElement('div');
+      replaceRow.className = 'stickysites-search-row';
+      var replaceInput = document.createElement('input');
+      replaceInput.type = 'text';
+      replaceInput.className = 'stickysites-replace-input';
+      replaceInput.placeholder = 'Replace...';
+      var replaceBtn = document.createElement('button');
+      replaceBtn.className = 'stickysites-replace-btn';
+      replaceBtn.textContent = 'Replace';
+      var replaceAllBtn = document.createElement('button');
+      replaceAllBtn.className = 'stickysites-replace-all-btn';
+      replaceAllBtn.textContent = 'All';
+      replaceRow.append(replaceInput, replaceBtn, replaceAllBtn);
+      searchBar.append(searchRow, replaceRow);
+
+      var searchMatches = [];
+      var currentMatchIdx = -1;
+
+      function clearSearchHighlights() {
+        editor.querySelectorAll('.stickysites-search-match').forEach(function (mark) {
+          var parent = mark.parentNode;
+          while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+          parent.removeChild(mark);
+        });
+        editor.normalize();
+        searchMatches = [];
+        currentMatchIdx = -1;
+        matchCount.textContent = '0/0';
+      }
+
+      function runSearch() {
+        clearSearchHighlights();
+        var query = searchInput.value;
+        if (!query) return;
+        var lowerQuery = query.toLowerCase();
+        var textNodes = [];
+        var walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+        var tn;
+        while (tn = walker.nextNode()) textNodes.push(tn);
+
+        var positions = [];
+        for (var i = 0; i < textNodes.length; i++) {
+          var text = textNodes[i].textContent;
+          var lowerText = text.toLowerCase();
+          var sIdx = 0;
+          while ((sIdx = lowerText.indexOf(lowerQuery, sIdx)) !== -1) {
+            positions.push({ node: textNodes[i], offset: sIdx, length: query.length });
+            sIdx += lowerQuery.length;
+          }
+        }
+
+        for (var j = positions.length - 1; j >= 0; j--) {
+          var pos = positions[j];
+          try {
+            var range = document.createRange();
+            range.setStart(pos.node, pos.offset);
+            range.setEnd(pos.node, pos.offset + pos.length);
+            var mark = document.createElement('mark');
+            mark.className = 'stickysites-search-match';
+            range.surroundContents(mark);
+          } catch (e) { /* skip ranges that cross element boundaries */ }
+        }
+
+        searchMatches = Array.from(editor.querySelectorAll('.stickysites-search-match'));
+        if (searchMatches.length > 0) {
+          currentMatchIdx = 0;
+          searchMatches[0].classList.add('is-current');
+          searchMatches[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+        matchCount.textContent = searchMatches.length > 0 ? '1/' + searchMatches.length : '0/0';
+      }
+
+      function navigateMatch(dir) {
+        if (!searchMatches.length) return;
+        searchMatches[currentMatchIdx].classList.remove('is-current');
+        currentMatchIdx = (currentMatchIdx + dir + searchMatches.length) % searchMatches.length;
+        searchMatches[currentMatchIdx].classList.add('is-current');
+        searchMatches[currentMatchIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+        matchCount.textContent = (currentMatchIdx + 1) + '/' + searchMatches.length;
+      }
+
+      function doReplace() {
+        if (!searchMatches.length || currentMatchIdx < 0) return;
+        var mark = searchMatches[currentMatchIdx];
+        mark.textContent = replaceInput.value;
+        var parent = mark.parentNode;
+        while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+        parent.removeChild(mark);
+        parent.normalize();
+        searchMatches.splice(currentMatchIdx, 1);
+        if (searchMatches.length === 0) {
+          currentMatchIdx = -1;
+          matchCount.textContent = '0/0';
+        } else {
+          if (currentMatchIdx >= searchMatches.length) currentMatchIdx = 0;
+          searchMatches[currentMatchIdx].classList.add('is-current');
+          searchMatches[currentMatchIdx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+          matchCount.textContent = (currentMatchIdx + 1) + '/' + searchMatches.length;
+        }
+        debouncedSave();
+      }
+
+      function doReplaceAll() {
+        if (!searchMatches.length) return;
+        var replacement = replaceInput.value;
+        searchMatches.forEach(function (mark) {
+          mark.textContent = replacement;
+          var parent = mark.parentNode;
+          while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+          parent.removeChild(mark);
+        });
+        editor.normalize();
+        searchMatches = [];
+        currentMatchIdx = -1;
+        matchCount.textContent = '0/0';
+        debouncedSave();
+      }
+
+      function toggleSearchBar() {
+        if (searchBar.style.display === 'none') {
+          searchBar.style.display = '';
+          searchInput.focus();
+          var sel = window.getSelection();
+          if (sel && sel.toString().trim()) {
+            searchInput.value = sel.toString().trim();
+            runSearch();
+          }
+        } else {
+          searchBar.style.display = 'none';
+          clearSearchHighlights();
+        }
+      }
+
+      searchToggleBtn.addEventListener('click', toggleSearchBar);
+      searchInput.addEventListener('input', runSearch);
+      prevMatchBtn.addEventListener('click', function () { navigateMatch(-1); });
+      nextMatchBtn.addEventListener('click', function () { navigateMatch(1); });
+      closeSearchBtn.addEventListener('click', function () {
+        searchBar.style.display = 'none';
+        clearSearchHighlights();
+        editor.focus();
+      });
+      replaceBtn.addEventListener('click', doReplace);
+      replaceAllBtn.addEventListener('click', doReplaceAll);
+
+      searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); navigateMatch(e.shiftKey ? -1 : 1); }
+        if (e.key === 'Escape') { e.preventDefault(); searchBar.style.display = 'none'; clearSearchHighlights(); editor.focus(); }
+      });
+      replaceInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); doReplace(); }
+        if (e.key === 'Escape') { e.preventDefault(); searchBar.style.display = 'none'; clearSearchHighlights(); editor.focus(); }
+      });
+      editor.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H' || e.key === 'f' || e.key === 'F')) {
+          e.preventDefault();
+          toggleSearchBar();
+        }
+      });
+      editor.addEventListener('input', function () {
+        if (searchMatches.length > 0) clearSearchHighlights();
+      });
+
       if (!note && noteType.storagePattern === 'map') {
         this._writeNote(noteType, '', []);
       }
 
-      this.el.append(header, actions, toolbar, editor, footer);
+      this.el.append(header, actions, toolbar, searchBar, editor, footer);
 
       if (window.StickySites.Mentions) {
         window.StickySites.Mentions.attach(editor);
@@ -580,7 +857,10 @@ window.StickySites = window.StickySites || {};
       var popoutBtn = document.createElement('button');
       popoutBtn.className = 'stickysites-panel-headerbtn';
       popoutBtn.textContent = '⧉';
-      popoutBtn.title = 'Open in window (coming soon)';
+      popoutBtn.title = 'Open in own window';
+      popoutBtn.addEventListener('click', function () {
+        self._popoutActiveNote();
+      });
 
       header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
 
@@ -1398,6 +1678,15 @@ window.StickySites = window.StickySites || {};
         renderAll();
         save();
       });
+
+      // Auto-focus an empty task input so the user can start typing immediately.
+      setTimeout(function () {
+        var inputs = listEl.querySelectorAll('.stickysites-todo-text');
+        for (var fi = 0; fi < inputs.length; fi++) {
+          if (!inputs[fi].value) { inputs[fi].focus(); return; }
+        }
+        addTaskBtn.click();
+      }, 0);
     },
 
     _renderOutline: function (noteType, note) {
@@ -1436,7 +1725,10 @@ window.StickySites = window.StickySites || {};
       var popoutBtn = document.createElement('button');
       popoutBtn.className = 'stickysites-panel-headerbtn';
       popoutBtn.textContent = '⧉';
-      popoutBtn.title = 'Open in window (coming soon)';
+      popoutBtn.title = 'Open in own window';
+      popoutBtn.addEventListener('click', function () {
+        self._popoutActiveNote();
+      });
 
       header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
 

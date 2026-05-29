@@ -89,6 +89,21 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // Handle sync messages from popup/content script
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === 'STICKYSITES_POPOUT') {
+    const params = new URLSearchParams({
+      type: msg.noteTypeId || '',
+      key: msg.key || '',
+      label: msg.label || ''
+    });
+    chrome.windows.create({
+      url: chrome.runtime.getURL('popout.html') + '?' + params.toString(),
+      type: 'popup',
+      width: 1400,
+      height: 1100
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
   if (msg?.type === 'STICKYSITES_SYNC_NOW') {
     doSync().then(() => sendResponse({ ok: true })).catch(err => sendResponse({ ok: false, error: err.message }));
     return true; // async response

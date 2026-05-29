@@ -217,6 +217,35 @@
     }
   });
 
+  // Ctrl/Cmd + F1..F6 → toggle (show/hide/switch) a specific note type
+  // Works regardless of cluster visibility or host-page focus.
+  document.addEventListener('keydown', function (e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    if (!/^F[1-6]$/.test(e.key)) return;
+    var idx = parseInt(e.key.slice(1), 10) - 1;
+    if (idx < 0 || idx >= noteTypes.length) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var nt = noteTypes[idx];
+    (async function () {
+      try {
+        var stored = await chrome.storage.local.get('stickysites_prefs_v1');
+        var enabledTypes = (stored?.stickysites_prefs_v1 || {}).enabledTypes || {};
+        if (enabledTypes[nt.id] === false) return;
+      } catch { /* prefs unavailable — proceed */ }
+      // Same type already open → close (toggle off)
+      if (SS.Panel.activeNoteType && SS.Panel.activeNoteType.id === nt.id) {
+        SS.Cluster.setActive(null);
+        SS.Panel.close();
+        return;
+      }
+      // Closed or different type → ensure cluster visible then open this type
+      if (SS.Cluster.hidden) SS.Cluster.toggle();
+      SS.Cluster.setActive(nt.id);
+      handleIconClick(nt.id);
+    })();
+  });
+
   SS.Panel.init(function () {
     SS.Cluster.setActive(null);
     SS.Panel.close();

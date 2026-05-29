@@ -196,36 +196,34 @@ describe('todo', () => {
   beforeEach(() => { store = {}; });
 
   it('returns null for missing todo', async () => {
-    expect(await readTodo('example.com')).toBeNull();
+    expect(await readTodo()).toBeNull();
   });
 
   it('writes and reads back', async () => {
     const items = [{ id: '1', text: 'Buy milk', done: false }];
-    await writeTodo('example.com', { items });
-    const todo = await readTodo('example.com');
+    await writeTodo({ items });
+    const todo = await readTodo();
     expect(todo.items).toEqual(items);
-    expect(todo.siteKey).toBe('example.com');
   });
 
   it('preserves createdAt on update', async () => {
-    await writeTodo('example.com', { items: [] });
-    const first = await readTodo('example.com');
-    await writeTodo('example.com', { items: [{ id: '1', text: 'test', done: true }] });
-    const second = await readTodo('example.com');
+    await writeTodo({ items: [] });
+    const first = await readTodo();
+    await writeTodo({ items: [{ id: '1', text: 'test', done: true }] });
+    const second = await readTodo();
     expect(second.createdAt).toBe(first.createdAt);
   });
 
   it('deletes a todo', async () => {
-    await writeTodo('example.com', { items: [] });
-    await deleteTodo('example.com');
-    expect(await readTodo('example.com')).toBeNull();
+    await writeTodo({ items: [] });
+    await deleteTodo();
+    expect(await readTodo()).toBeNull();
   });
 
-  it('reads all todos', async () => {
-    await writeTodo('a.com', { items: [] });
-    await writeTodo('b.com', { items: [{ id: '1', text: 'x', done: false }] });
+  it('reads all todos returns single global todo', async () => {
+    await writeTodo({ items: [{ id: '1', text: 'x', done: false }] });
     const all = await readAllTodos();
-    expect(all).toHaveLength(2);
+    expect(all).toHaveLength(1);
   });
 });
 
