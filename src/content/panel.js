@@ -56,6 +56,9 @@ window.StickySites = window.StickySites || {};
     _isExpanded: false,
     _normalSize: null,
     _flushSave: null,
+    _activeKey: null,
+    _activeLabel: null,
+    _lastSavedBody: null,
 
     init: function (onClose) {
       this.onClose = onClose;
@@ -69,6 +72,12 @@ window.StickySites = window.StickySites || {};
 
     open: async function (noteType) {
       this.activeNoteType = noteType;
+      // Snapshot the storage key/label once per panel session. All reads and
+      // writes use the snapshot, so a save can never land under another page's
+      // key after an SPA navigation (or a daily note crossing midnight).
+      this._activeKey = noteType.getKey(location);
+      this._activeLabel = noteType.getLabel(location);
+      this._lastSavedBody = null;
       // Cleared per-open so a stale save closure from a previous note type can
       // never write to the wrong storage key; the rich-text renderer re-sets it.
       this._flushSave = null;
@@ -97,6 +106,9 @@ window.StickySites = window.StickySites || {};
       this.activeNoteType = null;
       this._isExpanded = false;
       this._flushSave = null;
+      this._activeKey = null;
+      this._activeLabel = null;
+      this._lastSavedBody = null;
       this.el.classList.remove('is-open');
       if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
@@ -203,17 +215,21 @@ window.StickySites = window.StickySites || {};
       if (!noteType) return;
       // Flush any pending edit so the popout window reads the latest content from
       // storage (the popout reloads the note from chrome.storage, not from the DOM).
+      await this.flushPendingSave();
+      chrome.runtime.sendMessage({
+        type: 'STICKYSITES_POPOUT',
+        noteTypeId: noteType.id,
+        key: this._activeKey,
+        label: this._activeLabel
+      });
+      if (this.onClose) this.onClose();
+    },
+
+    flushPendingSave: async function () {
       if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
       if (this._flushSave) {
         try { await this._flushSave(); } catch (e) { /* save is best-effort */ }
       }
-      chrome.runtime.sendMessage({
-        type: 'STICKYSITES_POPOUT',
-        noteTypeId: noteType.id,
-        key: noteType.getKey(location),
-        label: noteType.getLabel(location)
-      });
-      if (this.onClose) this.onClose();
     },
 
     _initResize: function () {
@@ -268,7 +284,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _readNote: async function (noteType) {
-      var key = noteType.getKey(location);
+      var key = this._activeKey;
       try {
         var stored = await chrome.storage.local.get(noteType.storageKey);
         var raw = stored?.[noteType.storageKey];
@@ -301,7 +317,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _writeNote: async function (noteType, body, tags) {
-      var key = noteType.getKey(location);
+      var key = this._activeKey;
       var now = new Date().toISOString();
       try {
         if (noteType.storagePattern === 'single') {
@@ -322,7 +338,7 @@ window.StickySites = window.StickySites || {};
         var existing = map[key];
         map[key] = {
           key: key,
-          label: noteType.getLabel(location),
+          label: this._activeLabel,
           body: String(body),
           tags: Array.isArray(tags) ? tags : [],
           createdAt: existing?.createdAt || now,
@@ -338,7 +354,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _writeStructured: async function (noteType, data) {
-      var key = noteType.getKey(location);
+      var key = this._activeKey;
       var now = new Date().toISOString();
       try {
         var stored = await chrome.storage.local.get(noteType.storageKey);
@@ -349,7 +365,7 @@ window.StickySites = window.StickySites || {};
         var map = rawMap;
         var existing = map[key];
         map[key] = {
-          siteKey: key,
+          key: key,
           items: Array.isArray(data.items) ? data.items : [],
           sections: Array.isArray(data.sections) ? data.sections : (existing?.sections || []),
           tagColors: (data.tagColors && typeof data.tagColors === 'object') ? data.tagColors : (existing?.tagColors || {}),
@@ -956,17 +972,20 @@ window.StickySites = window.StickySites || {};
       }
 
       // ── Helper: save (debounced 500ms) ──────────────────────
+      function saveNow() {
+        return self._writeStructured(noteType, {
+          items: items,
+          sections: sections,
+          tagColors: tagColors
+        }).then(function (result) {
+          if (result) saved.textContent = formatSaved(result.updatedAt);
+        });
+      }
       function save() {
         if (self._saveTimer) clearTimeout(self._saveTimer);
-        self._saveTimer = setTimeout(async function () {
-          var result = await self._writeStructured(noteType, {
-            items: items,
-            sections: sections,
-            tagColors: tagColors
-          });
-          if (result) saved.textContent = formatSaved(result.updatedAt);
-        }, 500);
+        self._saveTimer = setTimeout(function () { self._saveTimer = null; saveNow(); }, 500);
       }
+      self._flushSave = saveNow;
 
       // ── Helper: itemMatches ─────────────────────────────────
       function itemMatches(item) {
