@@ -481,6 +481,7 @@
 
     var sites = stored[SITES_KEY] || {};
     Object.values(sites).forEach(function (r) {
+      r = r || {};
       var sk = String(r.key || r.siteKey || '');
       notes.push({
         type: 'site', key: sk, label: 'Site note — ' + sk,
@@ -492,6 +493,7 @@
 
     var pages = stored[PAGES_KEY] || {};
     Object.values(pages).forEach(function (r) {
+      r = r || {};
       var pk = String(r.key || r.pageKey || '');
       var pathLabel = '';
       try { pathLabel = new URL(pk).pathname; } catch { pathLabel = pk; }
@@ -524,7 +526,7 @@
       var firstNode = items.length ? items[0].text : '';
       var preview = items.slice(0, 4).map(function (n) { return '• ' + n.text; }).join('\n');
       notes.push({
-        type: 'outline', key: String(r.key || k), label: 'Outline — ' + String(r.name || r.siteKey || k),
+        type: 'outline', key: String(r.key || k), label: 'Outline — ' + String(r.name || k),
         body: firstNode + '\n' + preview, tags: [],
         createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
         borderClass: 'border-orange', sectionClass: 'is-orange', noteTypeId: 'outline'

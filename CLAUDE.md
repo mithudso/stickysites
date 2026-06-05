@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step.
-Version: **1.8.0**
+Version: **1.10.0**
 
 ```
 stickysites/
@@ -27,6 +27,9 @@ stickysites/
       note-types.js        # window.StickySites.noteTypes — icon registry (6 types)
       prefs.js             # window.StickySites.Prefs — cluster position / panel mode
       cluster.js           # window.StickySites.Cluster — floating draggable pill + drag
+      todo.js              # window.StickySites.Todo — to-do list renderer
+      outline-ops.js       # window.StickySites.OutlineOps — pure outline tree ops (unit-tested)
+      outline.js           # window.StickySites.Outline — outliner UI (global named library)
       mentions.js          # window.StickySites.Mentions — @-mention autocomplete (links,
                            #   dates, contacts, files)
       panel.js             # window.StickySites.Panel — workspace panel, rich text editor,
@@ -40,6 +43,7 @@ stickysites/
   tests/
     crypto.test.js         # AES-GCM unit tests
     notes-storage.test.js  # Storage CRUD unit tests
+    outline-ops.test.js    # Outline tree-op unit tests
   docs/                    # Architecture, testing, security, components docs
   icons/                   # Extension icons (16, 48, 128 px)
   scripts/
@@ -60,6 +64,10 @@ stickysites/
 - Content script load order in `manifest.json` matters — e.g. `mentions.js` depends on
   namespace objects set up by earlier scripts.
 
+### Canonical record schema
+
+Map-pattern records (site/page/daily) store `key` + `label`. Readers must fall back to the legacy field names (`siteKey`/`pageKey`/`dateKey`, `siteLabel`/`pageLabel`) written before v1.10. Structured records (todo/outline) also store `key`.
+
 ### Note types (6)
 | ID       | Color  | Label       | Storage key                  | Pattern    |
 |----------|--------|-------------|------------------------------|------------|
@@ -70,15 +78,17 @@ stickysites/
 | outline  | orange | Outliner    | `stickysites_outlines_v1`    | structured |
 | daily    | red    | Daily note  | `stickysites_daily_v1`       | map        |
 
+The outliner is a global library of named documents — not site-keyed. Its panel resolves the active document itself (`activeOutlineId` pref); `getKey` returns `''`.
+
 ### Storage keys (8 primary)
 ```
 stickysites_global_v1     # Single note record { body, updatedAt }
-stickysites_sites_v1      # Map of hostname → { siteKey, siteLabel, body, tags, ... }
-stickysites_pages_v1      # Map of origin+path → { pageKey, pageLabel, body, tags, ... }
-stickysites_todos_v1      # Global todo: { __global__: { siteKey, items: [...], ... } }
-stickysites_outlines_v1   # Map of hostname → { siteKey, items: [...], ... }
-stickysites_daily_v1      # Map of YYYY-MM-DD → { body, updatedAt }
-stickysites_prefs_v1      # { clusterPosition: {x, y}, panelMode: 'fixed' }
+stickysites_sites_v1      # Map of hostname → { key, label, body, tags, ... }
+stickysites_pages_v1      # Map of origin+path → { key, label, body, tags, ... }
+stickysites_todos_v1      # Global todo: { __global__: { key, items: [...], ... } }
+stickysites_outlines_v1   # Map of outlineKey → { key, name, items, ... } — named outline docs (ol_<id> keys; legacy hostname keys adapt at read time)
+stickysites_daily_v1      # Map of YYYY-MM-DD → { key, body, updatedAt }
+stickysites_prefs_v1      # { clusterPosition, panelMode, clusterLayout, iconOrder, enabledTypes, panelSize, panelPosition, activeOutlineId }
 stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
 ```
 
@@ -127,6 +137,8 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 - **Find & Replace**: "🔍 Find" button in actions bar (or `Cmd/Ctrl+F`/`Cmd/Ctrl+H`).
   Search bar with ↑/↓ navigation, match counter, Replace, and Replace All. Matches
   highlighted as `<mark>` elements; highlights stripped before saving via `getCleanHtml()`.
+- The panel snapshots `_activeKey`/`_activeLabel` at `open()`; every read/write uses the snapshot, so a save can never land under a different page's key after an SPA navigation. `flushPendingSave()` commits a pending debounced edit (popout, panel close, note switch, SPA re-key).
+- `syncFromStorage` guards against clobbering the editor: self-echo (skips the body this panel just wrote), focus (never rewrites while the editor is focused — re-checked after async decryption), encryption (decrypts the envelope, skips while locked or undecryptable).
 
 ### Popout window
 - The ⧉ button in the panel header opens the current note in its own browser window.
@@ -142,7 +154,7 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 - Content script sends `STICKYSITES_POPOUT` message to the service worker.
 - Service worker calls `chrome.windows.create()` (1400×1100) with
   `popout.html?type=...&key=...&label=...`.
-- `popout.html` loads the same namespace scripts (crypto, note-types, prefs, todo, mentions,
+- `popout.html` loads the same namespace scripts (crypto, note-types, prefs, todo, outline-ops, outline, mentions,
   panel) and `popout.js` overrides `getKey()`/`getLabel()` on the note type before calling
   `Panel.open()`. CSS overrides make the panel fill the window.
 
@@ -154,12 +166,12 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 ### Chord hotkeys
 - `Alt+S` (registered as a browser command in `manifest.json`) toggles the cluster
   visibility on the active tab.
-- When the cluster is visible, number keys `1`–`5` open the first 5 note types (daily has
-  no chord shortcut).
-- `A` cycles through all 6 note types in order.
+- When the cluster is visible, number keys `1`–`5` open the first 5 note types in the VISIBLE cluster order (reorder/hide aware — matches the number badges).
+- `A` cycles through all 6 note types in the visible cluster order.
 - Number badges appear on cluster icons for 3 seconds after the cluster becomes visible.
 - Number/`A` hotkeys are suppressed when focus is in an `input`, `textarea`, or
   `contenteditable`.
+- All chord key actions route through the lock check (shows the lock overlay if encryption is enabled and no session key is cached).
 
 ### Function-key shortcuts (Ctrl/Cmd + F1–F6)
 - `Ctrl+F1` → Global, `Ctrl+F2` → Site, `Ctrl+F3` → Page, `Ctrl+F4` → Todo,
@@ -173,6 +185,7 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 - Floating draggable pill with one icon per note type, positioned from saved prefs.
 - Drag-to-reorder: long-press an icon to rearrange within the cluster.
 - Layout toggle: horizontal or vertical orientation, stored in prefs as `clusterLayout`.
+- Icons are identity-bearing: 🌐 (global), domain fragment ≤4 chars (site), trailing path segment (page), day-of-month (daily) — full value in the tooltip; refreshed on SPA navigation via `Cluster.refreshIcons()`.
 
 ### @-mention autocomplete (mentions.js)
 - Typing `@` in the rich text editor triggers an autocomplete dropdown.
@@ -193,6 +206,17 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 ### To-do auto-focus
 - When the to-do panel opens (in-page or popout), it auto-focuses the first empty task
   input — or creates a new one if none exists — so the user can immediately start typing.
+
+### Outliner (outline.js + outline-ops.js)
+- Global library of named outline documents (switcher in the panel header; New/Rename/Duplicate/Delete in the ⋯ menu).
+- Keyboard: Enter (sibling below), Tab/Shift+Tab (indent/outdent), Alt+↑/↓ (move with subtree), ↑/↓ (traverse), Backspace on empty (delete, promote children), Ctrl/Cmd+Enter (toggle done).
+- Bullet click zooms (breadcrumb to zoom out); chevron collapses; Collapse/Expand All in the toolbar.
+- Per-node notes (📝), checkboxes with strikethrough, drag-to-reorder by the ⠇ grip, `#tags` auto-chip from text, filter box (matches + ancestors), Export Markdown/OPML, heuristic Auto-group with Undo.
+- Locked-vault safe: the renderer shows a lock notice instead of auto-creating, and writes are refused while locked.
+- `outline-ops.js` holds the pure tree operations; vitest imports it with a stubbed `window` (tests/outline-ops.test.js).
+
+### SPA navigation
+- `sticky-inject.js` watches `popstate`/`hashchange` + a 1 s `href` poll; on URL change it refreshes cluster icons and re-opens an open site/page note under the new URL's key (flushing the pending save under the old key first).
 
 ### Conventions
 - Vanilla JS only — no frameworks, no transpilers, no bundlers.
@@ -224,7 +248,7 @@ Tests run in node environment. They mock `chrome` APIs where needed.
 | Type                        | Direction              | Purpose                              |
 |-----------------------------|------------------------|--------------------------------------|
 | `STICKYSITES_TOGGLE`        | SW → content           | Toggle cluster visibility            |
-| `STICKYSITES_OPEN`          | SW → content           | Open a specific note type            |
+| `STICKYSITES_OPEN`          | SW → content           | Open a specific note type (optional `key` targets an outline doc) |
 | `STICKYSITES_CLIP`          | SW → content           | Clip selected text into a note       |
 | `STICKYSITES_POPOUT`        | content → SW           | Open note in standalone popout window|
 | `STICKYSITES_SYNC_NOW`      | popup → SW             | Trigger immediate Drive sync         |

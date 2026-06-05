@@ -353,7 +353,7 @@ export async function readAllOutlines() {
     const stored = await chrome.storage.local.get(OUTLINES_KEY);
     const map = stored?.[OUTLINES_KEY] || {};
     return Object.entries(map).map(([k, r]) => ({
-      key: String(r.key || k),
+      key: String(r.key || r.siteKey || k),
       name: String(r.name || k),
       items: Array.isArray(r.items) ? r.items : [],
       createdAt: String(r.createdAt || ''),

@@ -17,7 +17,7 @@ encryption and optional Google Drive sync. There are no external servers or anal
     +-- Service Worker (background, type: module)
     |     Context menus, keyboard commands, Drive sync orchestration
     |
-    +-- Content Scripts (per tab, 8 files loaded in order)
+    +-- Content Scripts (per tab, 11 files loaded in order)
     |     Floating cluster pill + slide-in panel UI
     |     Reads/writes notes via chrome.storage.local
     |     Encryption/decryption via WebCrypto API
@@ -82,9 +82,12 @@ attach themselves to the `window.StickySites` namespace in a defined load order:
 | 3 | `note-types.js` | `window.StickySites.noteTypes` |
 | 4 | `prefs.js` | `window.StickySites.Prefs` |
 | 5 | `cluster.js` | `window.StickySites.Cluster` |
-| 6 | `mentions.js` | `window.StickySites.Mentions` |
-| 7 | `panel.js` | `window.StickySites.Panel` |
-| 8 | `sticky-inject.js` | (orchestrator — consumes all of the above) |
+| 6 | `todo.js` | `window.StickySites.Todo` |
+| 7 | `outline-ops.js` | `window.StickySites.OutlineOps` |
+| 8 | `outline.js` | `window.StickySites.Outline` |
+| 9 | `mentions.js` | `window.StickySites.Mentions` |
+| 10 | `panel.js` | `window.StickySites.Panel` |
+| 11 | `sticky-inject.js` | (orchestrator — consumes all of the above) |
 
 The service worker and popup use ES modules (`import`/`export`) and can reference the
 shared modules in `src/shared/` directly.
@@ -99,8 +102,8 @@ values are replaced with `{ iv: base64, data: base64 }` envelopes.
 | `stickysites_global_v1` | `{ body: string, updatedAt: ISO8601 }` | Single global note (rich HTML body) |
 | `stickysites_sites_v1` | `{ [domain]: SiteNote }` | Map keyed by hostname without `www.` |
 | `stickysites_pages_v1` | `{ [origin+path]: PageNote }` | Map keyed by `origin + pathname` |
-| `stickysites_todos_v1` | `{ [domain]: TodoRecord }` | Map keyed by hostname |
-| `stickysites_outlines_v1` | `{ [domain]: OutlineRecord }` | Map keyed by hostname |
+| `stickysites_todos_v1` | `{ __global__: TodoRecord }` | Single global to-do record |
+| `stickysites_outlines_v1` | `{ [outlineKey]: OutlineRecord }` | Named outline library (`ol_<id>` keys; legacy hostname keys adapt at read time) |
 | `stickysites_daily_v1` | `{ [YYYY-MM-DD]: DailyNote }` | Map keyed by date string |
 | `stickysites_prefs_v1` | `{ clusterPosition: { x, y }, panelMode: string }` | User preferences |
 | `stickysites_crypto_v1` | `{ enabled: bool, salt: base64, verify: envelope }` | Encryption config |
@@ -112,13 +115,13 @@ values are replaced with `{ iv: base64, data: base64 }` envelopes.
 |-----|-------|-------|
 | `stickysites_session_key` | JWK object | Derived AES-GCM key cached for the browser session |
 
-**SiteNote**: `{ siteKey, siteLabel, body: richHTML, tags: string[], createdAt, updatedAt }`
+**SiteNote**: `{ key, label, body: richHTML, tags: string[], createdAt, updatedAt }` (legacy: `siteKey`, `siteLabel`)
 
-**PageNote**: `{ pageKey, pageLabel, body: richHTML, tags: string[], createdAt, updatedAt }`
+**PageNote**: `{ key, label, body: richHTML, tags: string[], createdAt, updatedAt }` (legacy: `pageKey`, `pageLabel`)
 
-**TodoRecord**: `{ siteKey, items: [{ id, text, done }], createdAt, updatedAt }`
+**TodoRecord**: `{ key, items: [{ id, text, done }], createdAt, updatedAt }` (global; key is `'__global__'`)
 
-**OutlineRecord**: `{ siteKey, items: [{ id, text, children, collapsed }], createdAt, updatedAt }`
+**OutlineRecord**: `{ key, name, items: [{ id, text, children, collapsed }], createdAt, updatedAt }` (key is `ol_<id>`; legacy keys are hostname strings)
 
 ## Permissions
 

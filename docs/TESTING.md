@@ -15,11 +15,12 @@ npm run test:watch  # watch mode with HMR
 
 ```
 tests/
-  notes-storage.test.js   — 43 tests for the shared storage module
+  notes-storage.test.js   — tests for the shared storage module
   crypto.test.js          — 5 tests for the shared crypto module
+  outline-ops.test.js     — tests for the pure outline tree operations
 ```
 
-Total: **48 tests** across 2 files.
+Total: **72 tests** across 3 files.
 
 ## `tests/notes-storage.test.js`
 

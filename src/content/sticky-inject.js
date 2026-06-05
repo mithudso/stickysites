@@ -131,7 +131,7 @@
           updatedAt: nowIso
         });
       } else if (noteTypeId === 'outline') {
-        // Append to the active outline document (or the most recent / a new one).
+        // Append to the active outline document (or the first in the library / a new one).
         var prefsStored = await chrome.storage.local.get('stickysites_prefs_v1');
         var pid = (prefsStored?.stickysites_prefs_v1 || {}).activeOutlineId;
         var docKey = (pid && map[pid]) ? pid : Object.keys(map)[0];
