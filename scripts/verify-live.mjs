@@ -373,6 +373,90 @@ const editorText = (p) => p.$eval('.stickysites-panel-editor', e => e.textConten
   await popup.close();
 }
 
+// ── S9: encryption — enable, lock, locked-vault safety, unlock ─────────────
+{
+  const PASS = 'verify-pass-1234';
+
+  // S9a: enable encryption from the popup settings (PBKDF2 600k iterations +
+  // re-encrypt of all 6 note keys — allow generous time).
+  const popup = await browser.newPage();
+  await popup.bringToFront();
+  await popup.goto(`chrome-extension://${EXT_ID}/popup.html`, { waitUntil: 'networkidle2' });
+  await popup.click('#settings-btn');
+  await popup.waitForSelector('.settings-toggle-btn');
+  await popup.evaluate(() => {
+    [...document.querySelectorAll('.settings-toggle-btn')].find(b => b.textContent === 'Enable')?.click();
+  });
+  await popup.waitForSelector('.settings-passphrase-form .popup-lock-input');
+  const passInputs = await popup.$$('.settings-passphrase-form .popup-lock-input');
+  await passInputs[0].type(PASS);
+  await passInputs[1].type(PASS);
+  await popup.click('.settings-passphrase-form .popup-lock-btn');
+  await popup.waitForFunction(
+    () => [...document.querySelectorAll('.settings-toggle-btn')].some(b => b.textContent === 'Disable'),
+    { timeout: 30000 });
+  let store = await popup.evaluate(() => chrome.storage.local.get(null));
+  let env = store.stickysites_outlines_v1 || {};
+  const encOk = typeof env.iv === 'string' && typeof env.data === 'string' &&
+    !Object.keys(env).some(k => k.startsWith('ol_'));
+  record(encOk ? '✅' : '❌', 'S9a enable encryption', `outlines value keys=[${Object.keys(env).join(',')}]`);
+
+  // S9b: Lock Now. We're still inside the settings panel (showSettings()
+  // hides #app, which contains #settings-btn) and the enable path never calls
+  // updateLockBtnState(), so Lock Now is hidden in the current panel. A real
+  // user closes and reopens the popup — for the harness, reload the page.
+  await popup.goto(`chrome-extension://${EXT_ID}/popup.html`, { waitUntil: 'networkidle2' });
+  await popup.click('#settings-btn');
+  await popup.waitForFunction(
+    () => [...document.querySelectorAll('.settings-toggle-btn')]
+      .some(b => b.textContent === 'Lock Now' && b.style.display !== 'none'),
+    { timeout: 5000 });
+  await popup.evaluate(() => {
+    [...document.querySelectorAll('.settings-toggle-btn')].find(b => b.textContent === 'Lock Now')?.click();
+  });
+  await sleep(400);
+  store = await popup.evaluate(() => chrome.storage.local.get('stickysites_cached_key'));
+  const lockOk = !store.stickysites_cached_key;
+  record(lockOk ? '✅' : '❌', 'S9b Lock Now clears cached key', '');
+  await popup.close();
+
+  // S9c (probe): a locked outline popout must show the lock notice and must
+  // NOT auto-create a doc (which would clobber the envelope with plaintext).
+  const pop = await browser.newPage();
+  await pop.bringToFront();
+  await pop.goto(`chrome-extension://${EXT_ID}/popout.html?type=outline&label=Outliner`, { waitUntil: 'networkidle2' });
+  const lockedNotice = await pop.waitForSelector('.stickysites-outline-locked', { timeout: 5000 })
+    .then(() => true).catch(() => false);
+  await sleep(1500); // give any (buggy) auto-create write a chance to land
+  const after = await pop.evaluate(() => chrome.storage.local.get('stickysites_outlines_v1'));
+  const v = after.stickysites_outlines_v1 || {};
+  const envelopeSurvived = typeof v.iv === 'string' && typeof v.data === 'string';
+  await pop.screenshot({ path: `${SHOT_DIR}/s9-locked-popout.png` });
+  record(lockedNotice && envelopeSurvived ? '🔍✅' : '🔍❌', 'S9c probe: locked popout is read-only',
+    `notice=${lockedNotice} envelopeSurvived=${envelopeSurvived}`);
+  await pop.close();
+
+  // S9d: locked in-page icon click → lock overlay → unlock restores content.
+  const tab = await browser.newPage();
+  await tab.bringToFront();
+  await tab.goto(`${BASE}/index.html`, { waitUntil: 'networkidle2' });
+  await tab.waitForSelector('#stickysites-cluster');
+  await tab.evaluate(() => {
+    document.querySelectorAll('#stickysites-cluster .stickysites-cluster-icon')
+      .forEach(b => { if (b.dataset.typeId === 'outline') b.click(); });
+  });
+  const overlayShown = await tab.waitForSelector('#stickysites-lock', { timeout: 5000 })
+    .then(() => true).catch(() => false);
+  await tab.type('.stickysites-lock-input', PASS);
+  await tab.click('.stickysites-lock-btn');
+  await tab.waitForSelector('.stickysites-outline-switcher', { timeout: 15000 });
+  await sleep(300);
+  const rows = await tab.$$eval('.stickysites-outline-text', els => els.map(e => e.value));
+  const unlockOk = overlayShown && rows.includes('buy milk #errands');
+  record(unlockOk ? '✅' : '❌', 'S9d unlock restores outline', `overlay=${overlayShown} rows=[${rows.join(' | ')}]`);
+  await tab.close();
+}
+
 await browser.close();
 server.close();
 const fails = results.filter(r => r.icon.includes('❌')).length;
