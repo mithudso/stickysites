@@ -250,36 +250,80 @@ window.StickySites = window.StickySites || {};
 
     _initResize: function () {
       var self = this;
-      var handle = document.createElement('div');
-      handle.className = 'stickysites-panel-resize';
-      self.el.appendChild(handle);
+      var MIN_W = 350, MIN_H = 250;
+      // One grip per edge and corner. The direction string holds the edges that
+      // move: n/s/e/w; corners combine two (e.g. 'nw').
+      var DIRS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
-      var isResizing = false;
-      var startX, startY, startW, startH;
+      var dir = null;
+      var startX, startY, startLeft, startTop, startW, startH;
 
-      handle.addEventListener('mousedown', function (e) {
-        isResizing = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        startW = self.el.offsetWidth;
-        startH = self.el.offsetHeight;
-        e.preventDefault();
-        e.stopPropagation();
+      DIRS.forEach(function (d) {
+        var handle = document.createElement('div');
+        handle.className = 'stickysites-panel-resize stickysites-panel-resize--' + d;
+        self.el.appendChild(handle);
+        handle.addEventListener('mousedown', function (e) {
+          dir = d;
+          var rect = self.el.getBoundingClientRect();
+          startX = e.clientX;
+          startY = e.clientY;
+          startLeft = rect.left;
+          startTop = rect.top;
+          startW = rect.width;
+          startH = rect.height;
+          // Pin to absolute left/top so any edge can grow regardless of the
+          // panel's current CSS anchoring (default bottom/right, or left/top
+          // after a drag).
+          self.el.style.bottom = 'auto';
+          self.el.style.right = 'auto';
+          self.el.style.left = startLeft + 'px';
+          self.el.style.top = startTop + 'px';
+          e.preventDefault();
+          e.stopPropagation();
+        });
       });
 
       document.addEventListener('mousemove', function (e) {
-        if (!isResizing) return;
-        var newW = Math.max(350, Math.min(startW + (e.clientX - startX), window.innerWidth * 0.9));
-        var newH = Math.max(250, Math.min(startH + (e.clientY - startY), window.innerHeight * 0.9));
-        self.el.style.width = newW + 'px';
-        self.el.style.height = newH + 'px';
+        if (!dir) return;
+        var dx = e.clientX - startX;
+        var dy = e.clientY - startY;
+        var right = startLeft + startW;
+        var bottom = startTop + startH;
+        var left = startLeft, top = startTop, w = startW, h = startH;
+
+        if (dir.indexOf('e') !== -1) {
+          // East edge moves; keep within the right side of the viewport.
+          w = Math.max(MIN_W, Math.min(startW + dx, window.innerWidth - startLeft));
+        }
+        if (dir.indexOf('w') !== -1) {
+          // West edge moves; the right edge stays fixed.
+          left = Math.max(0, Math.min(startLeft + dx, right - MIN_W));
+          w = right - left;
+        }
+        if (dir.indexOf('s') !== -1) {
+          h = Math.max(MIN_H, Math.min(startH + dy, window.innerHeight - startTop));
+        }
+        if (dir.indexOf('n') !== -1) {
+          // North edge moves; the bottom edge stays fixed.
+          top = Math.max(0, Math.min(startTop + dy, bottom - MIN_H));
+          h = bottom - top;
+        }
+
+        self.el.style.left = left + 'px';
+        self.el.style.top = top + 'px';
+        self.el.style.width = w + 'px';
+        self.el.style.height = h + 'px';
       });
 
       document.addEventListener('mouseup', async function () {
-        if (!isResizing) return;
-        isResizing = false;
+        if (!dir) return;
+        dir = null;
+        var rect = self.el.getBoundingClientRect();
+        // Persist both size and position — resizing from the top/left edges
+        // moves the panel's origin as well.
         await window.StickySites.Prefs.write({
-          panelSize: { width: self.el.offsetWidth, height: self.el.offsetHeight }
+          panelSize: { width: Math.round(rect.width), height: Math.round(rect.height) },
+          panelPosition: { x: Math.round(rect.left), y: Math.round(rect.top) }
         });
       });
     },
