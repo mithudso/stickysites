@@ -687,6 +687,10 @@
     else if (note.type === 'page') {
       try { var pu = new URL(note.key); source = pu.hostname + pu.pathname; } catch { source = note.key; }
     }
+    else if (note.type === 'outline') {
+      // The card subject is the first node's text — surface which document it is.
+      source = note.label.replace(/^Outline — /, '');
+    }
     if (source) {
       meta.appendChild(makeSpan(source));
       meta.appendChild(makeSpan(' · '));
