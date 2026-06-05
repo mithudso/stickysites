@@ -171,7 +171,9 @@ window.StickySites = window.StickySites || {};
 
     var wordMap = {};
     leftovers.forEach(function (n) {
-      var words = String(n.text).toLowerCase().match(/[a-z0-9']{4,}/g) || [];
+      // No apostrophes in tokens: contractions ("don't") would dodge the
+      // apostrophe-free STOPWORDS list and crowd out real keyword groups.
+      var words = String(n.text).toLowerCase().match(/[a-z0-9]{4,}/g) || [];
       var unique = [];
       words.forEach(function (w) { if (unique.indexOf(w) === -1) unique.push(w); });
       unique.forEach(function (w) {

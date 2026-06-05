@@ -145,6 +145,19 @@ describe('autoGroup', () => {
     const out = Ops.autoGroup(items);
     expect(out.map(n => n.id)).toEqual(['1', '2']);
   });
+  it('ignores apostrophe contractions in the keyword pass', () => {
+    const items = [
+      node('1', "don't forget the report"),
+      node('2', "don't skip the report review"),
+      node('3', 'totally unrelated')
+    ];
+    const out = Ops.autoGroup(items);
+    // "don't" must not form a group; "report" must.
+    expect(out.find(n => n.text === "don't")).toBeUndefined();
+    const group = out.find(n => n.text === 'report');
+    expect(group).toBeTruthy();
+    expect(group.children).toHaveLength(2);
+  });
 });
 
 describe('exports', () => {
