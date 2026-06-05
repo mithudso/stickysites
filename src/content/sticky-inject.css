@@ -41,6 +41,14 @@
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
+.stickysites-cluster-icon.has-text {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 2px;
+}
 .stickysites-cluster-icon.is-yellow { background: #fbbf24; color: #78350f; }
 .stickysites-cluster-icon.is-green  { background: #34d399; color: #064e3b; }
 .stickysites-cluster-icon.is-blue   { background: #60a5fa; color: #1e3a5f; }
@@ -852,21 +860,6 @@
   overflow-y: auto;
   padding: 8px 0;
 }
-.stickysites-outline-node {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-}
-.stickysites-outline-bullet {
-  width: 16px;
-  text-align: center;
-  color: #fb923c;
-  cursor: pointer;
-  font-size: 12px;
-  flex-shrink: 0;
-  user-select: none;
-}
 .stickysites-outline-text {
   flex: 1;
   background: none;
@@ -990,4 +983,183 @@
   font-size: 12px;
   text-align: center;
   min-height: 16px;
+}
+
+/* Outliner — library, toolbar, tree */
+.stickysites-outline-switcher {
+  flex: 1;
+  min-width: 0;
+  background: rgba(15, 23, 42, 0.35);
+  color: inherit;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 6px;
+}
+.stickysites-outline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+.stickysites-outline-search {
+  flex: 1;
+  min-width: 0;
+  background: rgba(15, 23, 42, 0.5);
+  color: #e2e8f0;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.stickysites-outline-toolbtn {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+.stickysites-outline-toolbtn:hover { background: rgba(148, 163, 184, 0.25); }
+.stickysites-outline-menu {
+  position: absolute;
+  top: 100%;
+  right: 8px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+.stickysites-outline-menu-item {
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 8px 12px;
+  text-align: left;
+}
+.stickysites-outline-menu-item:hover { background: rgba(148, 163, 184, 0.15); }
+.stickysites-outline-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+.stickysites-outline-crumb {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.stickysites-outline-crumb:hover { color: #e2e8f0; text-decoration: underline; }
+.stickysites-outline-crumb-sep { color: #475569; font-size: 12px; }
+.stickysites-outline-zoom-title {
+  flex-basis: 100%;
+  background: none;
+  border: none;
+  outline: none;
+  color: #f8fafc;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 4px 0 0;
+}
+.stickysites-outline-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 0;
+}
+.stickysites-outline-node.is-dragging { opacity: 0.4; }
+.stickysites-outline-node.is-done .stickysites-outline-text {
+  text-decoration: line-through;
+  color: #64748b;
+}
+.stickysites-outline-grip {
+  color: #475569;
+  cursor: grab;
+  font-size: 11px;
+  user-select: none;
+}
+.stickysites-outline-chevron {
+  width: 12px;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 10px;
+  text-align: center;
+  user-select: none;
+}
+.stickysites-outline-bullet {
+  color: #fb923c;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+.stickysites-outline-bullet:hover { transform: scale(1.4); }
+.stickysites-outline-check { accent-color: #fb923c; }
+.stickysites-outline-tags { display: inline-flex; gap: 3px; }
+.stickysites-outline-tag {
+  background: rgba(251, 146, 60, 0.2);
+  border-radius: 8px;
+  color: #fdba74;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.stickysites-outline-notebtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  opacity: 0.25;
+}
+.stickysites-outline-notebtn.has-note { opacity: 1; }
+.stickysites-outline-note-area { padding: 2px 8px 4px 0; }
+.stickysites-outline-note-edit {
+  width: 100%;
+  min-height: 40px;
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+.stickysites-outline-drop-indicator {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: #fb923c;
+  pointer-events: none;
+}
+.stickysites-outline-undobar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(251, 146, 60, 0.12);
+  color: #fdba74;
+  font-size: 12px;
+}
+.stickysites-outline-locked {
+  padding: 24px 16px;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
 }

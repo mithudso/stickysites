@@ -39,13 +39,12 @@ window.StickySites = window.StickySites || {};
         var nt = ordered[i];
         var btn = document.createElement('button');
         btn.className = 'stickysites-cluster-icon ' + nt.cssClass;
-        btn.title = nt.label;
-        btn.textContent = nt.emoji;
         btn.dataset.typeId = nt.id;
         btn.draggable = false;
+        this._setIconContent(btn, nt);
         btn.addEventListener('click', this._makeClickHandler(nt.id));
         cluster.appendChild(btn);
-        this.buttons.push({ el: btn, typeId: nt.id });
+        this.buttons.push({ el: btn, typeId: nt.id, noteType: nt });
       }
 
       this.el = cluster;
@@ -94,6 +93,31 @@ window.StickySites = window.StickySites || {};
         var b = this.buttons[i];
         b.el.classList.toggle('is-active', b.typeId === typeId);
       }
+    },
+
+    _setIconContent: function (btn, nt) {
+      var content = nt.getIconContent ? nt.getIconContent(location) : nt.emoji;
+      btn.textContent = content;
+      btn.title = nt.getIconTitle ? nt.getIconTitle(location) : nt.label;
+      // Text fragments (3+ chars) get the small-type treatment; single glyphs
+      // and day numbers keep the default 14px.
+      btn.classList.toggle('has-text', String(content).length > 2);
+    },
+
+    refreshIcons: function () {
+      for (var i = 0; i < this.buttons.length; i++) {
+        var b = this.buttons[i];
+        if (b.noteType) this._setIconContent(b.el, b.noteType);
+      }
+    },
+
+    getVisibleIcons: function () {
+      return Array.from(this.el.querySelectorAll('.stickysites-cluster-icon'))
+        .filter(function (el) { return el.style.display !== 'none'; });
+    },
+
+    getVisibleTypeIds: function () {
+      return this.getVisibleIcons().map(function (el) { return el.dataset.typeId; });
     },
 
     toggle: function () {

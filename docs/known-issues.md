@@ -65,14 +65,3 @@ or offered for review/deletion.
 Application → Storage panel. Future improvement: show a conflict badge in the popup
 with a diff/merge UI.
 
-## package.json version does not match manifest version
-
-**Impact**: Low (tooling confusion)
-**Status**: Open
-
-`package.json` declares version `1.0.0`, while `manifest.json` declares `1.7.0`.
-The npm version field has no runtime effect but can cause confusion when using
-automated release tools that read from `package.json`.
-
-**Workaround**: Manually keep both versions in sync. Future improvement: add a
-pre-release script that reads the manifest version and updates `package.json`.

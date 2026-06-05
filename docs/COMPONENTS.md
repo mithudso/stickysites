@@ -136,7 +136,7 @@ appropriate editor for the note type:
 - `global`, `site`, `page`: rich text editor (`contenteditable` div) with a toolbar
   (bold, italic, underline, ordered/unordered list, link insertion).
 - `todo`: custom item-list renderer with checkboxes. Items can be added, toggled, and deleted.
-- `outline`: hierarchical item-list renderer with expand/collapse and indentation.
+- `outline`: global named library of outline documents; panel shows a doc switcher. Renderer backed by `outline.js` + `outline-ops.js`.
 
 **Auto-save**: All editor changes debounce 500 ms then write back to `chrome.storage.local`,
 encrypting if needed.
@@ -186,21 +186,21 @@ Used by the service worker, popup, and unit tests.
 | `getPageKey` | `(url: string)` | `string` — `origin + pathname` |
 | `readGlobalNote` | `()` | `{ body, updatedAt }` |
 | `writeGlobalNote` | `(body: string)` | `{ body, updatedAt }` |
-| `readSiteNote` | `(siteKey: string)` | `SiteNote \| null` |
-| `writeSiteNote` | `(siteKey, { siteLabel, body, tags })` | `SiteNote \| null` |
-| `deleteSiteNote` | `(siteKey: string)` | `void` |
+| `readSiteNote` | `(key: string)` | `SiteNote \| null` |
+| `writeSiteNote` | `(key, { siteLabel, body, tags })` | `SiteNote \| null` |
+| `deleteSiteNote` | `(key: string)` | `void` |
 | `readAllSiteNotes` | `()` | `SiteNote[]` |
-| `readPageNote` | `(pageKey: string)` | `PageNote \| null` |
-| `writePageNote` | `(pageKey, { pageLabel, body, tags })` | `PageNote \| null` |
-| `deletePageNote` | `(pageKey: string)` | `void` |
+| `readPageNote` | `(key: string)` | `PageNote \| null` |
+| `writePageNote` | `(key, { pageLabel, body, tags })` | `PageNote \| null` |
+| `deletePageNote` | `(key: string)` | `void` |
 | `readAllPageNotes` | `()` | `PageNote[]` |
-| `readTodo` | `(siteKey: string)` | `TodoRecord \| null` |
-| `writeTodo` | `(siteKey, { items })` | `TodoRecord \| null` |
-| `deleteTodo` | `(siteKey: string)` | `void` |
+| `readTodo` | `()` | `TodoRecord \| null` |
+| `writeTodo` | `({ items })` | `TodoRecord \| null` |
+| `deleteTodo` | `()` | `void` |
 | `readAllTodos` | `()` | `TodoRecord[]` |
-| `readOutline` | `(siteKey: string)` | `OutlineRecord \| null` |
-| `writeOutline` | `(siteKey, { items })` | `OutlineRecord \| null` |
-| `deleteOutline` | `(siteKey: string)` | `void` |
+| `readOutline` | `(outlineKey: string)` | `OutlineRecord \| null` |
+| `writeOutline` | `(outlineKey, { name, items })` | `OutlineRecord \| null` |
+| `deleteOutline` | `(outlineKey: string)` | `void` |
 | `readAllOutlines` | `()` | `OutlineRecord[]` |
 | `readPrefs` | `()` | `Prefs` |
 | `writePrefs` | `(updates: Partial<Prefs>)` | `Prefs \| null` |

@@ -36,8 +36,8 @@ export async function readSiteNote(siteKey) {
     const record = map[siteKey];
     if (!record) return null;
     return {
-      siteKey: String(record.siteKey || siteKey),
-      siteLabel: String(record.siteLabel || siteKey),
+      key: String(record.key || record.siteKey || siteKey),
+      label: String(record.label || record.siteLabel || siteKey),
       body: String(record.body ?? ''),
       tags: Array.isArray(record.tags) ? record.tags : [],
       createdAt: String(record.createdAt || ''),
@@ -53,8 +53,8 @@ export async function writeSiteNote(siteKey, { siteLabel = '', body = '', tags =
     const map = stored?.[SITE_NOTES_KEY] || {};
     const existing = map[siteKey];
     const record = {
-      siteKey,
-      siteLabel: String(siteLabel || siteKey),
+      key: siteKey,
+      label: String(siteLabel || siteKey),
       body: String(body),
       tags: Array.isArray(tags) ? tags : [],
       createdAt: existing?.createdAt || new Date().toISOString(),
@@ -80,8 +80,8 @@ export async function readAllSiteNotes() {
     const stored = await chrome.storage.local.get(SITE_NOTES_KEY);
     const map = stored?.[SITE_NOTES_KEY] || {};
     return Object.values(map).map(r => ({
-      siteKey: String(r.siteKey || ''),
-      siteLabel: String(r.siteLabel || ''),
+      key: String(r.key || r.siteKey || ''),
+      label: String(r.label || r.siteLabel || ''),
       body: String(r.body ?? ''),
       tags: Array.isArray(r.tags) ? r.tags : [],
       createdAt: String(r.createdAt || ''),
@@ -105,8 +105,8 @@ export async function readPageNote(pageKey) {
     const record = map[pageKey];
     if (!record) return null;
     return {
-      pageKey: String(record.pageKey || pageKey),
-      pageLabel: String(record.pageLabel || pageKey),
+      key: String(record.key || record.pageKey || pageKey),
+      label: String(record.label || record.pageLabel || pageKey),
       body: String(record.body ?? ''),
       tags: Array.isArray(record.tags) ? record.tags : [],
       createdAt: String(record.createdAt || ''),
@@ -122,8 +122,8 @@ export async function writePageNote(pageKey, { pageLabel = '', body = '', tags =
     const map = stored?.[PAGE_NOTES_KEY] || {};
     const existing = map[pageKey];
     const record = {
-      pageKey,
-      pageLabel: String(pageLabel || pageKey),
+      key: pageKey,
+      label: String(pageLabel || pageKey),
       body: String(body),
       tags: Array.isArray(tags) ? tags : [],
       createdAt: existing?.createdAt || new Date().toISOString(),
@@ -149,8 +149,8 @@ export async function readAllPageNotes() {
     const stored = await chrome.storage.local.get(PAGE_NOTES_KEY);
     const map = stored?.[PAGE_NOTES_KEY] || {};
     return Object.values(map).map(r => ({
-      pageKey: String(r.pageKey || ''),
-      pageLabel: String(r.pageLabel || ''),
+      key: String(r.key || r.pageKey || ''),
+      label: String(r.label || r.pageLabel || ''),
       body: String(r.body ?? ''),
       tags: Array.isArray(r.tags) ? r.tags : [],
       createdAt: String(r.createdAt || ''),
@@ -172,7 +172,7 @@ export async function readDailyNote(dateKey) {
     const record = map[dateKey];
     if (!record) return null;
     return {
-      dateKey: String(record.dateKey || dateKey),
+      key: String(record.key || record.dateKey || dateKey),
       body: String(record.body ?? ''),
       tags: Array.isArray(record.tags) ? record.tags : [],
       createdAt: String(record.createdAt || ''),
@@ -188,7 +188,7 @@ export async function writeDailyNote(dateKey, { body = '', tags = [] } = {}) {
     const map = stored?.[DAILY_KEY] || {};
     const existing = map[dateKey];
     const record = {
-      dateKey,
+      key: dateKey,
       body: String(body),
       tags: Array.isArray(tags) ? tags : [],
       createdAt: existing?.createdAt || new Date().toISOString(),
@@ -214,7 +214,7 @@ export async function readAllDailyNotes() {
     const stored = await chrome.storage.local.get(DAILY_KEY);
     const map = stored?.[DAILY_KEY] || {};
     return Object.values(map).map(r => ({
-      dateKey: String(r.dateKey || ''),
+      key: String(r.key || r.dateKey || ''),
       body: String(r.body ?? ''),
       tags: Array.isArray(r.tags) ? r.tags : [],
       createdAt: String(r.createdAt || ''),
@@ -276,7 +276,7 @@ export async function writeTodo({ items = [] } = {}) {
     const map = stored?.[TODOS_KEY] || {};
     const existing = map['__global__'];
     const record = {
-      siteKey: '__global__',
+      key: '__global__',
       items: Array.isArray(items) ? items : [],
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -303,15 +303,16 @@ export async function readAllTodos() {
   } catch { return []; }
 }
 
-export async function readOutline(siteKey) {
-  if (!siteKey) return null;
+export async function readOutline(outlineKey) {
+  if (!outlineKey) return null;
   try {
     const stored = await chrome.storage.local.get(OUTLINES_KEY);
     const map = stored?.[OUTLINES_KEY] || {};
-    const record = map[siteKey];
+    const record = map[outlineKey];
     if (!record) return null;
     return {
-      siteKey: String(record.siteKey || siteKey),
+      key: String(record.key || record.siteKey || outlineKey),
+      name: String(record.name || outlineKey),
       items: Array.isArray(record.items) ? record.items : [],
       createdAt: String(record.createdAt || ''),
       updatedAt: String(record.updatedAt || '')
@@ -319,29 +320,30 @@ export async function readOutline(siteKey) {
   } catch { return null; }
 }
 
-export async function writeOutline(siteKey, { items = [] } = {}) {
-  if (!siteKey) return null;
+export async function writeOutline(outlineKey, { name = '', items = [] } = {}) {
+  if (!outlineKey) return null;
   try {
     const stored = await chrome.storage.local.get(OUTLINES_KEY);
     const map = stored?.[OUTLINES_KEY] || {};
-    const existing = map[siteKey];
+    const existing = map[outlineKey];
     const record = {
-      siteKey,
+      key: outlineKey,
+      name: String(name || existing?.name || outlineKey),
       items: Array.isArray(items) ? items : [],
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    map[siteKey] = record;
+    map[outlineKey] = record;
     await chrome.storage.local.set({ [OUTLINES_KEY]: map });
     return record;
   } catch { return null; }
 }
 
-export async function deleteOutline(siteKey) {
+export async function deleteOutline(outlineKey) {
   try {
     const stored = await chrome.storage.local.get(OUTLINES_KEY);
     const map = stored?.[OUTLINES_KEY] || {};
-    delete map[siteKey];
+    delete map[outlineKey];
     await chrome.storage.local.set({ [OUTLINES_KEY]: map });
   } catch { /* best effort */ }
 }
@@ -350,8 +352,9 @@ export async function readAllOutlines() {
   try {
     const stored = await chrome.storage.local.get(OUTLINES_KEY);
     const map = stored?.[OUTLINES_KEY] || {};
-    return Object.values(map).map(r => ({
-      siteKey: String(r.siteKey || ''),
+    return Object.entries(map).map(([k, r]) => ({
+      key: String(r.key || r.siteKey || k),
+      name: String(r.name || k),
       items: Array.isArray(r.items) ? r.items : [],
       createdAt: String(r.createdAt || ''),
       updatedAt: String(r.updatedAt || '')

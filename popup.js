@@ -445,7 +445,8 @@
   }
 
   function noteMatchesCurrentTab(note) {
-    if (note.type === 'global') return true;
+    if (note.type === 'global' || note.type === 'todo' || note.type === 'outline') return true;
+    if (note.type === 'daily') return note.key === todayKey();
     try {
       var u = new URL(state.currentTabUrl);
       if (note.type === 'site') return note.key === u.hostname.replace(/^www\./, '');
@@ -480,8 +481,10 @@
 
     var sites = stored[SITES_KEY] || {};
     Object.values(sites).forEach(function (r) {
+      r = r || {};
+      var sk = String(r.key || r.siteKey || '');
       notes.push({
-        type: 'site', key: String(r.siteKey || ''), label: 'Site note — ' + (r.siteKey || ''),
+        type: 'site', key: sk, label: 'Site note — ' + sk,
         body: String(r.body || ''), tags: Array.isArray(r.tags) ? r.tags : [],
         createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
         borderClass: 'border-green', sectionClass: 'is-green', noteTypeId: 'site'
@@ -490,10 +493,12 @@
 
     var pages = stored[PAGES_KEY] || {};
     Object.values(pages).forEach(function (r) {
+      r = r || {};
+      var pk = String(r.key || r.pageKey || '');
       var pathLabel = '';
-      try { pathLabel = new URL(r.pageKey).pathname; } catch { pathLabel = r.pageKey || ''; }
+      try { pathLabel = new URL(pk).pathname; } catch { pathLabel = pk; }
       notes.push({
-        type: 'page', key: String(r.pageKey || ''), label: 'Page note — ' + pathLabel,
+        type: 'page', key: pk, label: 'Page note — ' + pathLabel,
         body: String(r.body || ''), tags: Array.isArray(r.tags) ? r.tags : [],
         createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
         borderClass: 'border-blue', sectionClass: 'is-blue', noteTypeId: 'page'
@@ -515,12 +520,13 @@
     }
 
     var outlines = stored[OUTLINES_KEY] || {};
-    Object.values(outlines).forEach(function (r) {
+    Object.keys(outlines).forEach(function (k) {
+      var r = outlines[k] || {};
       var items = Array.isArray(r.items) ? r.items : [];
       var firstNode = items.length ? items[0].text : '';
       var preview = items.slice(0, 4).map(function (n) { return '• ' + n.text; }).join('\n');
       notes.push({
-        type: 'outline', key: String(r.siteKey || ''), label: 'Outline — ' + (r.siteKey || ''),
+        type: 'outline', key: String(r.key || k), label: 'Outline — ' + String(r.name || k),
         body: firstNode + '\n' + preview, tags: [],
         createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
         borderClass: 'border-orange', sectionClass: 'is-orange', noteTypeId: 'outline'
@@ -528,9 +534,11 @@
     });
 
     var dailies = stored[DAILY_KEY] || {};
-    Object.values(dailies).forEach(function (r) {
+    Object.keys(dailies).forEach(function (k) {
+      var r = dailies[k] || {};
+      var dk = String(r.key || r.dateKey || k);
       notes.push({
-        type: 'daily', key: String(r.dateKey || ''), label: 'Daily — ' + (r.dateKey || ''),
+        type: 'daily', key: dk, label: 'Daily — ' + dk,
         body: String(r.body || ''), tags: Array.isArray(r.tags) ? r.tags : [],
         createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
         borderClass: 'border-red', sectionClass: 'is-red', noteTypeId: 'daily'
@@ -651,7 +659,7 @@
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
           if (tabs[0] && tabs[0].id) {
             chrome.tabs.sendMessage(tabs[0].id, {
-              type: 'STICKYSITES_OPEN', noteTypeId: note.noteTypeId
+              type: 'STICKYSITES_OPEN', noteTypeId: note.noteTypeId, key: note.key
             });
           }
         });
@@ -678,6 +686,10 @@
     if (note.type === 'site') source = note.key;
     else if (note.type === 'page') {
       try { var pu = new URL(note.key); source = pu.hostname + pu.pathname; } catch { source = note.key; }
+    }
+    else if (note.type === 'outline') {
+      // The card subject is the first node's text — surface which document it is.
+      source = note.label.replace(/^Outline — /, '');
     }
     if (source) {
       meta.appendChild(makeSpan(source));
@@ -778,7 +790,7 @@
   }
 
   var QUICK_OPEN_TYPES = [
-    { id: 'global',  label: 'Global',  emoji: '\u{1F4DD}', cssClass: 'is-yellow' },
+    { id: 'global',  label: 'Global',  emoji: '\u{1F310}', cssClass: 'is-yellow' },
     { id: 'site',    label: 'Site',    emoji: '\u{1F4DD}', cssClass: 'is-green' },
     { id: 'page',    label: 'Page',    emoji: '\u{1F4DD}', cssClass: 'is-blue' },
     { id: 'todo',    label: 'Todo',    emoji: '✓',    cssClass: 'is-purple' },
@@ -791,15 +803,19 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  function computePopoutTarget(typeId, tabUrl) {
+  async function computePopoutTarget(typeId, tabUrl) {
     if (typeId === 'global') return { key: '__global__', label: 'Global note' };
     if (typeId === 'todo') return { key: '__global__', label: 'To-do list' };
     if (typeId === 'daily') { var d = todayKey(); return { key: d, label: 'Daily — ' + d }; }
+    if (typeId === 'outline') {
+      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
+      var pid = (stored?.stickysites_prefs_v1 || {}).activeOutlineId || '';
+      return { key: pid, label: 'Outliner' };
+    }
     try {
       var u = new URL(tabUrl);
       var host = u.hostname.replace(/^www\./, '');
       if (typeId === 'site') return { key: host, label: 'Site note — ' + host };
-      if (typeId === 'outline') return { key: host, label: 'Outline — ' + host };
       if (typeId === 'page') return { key: u.origin + u.pathname, label: 'Page note — ' + u.pathname };
     } catch { /* fall through */ }
     return { key: '', label: '' };
@@ -813,7 +829,7 @@
         return;
       } catch { /* content script not available — fall through to popout */ }
     }
-    var target = computePopoutTarget(typeId, tab && tab.url);
+    var target = await computePopoutTarget(typeId, tab && tab.url);
     chrome.runtime.sendMessage({
       type: 'STICKYSITES_POPOUT',
       noteTypeId: typeId,

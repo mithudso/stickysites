@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StickySites",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Sticky notes for every website. Global notes, per-site notes, and per-page notes in a floating workspace.",
   "permissions": ["storage", "activeTab", "contextMenus", "identity"],
   "icons": {
@@ -30,6 +30,8 @@
         "src/content/prefs.js",
         "src/content/cluster.js",
         "src/content/todo.js",
+        "src/content/outline-ops.js",
+        "src/content/outline.js",
         "src/content/mentions.js",
         "src/content/panel.js",
         "src/content/sticky-inject.js"

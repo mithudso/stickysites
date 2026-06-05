@@ -30,9 +30,12 @@ because MV3 content scripts cannot use ES module imports.
 | `note-types.js` | 94 | 6 note type descriptors: global, site, page, todo, outline, daily |
 | `prefs.js` | 25 | Read/write cluster position and panel mode preferences |
 | `cluster.js` | 130 | Floating pill UI — 6 icon buttons, drag-to-reposition, active state, toggle visibility |
+| `todo.js` | — | To-do list renderer |
+| `outline-ops.js` | — | Pure outline tree operations (unit-tested via outline-ops.test.js) |
+| `outline.js` | — | Outliner UI — global named library, doc switcher, keyboard nav, zoom/hoist, export |
 | `mentions.js` | — | @-mention autocomplete: links, dates, contacts, files — dropdown triggered by `@` in the editor |
-| `panel.js` | 793 | Moveable, resizable note panel — rich text editor (toolbar), todo renderer, outline renderer, auto-save, cross-tab sync |
-| `sticky-inject.js` | 259 | Orchestrator — init, encryption gate, lock overlay, toast, clip handler, chord hotkeys (1–5, a), message listener |
+| `panel.js` | — | Moveable, resizable note panel — rich text editor (toolbar), todo renderer, outline renderer, auto-save, cross-tab sync |
+| `sticky-inject.js` | — | Orchestrator — init, encryption gate, lock overlay, toast, clip handler, chord hotkeys, SPA nav watcher, message listener |
 | `sticky-inject.css` | 471 | All injected UI styles — cluster, panel, lock overlay, toast, dark theme, animations |
 
 ## `src/shared/`
@@ -42,7 +45,7 @@ scripts directly.
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `notes-storage.js` | 304 | CRUD for all 6 note types + prefs: getSiteKey, getPageKey, read/write/delete/readAll for global/site/page/todo/outline/daily, parseTags, createDebouncedSaver |
+| `notes-storage.js` | — | CRUD for all 6 note types + prefs: getSiteKey, getPageKey, read/write/delete/readAll for global/site/page/todo/outline/daily, parseTags, createDebouncedSaver; canonical key+label schema with legacy fallbacks |
 | `crypto.js` | 71 | Pure crypto primitives: generateSalt, deriveKey (PBKDF2), encrypt, decrypt, isEncrypted |
 | `drive-sync.js` | 91 | Google Drive API client: getToken, revokeToken, listFiles, downloadFile, createFile, updateFile, getSyncMeta, setSyncMeta |
 
@@ -50,8 +53,9 @@ scripts directly.
 
 | File | Lines | Tests | Purpose |
 |------|-------|-------|---------|
-| `notes-storage.test.js` | 266 | 43 | Full CRUD coverage for all note types + prefs + parseTags/getSiteKey/getPageKey |
-| `crypto.test.js` | 46 | 5 | generateSalt, deriveKey, encrypt/decrypt round-trip, wrong-key failure, isEncrypted |
+| `notes-storage.test.js` | — | — | Full CRUD coverage for all note types + prefs + parseTags/getSiteKey/getPageKey |
+| `crypto.test.js` | — | 5 | generateSalt, deriveKey, encrypt/decrypt round-trip, wrong-key failure, isEncrypted |
+| `outline-ops.test.js` | — | — | Pure outline tree operation tests |
 
 ## `icons/`
 

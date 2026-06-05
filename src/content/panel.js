@@ -56,6 +56,9 @@ window.StickySites = window.StickySites || {};
     _isExpanded: false,
     _normalSize: null,
     _flushSave: null,
+    _activeKey: null,
+    _activeLabel: null,
+    _lastSavedBody: null,
 
     init: function (onClose) {
       this.onClose = onClose;
@@ -68,7 +71,17 @@ window.StickySites = window.StickySites || {};
     },
 
     open: async function (noteType) {
+      // Commit any pending edit from the previous note under ITS OWN snapshot
+      // key before re-snapshotting — otherwise the armed 500ms save would fire
+      // after the switch and write the old note's content under the new key.
+      if (this._saveTimer) await this.flushPendingSave();
       this.activeNoteType = noteType;
+      // Snapshot the storage key/label once per panel session. All reads and
+      // writes use the snapshot, so a save can never land under another page's
+      // key after an SPA navigation (or a daily note crossing midnight).
+      this._activeKey = noteType.getKey(location);
+      this._activeLabel = noteType.getLabel(location);
+      this._lastSavedBody = null;
       // Cleared per-open so a stale save closure from a previous note type can
       // never write to the wrong storage key; the rich-text renderer re-sets it.
       this._flushSave = null;
@@ -94,11 +107,22 @@ window.StickySites = window.StickySites || {};
     },
 
     close: function () {
+      // A pending edit is committed, not dropped: the save closure captures the
+      // editor DOM and the snapshot key synchronously, before teardown below.
+      if (this._saveTimer) {
+        clearTimeout(this._saveTimer);
+        this._saveTimer = null;
+        if (this._flushSave) {
+          try { this._flushSave(); } catch (e) { /* save is best-effort */ }
+        }
+      }
       this.activeNoteType = null;
       this._isExpanded = false;
       this._flushSave = null;
+      this._activeKey = null;
+      this._activeLabel = null;
+      this._lastSavedBody = null;
       this.el.classList.remove('is-open');
-      if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
       this.el.style.left = '';
       this.el.style.top = '';
@@ -203,17 +227,25 @@ window.StickySites = window.StickySites || {};
       if (!noteType) return;
       // Flush any pending edit so the popout window reads the latest content from
       // storage (the popout reloads the note from chrome.storage, not from the DOM).
-      if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
-      if (this._flushSave) {
-        try { await this._flushSave(); } catch (e) { /* save is best-effort */ }
-      }
+      await this.flushPendingSave();
       chrome.runtime.sendMessage({
         type: 'STICKYSITES_POPOUT',
         noteTypeId: noteType.id,
-        key: noteType.getKey(location),
-        label: noteType.getLabel(location)
+        key: this._activeKey,
+        label: this._activeLabel
       });
       if (this.onClose) this.onClose();
+    },
+
+    flushPendingSave: async function () {
+      // No armed timer means no unsaved edit — skip the write entirely so a
+      // no-edit flush can't bump updatedAt (popup Recent sort, Drive sync).
+      if (!this._saveTimer) return;
+      clearTimeout(this._saveTimer);
+      this._saveTimer = null;
+      if (this._flushSave) {
+        try { await this._flushSave(); } catch (e) { /* save is best-effort */ }
+      }
     },
 
     _initResize: function () {
@@ -268,7 +300,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _readNote: async function (noteType) {
-      var key = noteType.getKey(location);
+      var key = this._activeKey;
       try {
         var stored = await chrome.storage.local.get(noteType.storageKey);
         var raw = stored?.[noteType.storageKey];
@@ -301,7 +333,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _writeNote: async function (noteType, body, tags) {
-      var key = noteType.getKey(location);
+      var key = this._activeKey;
       var now = new Date().toISOString();
       try {
         if (noteType.storagePattern === 'single') {
@@ -322,7 +354,7 @@ window.StickySites = window.StickySites || {};
         var existing = map[key];
         map[key] = {
           key: key,
-          label: noteType.getLabel(location),
+          label: this._activeLabel,
           body: String(body),
           tags: Array.isArray(tags) ? tags : [],
           createdAt: existing?.createdAt || now,
@@ -338,7 +370,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _writeStructured: async function (noteType, data) {
-      var key = noteType.getKey(location);
+      var key = this._activeKey;
       var now = new Date().toISOString();
       try {
         var stored = await chrome.storage.local.get(noteType.storageKey);
@@ -349,7 +381,7 @@ window.StickySites = window.StickySites || {};
         var map = rawMap;
         var existing = map[key];
         map[key] = {
-          siteKey: key,
+          key: key,
           items: Array.isArray(data.items) ? data.items : [],
           sections: Array.isArray(data.sections) ? data.sections : (existing?.sections || []),
           tagColors: (data.tagColors && typeof data.tagColors === 'object') ? data.tagColors : (existing?.tagColors || {}),
@@ -484,7 +516,7 @@ window.StickySites = window.StickySites || {};
 
       if (noteType.storagePattern === 'structured') {
         if (noteType.id === 'todo') { this._renderTodo(noteType, note); return; }
-        if (noteType.id === 'outline') { this._renderOutline(noteType, note); return; }
+        if (noteType.id === 'outline') { window.StickySites.Outline.render(this, noteType); return; }
       }
 
       var body = note?.body ?? '';
@@ -592,6 +624,9 @@ window.StickySites = window.StickySites || {};
           parseTags(tagInput.value)
         );
         if (result) {
+          // Remember exactly what we stored so syncFromStorage can ignore the
+          // echo of our own write coming back through chrome.storage.onChanged.
+          self._lastSavedBody = result.body;
           chars.textContent = getPlainText(editor).length + ' chars';
           saved.textContent = formatSaved(result.updatedAt);
         }
@@ -603,7 +638,7 @@ window.StickySites = window.StickySites || {};
 
       var debouncedSave = function () {
         if (self._saveTimer) clearTimeout(self._saveTimer);
-        self._saveTimer = setTimeout(doSave, 500);
+        self._saveTimer = setTimeout(function () { self._saveTimer = null; doSave(); }, 500);
       };
 
       editor.addEventListener('input', debouncedSave);
@@ -956,17 +991,20 @@ window.StickySites = window.StickySites || {};
       }
 
       // ── Helper: save (debounced 500ms) ──────────────────────
+      function saveNow() {
+        return self._writeStructured(noteType, {
+          items: items,
+          sections: sections,
+          tagColors: tagColors
+        }).then(function (result) {
+          if (result) saved.textContent = formatSaved(result.updatedAt);
+        });
+      }
       function save() {
         if (self._saveTimer) clearTimeout(self._saveTimer);
-        self._saveTimer = setTimeout(async function () {
-          var result = await self._writeStructured(noteType, {
-            items: items,
-            sections: sections,
-            tagColors: tagColors
-          });
-          if (result) saved.textContent = formatSaved(result.updatedAt);
-        }, 500);
+        self._saveTimer = setTimeout(function () { self._saveTimer = null; saveNow(); }, 500);
       }
+      self._flushSave = saveNow;
 
       // ── Helper: itemMatches ─────────────────────────────────
       function itemMatches(item) {
@@ -1689,252 +1727,7 @@ window.StickySites = window.StickySites || {};
       }, 0);
     },
 
-    _renderOutline: function (noteType, note) {
-      while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
-      var self = this;
-      var items = (note && note.items) ? JSON.parse(JSON.stringify(note.items)) : [];
-      var updatedAt = (note && note.updatedAt) || '';
-
-      // Header
-      var header = document.createElement('div');
-      header.className = 'stickysites-panel-header';
-      header.style.background = noteType.tint;
-      header.style.color = noteType.tintText;
-      var iconEl = document.createElement('span');
-      iconEl.className = 'stickysites-panel-icon';
-      iconEl.style.background = noteType.color;
-      iconEl.textContent = noteType.emoji;
-      var title = document.createElement('span');
-      title.className = 'stickysites-panel-title';
-      title.textContent = noteType.getLabel(location);
-      var closeBtn = document.createElement('button');
-      closeBtn.className = 'stickysites-panel-close';
-      closeBtn.textContent = '✕';
-      closeBtn.addEventListener('click', function () { if (self.onClose) self.onClose(); });
-
-      var expandBtn = document.createElement('button');
-      expandBtn.className = 'stickysites-panel-headerbtn';
-      expandBtn.textContent = '⤢';
-      expandBtn.title = 'Expand';
-      expandBtn.addEventListener('click', function () {
-        self._toggleExpand();
-        expandBtn.textContent = self._isExpanded ? '⤡' : '⤢';
-        expandBtn.title = self._isExpanded ? 'Shrink' : 'Expand';
-      });
-
-      var popoutBtn = document.createElement('button');
-      popoutBtn.className = 'stickysites-panel-headerbtn';
-      popoutBtn.textContent = '⧉';
-      popoutBtn.title = 'Open in own window';
-      popoutBtn.addEventListener('click', function () {
-        self._popoutActiveNote();
-      });
-
-      header.append(iconEl, title, popoutBtn, expandBtn, closeBtn);
-
-      var listEl = document.createElement('div');
-      listEl.className = 'stickysites-outline-list';
-
-      var footer = document.createElement('div');
-      footer.className = 'stickysites-panel-footer';
-      var nodeCount = document.createElement('span');
-      var saved = document.createElement('span');
-      saved.className = 'stickysites-panel-saved';
-      saved.textContent = formatSaved(updatedAt);
-      footer.append(nodeCount, saved);
-
-      function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-
-      function countNodes(arr) {
-        var c = 0;
-        arr.forEach(function (n) {
-          c += 1;
-          if (n.children && n.children.length) c += countNodes(n.children);
-        });
-        return c;
-      }
-
-      function updateNodeCount() {
-        nodeCount.textContent = countNodes(items) + ' nodes';
-      }
-
-      function save() {
-        if (self._saveTimer) clearTimeout(self._saveTimer);
-        self._saveTimer = setTimeout(async function () {
-          var result = await self._writeStructured(noteType, { items: items });
-          if (result) saved.textContent = formatSaved(result.updatedAt);
-        }, 500);
-      }
-
-      function findParent(targetId, arr, parent) {
-        for (var i = 0; i < arr.length; i++) {
-          if (arr[i].id === targetId) return { parent: parent, array: arr, index: i };
-          if (arr[i].children && arr[i].children.length) {
-            var found = findParent(targetId, arr[i].children, arr[i]);
-            if (found) return found;
-          }
-        }
-        return null;
-      }
-
-      function renderNode(node, depth) {
-        var row = document.createElement('div');
-        row.className = 'stickysites-outline-node';
-        row.style.paddingLeft = (depth * 20 + 8) + 'px';
-
-        var bullet = document.createElement('span');
-        bullet.className = 'stickysites-outline-bullet';
-        bullet.textContent = (node.children && node.children.length) ? (node.collapsed ? '▸' : '▾') : '•';
-        bullet.addEventListener('click', function () {
-          if (node.children && node.children.length) {
-            node.collapsed = !node.collapsed;
-            renderAll();
-            save();
-          }
-        });
-
-        var input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'stickysites-outline-text';
-        input.value = node.text;
-        input.placeholder = 'New item...';
-        input.addEventListener('input', function () {
-          node.text = input.value;
-          save();
-        });
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            var loc = findParent(node.id, items, null);
-            if (loc) {
-              var newNode = { id: genId(), text: '', children: [], collapsed: false };
-              loc.array.splice(loc.index + 1, 0, newNode);
-              renderAll();
-              updateNodeCount();
-              save();
-              // Focus the new node's input
-              var allInputs = listEl.querySelectorAll('.stickysites-outline-text');
-              for (var j = 0; j < allInputs.length; j++) {
-                if (allInputs[j].value === '' && allInputs[j] !== input) {
-                  allInputs[j].focus();
-                  break;
-                }
-              }
-            }
-          }
-          if (e.key === 'Tab' && !e.shiftKey) {
-            e.preventDefault();
-            // Indent: move node to be child of previous sibling
-            var loc = findParent(node.id, items, null);
-            if (loc && loc.index > 0) {
-              var prevSibling = loc.array[loc.index - 1];
-              loc.array.splice(loc.index, 1);
-              if (!prevSibling.children) prevSibling.children = [];
-              prevSibling.children.push(node);
-              prevSibling.collapsed = false;
-              renderAll();
-              save();
-              // Refocus
-              var allInputs = listEl.querySelectorAll('.stickysites-outline-text');
-              allInputs.forEach(function (inp) { if (inp.dataset.nodeId === node.id) inp.focus(); });
-            }
-          }
-          if (e.key === 'Tab' && e.shiftKey) {
-            e.preventDefault();
-            // Outdent: move node to parent's level
-            var loc = findParent(node.id, items, null);
-            if (loc && loc.parent) {
-              var parentLoc = findParent(loc.parent.id, items, null);
-              if (parentLoc) {
-                loc.array.splice(loc.index, 1);
-                parentLoc.array.splice(parentLoc.index + 1, 0, node);
-                renderAll();
-                save();
-                var allInputs = listEl.querySelectorAll('.stickysites-outline-text');
-                allInputs.forEach(function (inp) { if (inp.dataset.nodeId === node.id) inp.focus(); });
-              }
-            }
-          }
-          if (e.key === 'Backspace' && input.value === '') {
-            e.preventDefault();
-            var loc = findParent(node.id, items, null);
-            if (loc && !(items.length === 1 && !loc.parent)) {
-              // Move children to parent level
-              if (node.children && node.children.length) {
-                for (var c = node.children.length - 1; c >= 0; c--) {
-                  loc.array.splice(loc.index + 1, 0, node.children[c]);
-                }
-              }
-              loc.array.splice(loc.index, 1);
-              renderAll();
-              updateNodeCount();
-              save();
-            }
-          }
-        });
-        input.dataset.nodeId = node.id;
-
-        var delBtn = document.createElement('button');
-        delBtn.className = 'stickysites-outline-delete';
-        delBtn.textContent = '×';
-        delBtn.addEventListener('click', function () {
-          var loc = findParent(node.id, items, null);
-          if (loc) {
-            loc.array.splice(loc.index, 1);
-            renderAll();
-            updateNodeCount();
-            save();
-          }
-        });
-
-        row.append(bullet, input, delBtn);
-
-        var container = document.createElement('div');
-        container.appendChild(row);
-
-        if (!node.collapsed && node.children && node.children.length) {
-          node.children.forEach(function (child) {
-            container.appendChild(renderNode(child, depth + 1));
-          });
-        }
-
-        return container;
-      }
-
-      function renderAll() {
-        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
-        items.forEach(function (node) {
-          listEl.appendChild(renderNode(node, 0));
-        });
-      }
-
-      var addBtn = document.createElement('button');
-      addBtn.className = 'stickysites-outline-add';
-      addBtn.textContent = '+ Add node';
-      addBtn.addEventListener('click', function () {
-        items.push({ id: genId(), text: '', children: [], collapsed: false });
-        renderAll();
-        updateNodeCount();
-        save();
-        var last = listEl.querySelectorAll('.stickysites-outline-text');
-        if (last.length) last[last.length - 1].focus();
-      });
-
-      if (items.length === 0) {
-        items.push({ id: genId(), text: '', children: [], collapsed: false });
-      }
-
-      renderAll();
-      updateNodeCount();
-
-      if (!note) {
-        self._writeStructured(noteType, { items: items });
-      }
-
-      this.el.append(header, listEl, addBtn, footer);
-    },
-
-    syncFromStorage: function (changes) {
+    syncFromStorage: async function (changes) {
       if (!this.activeNoteType) return;
       var nt = this.activeNoteType;
       if (nt.storagePattern === 'structured') return;
@@ -1943,17 +1736,45 @@ window.StickySites = window.StickySites || {};
       var ed = this.el.querySelector('.stickysites-panel-editor');
       if (!ed) return;
 
+      // Focus guard — never rewrite the DOM under the user's caret. Remote
+      // changes are picked up the next time the note is opened.
+      var active = document.activeElement;
+      if (active && this.el.contains(active)) return;
+
       var newValue = changes[nt.storageKey].newValue;
-      if (nt.storagePattern === 'single') {
-        // Safe: newValue.body is user-authored content from chrome.storage.local (extension-isolated storage)
-        if (newValue && ed.innerHTML !== newValue.body) ed.innerHTML = bodyToHtml(newValue.body); // nosec
-      } else {
-        var key = nt.getKey(location);
-        var map = newValue || {};
-        var record = map[key];
-        // Safe: record.body is user-authored content from chrome.storage.local (extension-isolated storage)
-        if (record && ed.innerHTML !== record.body) ed.innerHTML = bodyToHtml(record.body); // nosec
+      // Encrypted guard — the change event carries the stored envelope, not the
+      // plaintext. Decrypt before comparing; skip entirely while locked.
+      if (newValue && window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(newValue)) {
+        try {
+          var cachedKey = await window.StickySites.Crypto.getCachedKey();
+          if (!cachedKey) return;
+          newValue = await window.StickySites.Crypto.decryptValue(newValue);
+        } catch { return; }
+        // decryptValue swallows failures and returns the envelope unchanged
+        // (e.g. stale cached key after a passphrase change) — never treat an
+        // undecrypted envelope as note content.
+        if (window.StickySites.Crypto.isEncrypted(newValue)) return;
       }
+
+      var body;
+      if (nt.storagePattern === 'single') {
+        body = newValue ? String(newValue.body ?? '') : '';
+      } else {
+        var record = (newValue || {})[this._activeKey];
+        if (!record) return;
+        body = String(record.body ?? '');
+      }
+
+      // Self-echo guard — our own debounced save round-tripping through onChanged.
+      if (body === this._lastSavedBody) return;
+
+      // Re-check focus: the guard at the top may be stale after the encrypted
+      // path's awaits, and a rewrite mid-keystroke is exactly what we prevent.
+      var activeNow = document.activeElement;
+      if (activeNow && this.el.contains(activeNow)) return;
+
+      // Safe: body is user-authored content from chrome.storage.local (extension-isolated storage)
+      if (ed.innerHTML !== body) ed.innerHTML = bodyToHtml(body); // nosec
     }
   };
 })();

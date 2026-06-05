@@ -102,6 +102,12 @@
   async function clipToNote(noteTypeId, text) {
     var nt = findNoteType(noteTypeId);
     if (!nt || !text) return;
+    // While locked, a write would silently lose the clip (the stored value is
+    // an envelope this context can't decrypt). Tell the user instead.
+    if (!await checkUnlocked()) {
+      showToast('StickySites is locked — unlock to clip');
+      return;
+    }
     var key = nt.getKey(location);
     var C = window.StickySites.Crypto;
 
@@ -110,22 +116,38 @@
       var rawMap = stored?.[nt.storageKey] || {};
       if (C && C.isEncrypted(rawMap)) rawMap = await C.decryptValue(rawMap);
       var map = rawMap;
-      var record = map[key];
-      var items = (record && Array.isArray(record.items)) ? record.items : [];
       var newId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      var nowIso = new Date().toISOString();
 
       if (noteTypeId === 'todo') {
+        var record = map[key];
+        var items = (record && Array.isArray(record.items)) ? record.items : [];
         items.push({ id: newId, text: text, done: false, indent: 0, priority: 0, color: '', tags: [], note: '', section: '', completedAt: '' });
+        // Preserve sections/tagColors and any other fields the panel wrote.
+        map[key] = Object.assign({}, record, {
+          key: key,
+          items: items,
+          createdAt: (record && record.createdAt) || nowIso,
+          updatedAt: nowIso
+        });
       } else if (noteTypeId === 'outline') {
-        items.push({ id: newId, text: text, children: [], collapsed: false });
+        // Append to the active outline document (or the first in the library / a new one).
+        var prefsStored = await chrome.storage.local.get('stickysites_prefs_v1');
+        var pid = (prefsStored?.stickysites_prefs_v1 || {}).activeOutlineId;
+        var docKey = (pid && map[pid]) ? pid : Object.keys(map)[0];
+        if (!docKey) docKey = 'ol_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        var oRecord = map[docKey];
+        var oItems = (oRecord && Array.isArray(oRecord.items)) ? oRecord.items : [];
+        oItems.push({ id: newId, text: text, children: [], collapsed: false, note: '', done: false, tags: [] });
+        map[docKey] = Object.assign({}, oRecord, {
+          key: docKey,
+          name: (oRecord && (oRecord.name || docKey)) || 'My outline',
+          items: oItems,
+          createdAt: (oRecord && oRecord.createdAt) || nowIso,
+          updatedAt: nowIso
+        });
       }
 
-      map[key] = {
-        siteKey: key,
-        items: items,
-        createdAt: (record && record.createdAt) || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
       var mapToStore = map;
       if (C && await C.isEnabled() && await C.getCachedKey()) {
         mapToStore = await C.encryptValue(map);
@@ -173,14 +195,15 @@
   var badgeTimeout = null;
   function showBadges() {
     if (badgeTimeout) clearTimeout(badgeTimeout);
-    SS.Cluster.buttons.forEach(function (b, i) {
-      var existing = b.el.querySelector('.stickysites-cluster-badge');
+    var icons = SS.Cluster.getVisibleIcons();
+    icons.forEach(function (el, i) {
+      var existing = el.querySelector('.stickysites-cluster-badge');
       if (existing) existing.remove();
       var badge = document.createElement('span');
       badge.className = 'stickysites-cluster-badge';
       badge.textContent = (i < 5) ? String(i + 1) : '';
-      b.el.style.position = 'relative';
-      b.el.appendChild(badge);
+      el.style.position = 'relative';
+      el.appendChild(badge);
       requestAnimationFrame(function () { badge.classList.add('is-visible'); });
     });
     badgeTimeout = setTimeout(function () {
@@ -192,7 +215,8 @@
     }, 3000);
   }
 
-  // Chord hotkey system
+  // Chord hotkey system — numbers/`A` follow the *visible* cluster order so
+  // they always agree with the number badges (icons can be reordered/hidden).
   var chordCycleIndex = 0;
   document.addEventListener('keydown', function (e) {
     if (SS.Cluster.hidden) return;
@@ -201,19 +225,27 @@
 
     var key = e.key;
     if (key >= '1' && key <= '5') {
+      var visibleIds = SS.Cluster.getVisibleTypeIds();
       var idx = parseInt(key) - 1;
-      if (idx < noteTypes.length) {
-        e.preventDefault();
-        SS.Cluster.setActive(noteTypes[idx].id);
-        SS.Panel.open(noteTypes[idx]);
+      if (idx < visibleIds.length) {
+        var nt = findNoteType(visibleIds[idx]);
+        if (nt) {
+          e.preventDefault();
+          SS.Cluster.setActive(nt.id);
+          handleIconClick(nt.id);
+        }
       }
     }
     if (key === 'a' || key === 'A') {
+      var ids = SS.Cluster.getVisibleTypeIds();
+      if (!ids.length) return;
       e.preventDefault();
-      chordCycleIndex = (chordCycleIndex + 1) % noteTypes.length;
-      var nt = noteTypes[chordCycleIndex];
-      SS.Cluster.setActive(nt.id);
-      SS.Panel.open(nt);
+      chordCycleIndex = (chordCycleIndex + 1) % ids.length;
+      var cycled = findNoteType(ids[chordCycleIndex]);
+      if (cycled) {
+        SS.Cluster.setActive(cycled.id);
+        handleIconClick(cycled.id);
+      }
     }
   });
 
@@ -263,6 +295,30 @@
     if (!SS.Cluster.hidden) showBadges();
   };
 
+  // ── SPA navigation watcher ─────────────────────────────────────────────
+  // Client-side route changes don't reload content scripts. Refresh the
+  // location-dependent icons, and re-open any location-dependent note for the
+  // new URL. The pending save is flushed first — it writes under the key
+  // captured at open() time, so old content can never land under the new key.
+  var lastHref = location.href;
+  function onUrlChange() {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    if (SS.Cluster.refreshIcons) SS.Cluster.refreshIcons();
+    var nt = SS.Panel.activeNoteType;
+    if (!nt) return;
+    if (nt.id !== 'site' && nt.id !== 'page') return;
+    var newKey = nt.getKey(location);
+    if (newKey === SS.Panel._activeKey) return;
+    (async function () {
+      await SS.Panel.flushPendingSave();
+      SS.Panel.open(nt);
+    })();
+  }
+  window.addEventListener('popstate', onUrlChange);
+  window.addEventListener('hashchange', onUrlChange);
+  setInterval(onUrlChange, 1000);
+
   chrome.runtime.onMessage.addListener(function (msg) {
     if (msg?.type === 'STICKYSITES_TOGGLE') {
       SS.Cluster.toggle();
@@ -271,9 +327,15 @@
     if (msg?.type === 'STICKYSITES_OPEN') {
       var noteType = findNoteType(msg.noteTypeId);
       if (noteType) {
-        if (SS.Cluster.hidden) SS.Cluster.toggle();
-        SS.Cluster.setActive(noteType.id);
-        SS.Panel.open(noteType);
+        (async function () {
+          // A popup card click can target a specific outline document.
+          if (msg.key && noteType.id === 'outline') {
+            await window.StickySites.Prefs.write({ activeOutlineId: msg.key });
+          }
+          if (SS.Cluster.hidden) SS.Cluster.toggle();
+          SS.Cluster.setActive(noteType.id);
+          SS.Panel.open(noteType);
+        })();
       }
     }
     if (msg?.type === 'STICKYSITES_CLIP') {

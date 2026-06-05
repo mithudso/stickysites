@@ -6,8 +6,8 @@
 - **Global note** — single note visible on all websites
 - **Site note** — one note per domain (hostname, www-stripped)
 - **Page note** — one note per origin+pathname (query/hash excluded)
-- **To-do list** — per-site checklist with add/delete/reorder
-- **Outliner** — per-site hierarchical tree with indent/outdent/collapse
+- **To-do list** — single global checklist with add/delete/reorder
+- **Outliner** — global library of named outline documents with indent/outdent/collapse, zoom/hoist, keyboard navigation, and export
 - **Daily note** — one note per calendar date (YYYY-MM-DD key)
 
 ### Editor

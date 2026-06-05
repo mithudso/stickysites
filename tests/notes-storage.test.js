@@ -86,7 +86,8 @@ describe('site note', () => {
     const note = await readSiteNote('example.com');
     expect(note.body).toBe('site note');
     expect(note.tags).toEqual(['#test']);
-    expect(note.siteKey).toBe('example.com');
+    expect(note.key).toBe('example.com');
+    expect(note.label).toBe('example.com');
   });
 
   it('preserves createdAt on update', async () => {
@@ -140,7 +141,7 @@ describe('page note', () => {
     const note = await readPageNote('https://example.com/path');
     expect(note.body).toBe('page note');
     expect(note.tags).toEqual(['#test']);
-    expect(note.pageKey).toBe('https://example.com/path');
+    expect(note.key).toBe('https://example.com/path');
   });
 
   it('preserves createdAt on update', async () => {
@@ -239,7 +240,8 @@ describe('outline', () => {
     await writeOutline('example.com', { items });
     const outline = await readOutline('example.com');
     expect(outline.items).toEqual(items);
-    expect(outline.siteKey).toBe('example.com');
+    expect(outline.key).toBe('example.com');
+    expect(outline.name).toBe('example.com');
   });
 
   it('preserves createdAt on update', async () => {
@@ -281,7 +283,7 @@ describe('daily note', () => {
     var note = await readDailyNote('2026-05-26');
     expect(note.body).toBe('daily note');
     expect(note.tags).toEqual(['#today']);
-    expect(note.dateKey).toBe('2026-05-26');
+    expect(note.key).toBe('2026-05-26');
   });
 
   it('preserves createdAt on update', async () => {
@@ -304,5 +306,37 @@ describe('daily note', () => {
     await writeDailyNote('2026-05-26', { body: 'today' });
     var all = await readAllDailyNotes();
     expect(all).toHaveLength(2);
+  });
+});
+
+describe('legacy record fallback', () => {
+  beforeEach(() => { store = {}; });
+
+  it('readSiteNote accepts legacy siteKey records', async () => {
+    store['stickysites_sites_v1'] = {
+      'old.com': { siteKey: 'old.com', siteLabel: 'old.com', body: 'legacy', tags: [], createdAt: 'x', updatedAt: 'y' }
+    };
+    const note = await readSiteNote('old.com');
+    expect(note.key).toBe('old.com');
+    expect(note.body).toBe('legacy');
+  });
+
+  it('readPageNote accepts legacy pageKey records', async () => {
+    store['stickysites_pages_v1'] = {
+      'https://old.com/p': { pageKey: 'https://old.com/p', body: 'legacy page', tags: [] }
+    };
+    const note = await readPageNote('https://old.com/p');
+    expect(note.key).toBe('https://old.com/p');
+    expect(note.body).toBe('legacy page');
+  });
+
+  it('readOutline accepts legacy siteKey outlines and derives name from the map key', async () => {
+    store['stickysites_outlines_v1'] = {
+      'old.com': { siteKey: 'old.com', items: [{ id: '1', text: 'n', children: [], collapsed: false }] }
+    };
+    const o = await readOutline('old.com');
+    expect(o.key).toBe('old.com');
+    expect(o.name).toBe('old.com');
+    expect(o.items).toHaveLength(1);
   });
 });
