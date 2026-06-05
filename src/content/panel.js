@@ -1991,6 +1991,10 @@ window.StickySites = window.StickySites || {};
           if (!cachedKey) return;
           newValue = await window.StickySites.Crypto.decryptValue(newValue);
         } catch { return; }
+        // decryptValue swallows failures and returns the envelope unchanged
+        // (e.g. stale cached key after a passphrase change) — never treat an
+        // undecrypted envelope as note content.
+        if (window.StickySites.Crypto.isEncrypted(newValue)) return;
       }
 
       var body;
