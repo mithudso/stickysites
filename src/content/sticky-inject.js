@@ -102,6 +102,12 @@
   async function clipToNote(noteTypeId, text) {
     var nt = findNoteType(noteTypeId);
     if (!nt || !text) return;
+    // While locked, a write would silently lose the clip (the stored value is
+    // an envelope this context can't decrypt). Tell the user instead.
+    if (!await checkUnlocked()) {
+      showToast('StickySites is locked — unlock to clip');
+      return;
+    }
     var key = nt.getKey(location);
     var C = window.StickySites.Crypto;
 
@@ -110,22 +116,38 @@
       var rawMap = stored?.[nt.storageKey] || {};
       if (C && C.isEncrypted(rawMap)) rawMap = await C.decryptValue(rawMap);
       var map = rawMap;
-      var record = map[key];
-      var items = (record && Array.isArray(record.items)) ? record.items : [];
       var newId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      var nowIso = new Date().toISOString();
 
       if (noteTypeId === 'todo') {
+        var record = map[key];
+        var items = (record && Array.isArray(record.items)) ? record.items : [];
         items.push({ id: newId, text: text, done: false, indent: 0, priority: 0, color: '', tags: [], note: '', section: '', completedAt: '' });
+        // Preserve sections/tagColors and any other fields the panel wrote.
+        map[key] = Object.assign({}, record, {
+          key: key,
+          items: items,
+          createdAt: (record && record.createdAt) || nowIso,
+          updatedAt: nowIso
+        });
       } else if (noteTypeId === 'outline') {
-        items.push({ id: newId, text: text, children: [], collapsed: false });
+        // Append to the active outline document (or the most recent / a new one).
+        var prefsStored = await chrome.storage.local.get('stickysites_prefs_v1');
+        var pid = (prefsStored?.stickysites_prefs_v1 || {}).activeOutlineId;
+        var docKey = (pid && map[pid]) ? pid : Object.keys(map)[0];
+        if (!docKey) docKey = 'ol_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        var oRecord = map[docKey];
+        var oItems = (oRecord && Array.isArray(oRecord.items)) ? oRecord.items : [];
+        oItems.push({ id: newId, text: text, children: [], collapsed: false, note: '', done: false, tags: [] });
+        map[docKey] = Object.assign({}, oRecord, {
+          key: docKey,
+          name: (oRecord && (oRecord.name || docKey)) || 'My outline',
+          items: oItems,
+          createdAt: (oRecord && oRecord.createdAt) || nowIso,
+          updatedAt: nowIso
+        });
       }
 
-      map[key] = {
-        siteKey: key,
-        items: items,
-        createdAt: (record && record.createdAt) || new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
       var mapToStore = map;
       if (C && await C.isEnabled() && await C.getCachedKey()) {
         mapToStore = await C.encryptValue(map);
