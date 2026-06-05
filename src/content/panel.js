@@ -620,6 +620,9 @@ window.StickySites = window.StickySites || {};
           parseTags(tagInput.value)
         );
         if (result) {
+          // Remember exactly what we stored so syncFromStorage can ignore the
+          // echo of our own write coming back through chrome.storage.onChanged.
+          self._lastSavedBody = result.body;
           chars.textContent = getPlainText(editor).length + ' chars';
           saved.textContent = formatSaved(result.updatedAt);
         }
@@ -1965,7 +1968,7 @@ window.StickySites = window.StickySites || {};
       this.el.append(header, listEl, addBtn, footer);
     },
 
-    syncFromStorage: function (changes) {
+    syncFromStorage: async function (changes) {
       if (!this.activeNoteType) return;
       var nt = this.activeNoteType;
       if (nt.storagePattern === 'structured') return;
@@ -1974,17 +1977,36 @@ window.StickySites = window.StickySites || {};
       var ed = this.el.querySelector('.stickysites-panel-editor');
       if (!ed) return;
 
+      // Focus guard — never rewrite the DOM under the user's caret. Remote
+      // changes are picked up the next time the note is opened.
+      var active = document.activeElement;
+      if (active && this.el.contains(active)) return;
+
       var newValue = changes[nt.storageKey].newValue;
-      if (nt.storagePattern === 'single') {
-        // Safe: newValue.body is user-authored content from chrome.storage.local (extension-isolated storage)
-        if (newValue && ed.innerHTML !== newValue.body) ed.innerHTML = bodyToHtml(newValue.body); // nosec
-      } else {
-        var key = nt.getKey(location);
-        var map = newValue || {};
-        var record = map[key];
-        // Safe: record.body is user-authored content from chrome.storage.local (extension-isolated storage)
-        if (record && ed.innerHTML !== record.body) ed.innerHTML = bodyToHtml(record.body); // nosec
+      // Encrypted guard — the change event carries the stored envelope, not the
+      // plaintext. Decrypt before comparing; skip entirely while locked.
+      if (newValue && window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(newValue)) {
+        try {
+          var cachedKey = await window.StickySites.Crypto.getCachedKey();
+          if (!cachedKey) return;
+          newValue = await window.StickySites.Crypto.decryptValue(newValue);
+        } catch { return; }
       }
+
+      var body;
+      if (nt.storagePattern === 'single') {
+        body = newValue ? String(newValue.body ?? '') : '';
+      } else {
+        var record = (newValue || {})[this._activeKey];
+        if (!record) return;
+        body = String(record.body ?? '');
+      }
+
+      // Self-echo guard — our own debounced save round-tripping through onChanged.
+      if (body === this._lastSavedBody) return;
+
+      // Safe: body is user-authored content from chrome.storage.local (extension-isolated storage)
+      if (ed.innerHTML !== body) ed.innerHTML = bodyToHtml(body); // nosec
     }
   };
 })();
