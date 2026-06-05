@@ -173,14 +173,15 @@
   var badgeTimeout = null;
   function showBadges() {
     if (badgeTimeout) clearTimeout(badgeTimeout);
-    SS.Cluster.buttons.forEach(function (b, i) {
-      var existing = b.el.querySelector('.stickysites-cluster-badge');
+    var icons = SS.Cluster.getVisibleIcons();
+    icons.forEach(function (el, i) {
+      var existing = el.querySelector('.stickysites-cluster-badge');
       if (existing) existing.remove();
       var badge = document.createElement('span');
       badge.className = 'stickysites-cluster-badge';
       badge.textContent = (i < 5) ? String(i + 1) : '';
-      b.el.style.position = 'relative';
-      b.el.appendChild(badge);
+      el.style.position = 'relative';
+      el.appendChild(badge);
       requestAnimationFrame(function () { badge.classList.add('is-visible'); });
     });
     badgeTimeout = setTimeout(function () {
@@ -192,7 +193,8 @@
     }, 3000);
   }
 
-  // Chord hotkey system
+  // Chord hotkey system — numbers/`A` follow the *visible* cluster order so
+  // they always agree with the number badges (icons can be reordered/hidden).
   var chordCycleIndex = 0;
   document.addEventListener('keydown', function (e) {
     if (SS.Cluster.hidden) return;
@@ -201,19 +203,27 @@
 
     var key = e.key;
     if (key >= '1' && key <= '5') {
+      var visibleIds = SS.Cluster.getVisibleTypeIds();
       var idx = parseInt(key) - 1;
-      if (idx < noteTypes.length) {
-        e.preventDefault();
-        SS.Cluster.setActive(noteTypes[idx].id);
-        SS.Panel.open(noteTypes[idx]);
+      if (idx < visibleIds.length) {
+        var nt = findNoteType(visibleIds[idx]);
+        if (nt) {
+          e.preventDefault();
+          SS.Cluster.setActive(nt.id);
+          SS.Panel.open(nt);
+        }
       }
     }
     if (key === 'a' || key === 'A') {
+      var ids = SS.Cluster.getVisibleTypeIds();
+      if (!ids.length) return;
       e.preventDefault();
-      chordCycleIndex = (chordCycleIndex + 1) % noteTypes.length;
-      var nt = noteTypes[chordCycleIndex];
-      SS.Cluster.setActive(nt.id);
-      SS.Panel.open(nt);
+      chordCycleIndex = (chordCycleIndex + 1) % ids.length;
+      var cycled = findNoteType(ids[chordCycleIndex]);
+      if (cycled) {
+        SS.Cluster.setActive(cycled.id);
+        SS.Panel.open(cycled);
+      }
     }
   });
 
