@@ -638,7 +638,7 @@ window.StickySites = window.StickySites || {};
 
       var debouncedSave = function () {
         if (self._saveTimer) clearTimeout(self._saveTimer);
-        self._saveTimer = setTimeout(doSave, 500);
+        self._saveTimer = setTimeout(function () { self._saveTimer = null; doSave(); }, 500);
       };
 
       editor.addEventListener('input', debouncedSave);
