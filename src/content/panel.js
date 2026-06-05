@@ -2009,6 +2009,11 @@ window.StickySites = window.StickySites || {};
       // Self-echo guard — our own debounced save round-tripping through onChanged.
       if (body === this._lastSavedBody) return;
 
+      // Re-check focus: the guard at the top may be stale after the encrypted
+      // path's awaits, and a rewrite mid-keystroke is exactly what we prevent.
+      var activeNow = document.activeElement;
+      if (activeNow && this.el.contains(activeNow)) return;
+
       // Safe: body is user-authored content from chrome.storage.local (extension-isolated storage)
       if (ed.innerHTML !== body) ed.innerHTML = bodyToHtml(body); // nosec
     }
