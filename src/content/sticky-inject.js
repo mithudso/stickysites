@@ -263,6 +263,30 @@
     if (!SS.Cluster.hidden) showBadges();
   };
 
+  // ── SPA navigation watcher ─────────────────────────────────────────────
+  // Client-side route changes don't reload content scripts. Refresh the
+  // location-dependent icons, and re-open any location-dependent note for the
+  // new URL. The pending save is flushed first — it writes under the key
+  // captured at open() time, so old content can never land under the new key.
+  var lastHref = location.href;
+  function onUrlChange() {
+    if (location.href === lastHref) return;
+    lastHref = location.href;
+    if (SS.Cluster.refreshIcons) SS.Cluster.refreshIcons();
+    var nt = SS.Panel.activeNoteType;
+    if (!nt) return;
+    if (nt.id !== 'site' && nt.id !== 'page') return;
+    var newKey = nt.getKey(location);
+    if (newKey === SS.Panel._activeKey) return;
+    (async function () {
+      await SS.Panel.flushPendingSave();
+      SS.Panel.open(nt);
+    })();
+  }
+  window.addEventListener('popstate', onUrlChange);
+  window.addEventListener('hashchange', onUrlChange);
+  setInterval(onUrlChange, 1000);
+
   chrome.runtime.onMessage.addListener(function (msg) {
     if (msg?.type === 'STICKYSITES_TOGGLE') {
       SS.Cluster.toggle();
