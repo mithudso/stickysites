@@ -84,8 +84,8 @@ window.StickySites = window.StickySites || {};
       cssClass: 'is-orange',
       storageKey: 'stickysites_outlines_v1',
       storagePattern: 'structured',
-      getKey: function (loc) { return loc.hostname.replace(/^www\./, ''); },
-      getLabel: function (loc) { return 'Outline — ' + loc.hostname.replace(/^www\./, ''); },
+      getKey: function () { return ''; },
+      getLabel: function () { return 'Outliner'; },
       getPlaceholder: function () { return 'Organize your thoughts.'; }
     },
     {

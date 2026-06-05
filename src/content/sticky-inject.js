@@ -305,9 +305,15 @@
     if (msg?.type === 'STICKYSITES_OPEN') {
       var noteType = findNoteType(msg.noteTypeId);
       if (noteType) {
-        if (SS.Cluster.hidden) SS.Cluster.toggle();
-        SS.Cluster.setActive(noteType.id);
-        SS.Panel.open(noteType);
+        (async function () {
+          // A popup card click can target a specific outline document.
+          if (msg.key && noteType.id === 'outline') {
+            await window.StickySites.Prefs.write({ activeOutlineId: msg.key });
+          }
+          if (SS.Cluster.hidden) SS.Cluster.toggle();
+          SS.Cluster.setActive(noteType.id);
+          SS.Panel.open(noteType);
+        })();
       }
     }
     if (msg?.type === 'STICKYSITES_CLIP') {

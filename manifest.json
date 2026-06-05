@@ -30,6 +30,8 @@
         "src/content/prefs.js",
         "src/content/cluster.js",
         "src/content/todo.js",
+        "src/content/outline-ops.js",
+        "src/content/outline.js",
         "src/content/mentions.js",
         "src/content/panel.js",
         "src/content/sticky-inject.js"

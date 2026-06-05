@@ -797,15 +797,19 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  function computePopoutTarget(typeId, tabUrl) {
+  async function computePopoutTarget(typeId, tabUrl) {
     if (typeId === 'global') return { key: '__global__', label: 'Global note' };
     if (typeId === 'todo') return { key: '__global__', label: 'To-do list' };
     if (typeId === 'daily') { var d = todayKey(); return { key: d, label: 'Daily — ' + d }; }
+    if (typeId === 'outline') {
+      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
+      var pid = (stored?.stickysites_prefs_v1 || {}).activeOutlineId || '';
+      return { key: pid, label: 'Outliner' };
+    }
     try {
       var u = new URL(tabUrl);
       var host = u.hostname.replace(/^www\./, '');
       if (typeId === 'site') return { key: host, label: 'Site note — ' + host };
-      if (typeId === 'outline') return { key: host, label: 'Outline — ' + host };
       if (typeId === 'page') return { key: u.origin + u.pathname, label: 'Page note — ' + u.pathname };
     } catch { /* fall through */ }
     return { key: '', label: '' };
@@ -819,7 +823,7 @@
         return;
       } catch { /* content script not available — fall through to popout */ }
     }
-    var target = computePopoutTarget(typeId, tab && tab.url);
+    var target = await computePopoutTarget(typeId, tab && tab.url);
     chrome.runtime.sendMessage({
       type: 'STICKYSITES_POPOUT',
       noteTypeId: typeId,
