@@ -238,7 +238,11 @@ window.StickySites = window.StickySites || {};
     },
 
     flushPendingSave: async function () {
-      if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+      // No armed timer means no unsaved edit — skip the write entirely so a
+      // no-edit flush can't bump updatedAt (popup Recent sort, Drive sync).
+      if (!this._saveTimer) return;
+      clearTimeout(this._saveTimer);
+      this._saveTimer = null;
       if (this._flushSave) {
         try { await this._flushSave(); } catch (e) { /* save is best-effort */ }
       }
