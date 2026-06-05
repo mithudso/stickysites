@@ -210,7 +210,7 @@
         if (nt) {
           e.preventDefault();
           SS.Cluster.setActive(nt.id);
-          SS.Panel.open(nt);
+          handleIconClick(nt.id);
         }
       }
     }
@@ -222,7 +222,7 @@
       var cycled = findNoteType(ids[chordCycleIndex]);
       if (cycled) {
         SS.Cluster.setActive(cycled.id);
-        SS.Panel.open(cycled);
+        handleIconClick(cycled.id);
       }
     }
   });

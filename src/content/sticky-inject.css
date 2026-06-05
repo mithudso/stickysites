@@ -860,21 +860,6 @@
   overflow-y: auto;
   padding: 8px 0;
 }
-.stickysites-outline-node {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-}
-.stickysites-outline-bullet {
-  width: 16px;
-  text-align: center;
-  color: #fb923c;
-  cursor: pointer;
-  font-size: 12px;
-  flex-shrink: 0;
-  user-select: none;
-}
 .stickysites-outline-text {
   flex: 1;
   background: none;
@@ -1171,4 +1156,10 @@
   background: rgba(251, 146, 60, 0.12);
   color: #fdba74;
   font-size: 12px;
+}
+.stickysites-outline-locked {
+  padding: 24px 16px;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
 }

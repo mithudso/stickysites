@@ -21,6 +21,13 @@ window.StickySites = window.StickySites || {};
     return 'ol_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
+  async function isLocked() {
+    var C = window.StickySites.Crypto;
+    if (!C) return false;
+    if (!await C.isEnabled()) return false;
+    return !(await C.getCachedKey());
+  }
+
   async function readRawMap() {
     var C = window.StickySites.Crypto;
     var stored = await chrome.storage.local.get(STORAGE_KEY);
@@ -35,10 +42,15 @@ window.StickySites = window.StickySites || {};
   async function writeRawMap(map) {
     var C = window.StickySites.Crypto;
     var toStore = map;
-    if (C && await C.isEnabled() && await C.getCachedKey()) {
+    if (C && await C.isEnabled()) {
+      var cachedKey = await C.getCachedKey();
+      // Locked: writing now would replace the encrypted envelope with
+      // plaintext and permanently destroy every doc inside it. Refuse.
+      if (!cachedKey) return false;
       toStore = await C.encryptValue(map);
     }
     await chrome.storage.local.set({ [STORAGE_KEY]: toStore });
+    return true;
   }
 
   async function readLibrary() {
@@ -67,8 +79,8 @@ window.StickySites = window.StickySites || {};
       createdAt: (existing && existing.createdAt) || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    await writeRawMap(map);
-    return map[docKey];
+    var ok = await writeRawMap(map);
+    return ok ? map[docKey] : null;
   }
 
   async function deleteDoc(docKey) {
@@ -101,6 +113,16 @@ window.StickySites = window.StickySites || {};
       var Ops = window.StickySites.OutlineOps;
       var el = panel.el;
       while (el.firstChild) el.removeChild(el.firstChild);
+
+      // Locked vault: an empty read here is indistinguishable from "no
+      // outlines yet" — bail instead of auto-creating (and thereby clobbering).
+      if (await isLocked()) {
+        var lockMsg = document.createElement('div');
+        lockMsg.className = 'stickysites-outline-locked';
+        lockMsg.textContent = 'StickySites is locked. Unlock it to use the outliner.';
+        el.appendChild(lockMsg);
+        return;
+      }
 
       // ── Resolve the document ────────────────────────────────
       var requested = explicitKey || '';
