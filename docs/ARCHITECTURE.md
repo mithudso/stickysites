@@ -119,7 +119,7 @@ values are replaced with `{ iv: base64, data: base64 }` envelopes.
 
 **PageNote**: `{ key, label, body: richHTML, tags: string[], createdAt, updatedAt }` (legacy: `pageKey`, `pageLabel`)
 
-**TodoRecord**: `{ key, items: [{ id, text, done }], createdAt, updatedAt }` (global; key is `'__global__'`)
+**TodoRecord**: `{ key, items: [{ id, text, done }], sections, tagColors, createdAt, updatedAt }` (global; key is `'__global__'`)
 
 **OutlineRecord**: `{ key, name, items: [{ id, text, children, collapsed }], createdAt, updatedAt }` (key is `ol_<id>`; legacy keys are hostname strings)
 

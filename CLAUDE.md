@@ -87,7 +87,7 @@ stickysites_sites_v1      # Map of hostname → { key, label, body, tags, ... }
 stickysites_pages_v1      # Map of origin+path → { key, label, body, tags, ... }
 stickysites_todos_v1      # Global todo: { __global__: { key, items: [...], ... } }
 stickysites_outlines_v1   # Map of outlineKey → { key, name, items, ... } — named outline docs (ol_<id> keys; legacy hostname keys adapt at read time)
-stickysites_daily_v1      # Map of YYYY-MM-DD → { key, body, updatedAt }
+stickysites_daily_v1      # Map of YYYY-MM-DD → { key, body, ... }
 stickysites_prefs_v1      # { clusterPosition, panelMode, clusterLayout, iconOrder, enabledTypes, panelSize, panelPosition, activeOutlineId }
 stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
 ```

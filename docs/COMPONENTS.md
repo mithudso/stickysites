@@ -73,7 +73,7 @@ key/label/placeholder accessor functions.
 | `site` | green | `stickysites_sites_v1` | `map` |
 | `page` | blue | `stickysites_pages_v1` | `map` |
 | `todo` | purple | `stickysites_todos_v1` | `structured` |
-| `outline` | orange | `stickysites_outlines_v1` | `library` |
+| `outline` | orange | `stickysites_outlines_v1` | `structured` |
 | `daily` | red | `stickysites_daily_v1` | `map` |
 
 **storagePattern values**:
