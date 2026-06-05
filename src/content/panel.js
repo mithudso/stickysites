@@ -71,6 +71,10 @@ window.StickySites = window.StickySites || {};
     },
 
     open: async function (noteType) {
+      // Commit any pending edit from the previous note under ITS OWN snapshot
+      // key before re-snapshotting — otherwise the armed 500ms save would fire
+      // after the switch and write the old note's content under the new key.
+      if (this._saveTimer) await this.flushPendingSave();
       this.activeNoteType = noteType;
       // Snapshot the storage key/label once per panel session. All reads and
       // writes use the snapshot, so a save can never land under another page's
@@ -103,6 +107,15 @@ window.StickySites = window.StickySites || {};
     },
 
     close: function () {
+      // A pending edit is committed, not dropped: the save closure captures the
+      // editor DOM and the snapshot key synchronously, before teardown below.
+      if (this._saveTimer) {
+        clearTimeout(this._saveTimer);
+        this._saveTimer = null;
+        if (this._flushSave) {
+          try { this._flushSave(); } catch (e) { /* save is best-effort */ }
+        }
+      }
       this.activeNoteType = null;
       this._isExpanded = false;
       this._flushSave = null;
@@ -110,7 +123,6 @@ window.StickySites = window.StickySites || {};
       this._activeLabel = null;
       this._lastSavedBody = null;
       this.el.classList.remove('is-open');
-      if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
       this.el.style.left = '';
       this.el.style.top = '';
