@@ -41,6 +41,14 @@
   transform: scale(1.1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
+.stickysites-cluster-icon.has-text {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  padding: 0 2px;
+}
 .stickysites-cluster-icon.is-yellow { background: #fbbf24; color: #78350f; }
 .stickysites-cluster-icon.is-green  { background: #34d399; color: #064e3b; }
 .stickysites-cluster-icon.is-blue   { background: #60a5fa; color: #1e3a5f; }
