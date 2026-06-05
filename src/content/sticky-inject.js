@@ -220,6 +220,9 @@
   var chordCycleIndex = 0;
   document.addEventListener('keydown', function (e) {
     if (SS.Cluster.hidden) return;
+    // These are bare single-key chords. Never swallow modifier combos like
+    // Cmd/Ctrl+A (select all) — those belong to the page/OS, not to us.
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     var active = document.activeElement;
     if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
 
