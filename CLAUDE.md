@@ -147,23 +147,26 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
   Add to Global / Site / Page / To-do / Outline / Daily.
 - Clips selected text by sending `STICKYSITES_CLIP` to the active tab's content script.
 
-### Chord hotkeys
+### Cluster toggle hotkey
 - `Alt+S` (registered as a browser command in `manifest.json`) toggles the cluster
   visibility on the active tab.
-- When the cluster is visible, number keys `1`–`5` open the first 5 note types in the VISIBLE cluster order (reorder/hide aware — matches the number badges).
-- `A` cycles through all 6 note types in the visible cluster order.
-- Number badges appear on cluster icons for 3 seconds after the cluster becomes visible.
-- Number/`A` hotkeys are suppressed when focus is in an `input`, `textarea`, or
-  `contenteditable`.
-- All chord key actions route through the lock check (shows the lock overlay if encryption is enabled and no session key is cached).
+- There are intentionally **no bare-key hotkeys**. An earlier system bound bare `1`–`5`
+  and `A` (plus 3-second number badges on the cluster icons) to open/cycle note types
+  whenever the cluster was visible. Because those bindings required no modifier, they
+  hijacked ordinary keystrokes — `Cmd+A` reached the `a` branch and its `preventDefault()`
+  broke select-all, and bare digits broke page typing/navigation. The whole system (handler,
+  `showBadges`, the `Cluster.toggle` badge patch, and the `.stickysites-cluster-badge` CSS)
+  was removed. Opening a specific note type is done via the function-key shortcuts below.
 
 ### Function-key shortcuts (Ctrl/Cmd + F1–F6)
 - `Ctrl+F1` → Global, `Ctrl+F2` → Site, `Ctrl+F3` → Page, `Ctrl+F4` → Todo,
   `Ctrl+F5` → Outline, `Ctrl+F6` → Daily. `metaKey` works too on macOS.
 - Toggle semantics: closed → open; same type open → close; different type open → switch.
-- Unlike the number-chord hotkeys, these fire **regardless of cluster visibility or input
-  focus** — they're dedicated function keys, so the user always wants them to work.
+- These fire **regardless of cluster visibility or input focus** — they're dedicated
+  function keys, so the user always wants them to work.
 - Respect the `enabledTypes` pref (hidden note types are no-ops).
+- Route through the lock check (shows the lock overlay if encryption is enabled and no
+  session key is cached).
 
 ### Cluster (cluster.js)
 - Floating draggable pill with one icon per note type, positioned from saved prefs.

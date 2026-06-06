@@ -191,66 +191,13 @@
     showToast('Added to ' + nt.label + ' ✓');
   }
 
-  // Number badges on cluster icons
-  var badgeTimeout = null;
-  function showBadges() {
-    if (badgeTimeout) clearTimeout(badgeTimeout);
-    var icons = SS.Cluster.getVisibleIcons();
-    icons.forEach(function (el, i) {
-      var existing = el.querySelector('.stickysites-cluster-badge');
-      if (existing) existing.remove();
-      var badge = document.createElement('span');
-      badge.className = 'stickysites-cluster-badge';
-      badge.textContent = (i < 5) ? String(i + 1) : '';
-      el.style.position = 'relative';
-      el.appendChild(badge);
-      requestAnimationFrame(function () { badge.classList.add('is-visible'); });
-    });
-    badgeTimeout = setTimeout(function () {
-      var badges = document.querySelectorAll('.stickysites-cluster-badge');
-      badges.forEach(function (b) { b.classList.remove('is-visible'); });
-      setTimeout(function () {
-        badges.forEach(function (b) { b.remove(); });
-      }, 300);
-    }, 3000);
-  }
-
-  // Chord hotkey system — numbers/`A` follow the *visible* cluster order so
-  // they always agree with the number badges (icons can be reordered/hidden).
-  var chordCycleIndex = 0;
-  document.addEventListener('keydown', function (e) {
-    if (SS.Cluster.hidden) return;
-    // These are bare single-key chords. Never swallow modifier combos like
-    // Cmd/Ctrl+A (select all) — those belong to the page/OS, not to us.
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    var active = document.activeElement;
-    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
-
-    var key = e.key;
-    if (key >= '1' && key <= '5') {
-      var visibleIds = SS.Cluster.getVisibleTypeIds();
-      var idx = parseInt(key) - 1;
-      if (idx < visibleIds.length) {
-        var nt = findNoteType(visibleIds[idx]);
-        if (nt) {
-          e.preventDefault();
-          SS.Cluster.setActive(nt.id);
-          handleIconClick(nt.id);
-        }
-      }
-    }
-    if (key === 'a' || key === 'A') {
-      var ids = SS.Cluster.getVisibleTypeIds();
-      if (!ids.length) return;
-      e.preventDefault();
-      chordCycleIndex = (chordCycleIndex + 1) % ids.length;
-      var cycled = findNoteType(ids[chordCycleIndex]);
-      if (cycled) {
-        SS.Cluster.setActive(cycled.id);
-        handleIconClick(cycled.id);
-      }
-    }
-  });
+  // Note-type shortcuts live entirely in the Ctrl/Cmd + F1..F6 handler below.
+  // The previous bare-key system (1-5 / `A`, plus its 3-second number badges)
+  // was removed: with no modifier required it hijacked ordinary keystrokes
+  // whenever the cluster was visible and focus was on the page body, breaking
+  // page typing and navigation. An earlier partial fix only stopped modifier
+  // combos (Cmd/Ctrl/Alt) from being swallowed; this removes the bare-key
+  // handler outright so unmodified keystrokes are never intercepted.
 
   // Ctrl/Cmd + F1..F6 → toggle (show/hide/switch) a specific note type
   // Works regardless of cluster visibility or host-page focus.
@@ -287,16 +234,6 @@
   });
 
   await SS.Cluster.init(noteTypes, handleIconClick);
-
-  // Show badges on initial load if cluster is visible
-  if (!SS.Cluster.hidden) showBadges();
-
-  // Patch toggle to show badges when cluster becomes visible
-  var originalToggle = SS.Cluster.toggle.bind(SS.Cluster);
-  SS.Cluster.toggle = function () {
-    originalToggle();
-    if (!SS.Cluster.hidden) showBadges();
-  };
 
   // ── SPA navigation watcher ─────────────────────────────────────────────
   // Client-side route changes don't reload content scripts. Refresh the
