@@ -3,8 +3,7 @@
 ## Threat model
 
 StickySites runs as a Chrome Extension on every web page. It injects DOM elements into
-untrusted host pages, stores user-created notes locally with optional encryption, and
-optionally syncs notes to Google Drive.
+untrusted host pages and stores user-created notes locally with optional encryption.
 
 ### Attack surface
 
@@ -16,7 +15,6 @@ optionally syncs notes to Google Drive.
 | Storage tampering | Low — `chrome.storage.local` is isolated per extension | Other extensions cannot read or write StickySites storage. |
 | Context menu selection text | Low — the service worker receives `selectionText` from the host page | Text is appended verbatim to a note. It is HTML-entity-escaped before being inserted into rich-text bodies, preventing injection. |
 | Encryption passphrase brute-force | Low — PBKDF2 600 K iterations makes offline attacks expensive | The derived key is never persisted to disk; only the JWK is stored in `chrome.storage.session` (cleared on browser close). |
-| Google OAuth token leakage | Low — token is obtained via `chrome.identity` and stored in Chrome's token cache | Tokens are never written to extension storage. They are passed in-memory within the service worker only. |
 | Content script on sensitive pages | N/A — Chrome blocks content scripts on `chrome://`, `chrome-extension://`, and the Chrome Web Store | Built-in Chrome protection. |
 
 ### Permissions audit
@@ -26,16 +24,14 @@ optionally syncs notes to Google Drive.
 | `storage` | Note persistence in `chrome.storage.local`; session key in `chrome.storage.session` | Yes |
 | `activeTab` | Send messages to the currently active tab | Yes — does not grant broad host access |
 | `contextMenus` | Register the "StickySites" right-click submenu | Yes |
-| `identity` | Google OAuth token for Drive sync | Yes — limited to `drive.appdata` scope (app-private folder only) |
 
-No `tabs`, `webRequest`, `cookies`, `history`, or broad host permissions are requested.
+No `tabs`, `webRequest`, `cookies`, `history`, `identity`, or broad host permissions are requested.
 
 ### Data handling
 
 - All notes are stored in `chrome.storage.local` on the user's device.
-- No data is transmitted over the network unless the user explicitly enables Drive sync.
-- Drive sync uses Google OAuth via `chrome.identity`; only the `drive.appdata` scope is
-  requested, which limits access to an app-private folder invisible to other apps.
+- No data is transmitted over the network. The extension makes no external calls and uses
+  no OAuth or identity APIs.
 - No analytics, telemetry, or crash reporting of any kind.
 - No third-party scripts, CDN resources, or external iframes.
 
@@ -69,12 +65,8 @@ Encryption is opt-in and requires the user to set a passphrase.
 
 ### Caveats
 
-- Encryption covers only the six note storage keys. Prefs and sync metadata are not
-  encrypted.
+- Encryption covers only the six note storage keys. Prefs are not encrypted.
 - PBKDF2 at 600 K iterations can take 1–3 seconds on low-end devices.
-- Conflict copies created by Drive sync (`_conflict_<timestamp>` keys) are stored
-  unencrypted if the conflict was resolved while the notes were encrypted at rest, because
-  the loser value is stored as-received from Drive.
 
 ## Reporting vulnerabilities
 

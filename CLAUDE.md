@@ -9,10 +9,10 @@ Version: **1.10.0**
 
 ```
 stickysites/
-  manifest.json            # MV3 manifest — permissions, content scripts, SW, oauth2
+  manifest.json            # MV3 manifest — permissions, content scripts, SW
   package.json             # Dev tooling only (vitest)
   popup.html               # Browser action popup
-  popup.js                 # Popup: search, sort, filter, export, settings, Drive sync
+  popup.js                 # Popup: search, sort, filter, export, settings
   popup.css                # Popup styles
   popout.html              # Standalone popout editor window
   popout.js                # Popout: loads note type from URL params, opens Panel full-page
@@ -20,10 +20,9 @@ stickysites/
   vitest.config.js         # Vitest config (node environment)
   src/
     background/
-      service-worker.js    # Context menus, commands, Drive sync orchestration (ES module)
+      service-worker.js    # Context menus, commands, popout window (ES module)
     content/               # Loaded in order as classic scripts (no ES modules)
       crypto-content.js    # window.StickySites.Crypto — AES-GCM namespace (loaded first)
-      sync-content.js      # window.StickySites.Sync — Drive sync namespace
       note-types.js        # window.StickySites.noteTypes — icon registry (6 types)
       prefs.js             # window.StickySites.Prefs — cluster position / panel mode
       cluster.js           # window.StickySites.Cluster — floating draggable pill + drag
@@ -39,7 +38,6 @@ stickysites/
     shared/                # ES modules — used by service worker and vitest tests
       notes-storage.js     # Chrome Storage CRUD (all 6 note types + prefs)
       crypto.js            # AES-GCM primitives (ES module duplicate of crypto-content.js)
-      drive-sync.js        # Google Drive API client (Drive appDataFolder)
   tests/
     crypto.test.js         # AES-GCM unit tests
     notes-storage.test.js  # Storage CRUD unit tests
@@ -92,18 +90,13 @@ stickysites_prefs_v1      # { clusterPosition, panelMode, clusterLayout, iconOrd
 stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
 ```
 
-Plus in `chrome.storage.local`:
-```
-stickysites_sync_meta     # { lastSync, signedIn, perKey: { [key]: { lastSyncedAt, driveFileId } } }
-```
-
 Also in `chrome.storage.local`:
 ```
 stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until manually locked)
 ```
 
 ### Permissions
-`storage`, `activeTab`, `contextMenus`, `identity`
+`storage`, `activeTab`, `contextMenus`
 
 ### Encryption (opt-in, AES-256-GCM)
 - Enabled from the popup Settings panel.
@@ -115,16 +108,6 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
 - Encrypted values are stored as `{ iv: string, data: string }`. `isEncrypted()` detects this
   shape (must not have `body`, `items`, or `siteKey` keys).
 - The lock overlay appears in-page if the cluster is opened while locked.
-
-### Google Drive sync (OAuth)
-- Uses `chrome.identity.getAuthToken` (OAuth2) with scope
-  `https://www.googleapis.com/auth/drive.appdata`.
-- The `oauth2.client_id` in `manifest.json` is a real registered client ID.
-- Sync is triggered automatically 30 seconds after any note storage change (debounced).
-- Manual sync, sign-in, and sign-out are triggered via `chrome.runtime.sendMessage` from the
-  popup (`STICKYSITES_SYNC_NOW`, `STICKYSITES_SYNC_SIGNIN`, `STICKYSITES_SYNC_SIGNOUT`).
-- Conflict resolution: newest `updatedAt` timestamp wins; the loser is saved as
-  `stickysites_[key]_conflict_[timestamp]` in `chrome.storage.local`.
 
 ### Rich text editor (panel.js)
 - Panel is moveable (drag header) and resizable (drag bottom-right handle), with
@@ -200,7 +183,7 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
   search bar, sort (Recent / Oldest / A–Z), type filter tabs, active tag filter, export
   button.
 - Quick-Open buttons respect the same `enabledTypes` pref used to filter the cluster.
-- Settings panel: toggle AES-256 encryption, Drive sign-in/sign-out, manual sync trigger.
+- Settings panel: toggle AES-256 encryption, note-type visibility, cluster layout.
 - Passphrase lock screen shown if encryption is enabled and the session key is missing.
 
 ### To-do auto-focus
@@ -240,8 +223,6 @@ Tests run in node environment. They mock `chrome` APIs where needed.
 1. `chrome://extensions` → Enable Developer mode
 2. "Load unpacked" → select this repo root
 3. After code changes, click the reload button on the extension card
-4. For Drive sync: the OAuth client ID in `manifest.json` must be registered in Google Cloud
-   Console with the extension's ID as an allowed origin.
 
 ## Message types
 
@@ -251,6 +232,3 @@ Tests run in node environment. They mock `chrome` APIs where needed.
 | `STICKYSITES_OPEN`          | SW → content           | Open a specific note type (optional `key` targets an outline doc) |
 | `STICKYSITES_CLIP`          | SW → content           | Clip selected text into a note       |
 | `STICKYSITES_POPOUT`        | content → SW           | Open note in standalone popout window|
-| `STICKYSITES_SYNC_NOW`      | popup → SW             | Trigger immediate Drive sync         |
-| `STICKYSITES_SYNC_SIGNIN`   | popup → SW             | Initiate Drive OAuth sign-in + sync  |
-| `STICKYSITES_SYNC_SIGNOUT`  | popup → SW             | Revoke Drive OAuth token             |

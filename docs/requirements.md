@@ -34,18 +34,13 @@
 - Sort by recent, oldest, or alphabetical
 - Filter by note type tabs and active tags
 - Export all notes as markdown
-- Settings: encryption toggle, Drive sign-in/sign-out, manual sync
+- Settings: encryption toggle
 
 ### Encryption
 - Opt-in AES-256-GCM at rest via Web Crypto API
 - PBKDF2 key derivation: 600,000 iterations, SHA-256
 - Session key cached in `chrome.storage.session` (cleared on browser close)
 - Lock overlay with passphrase input when session key is missing
-
-### Google Drive Sync
-- OAuth2 via `chrome.identity.getAuthToken`, scope: `drive.appdata`
-- Auto-sync 30 seconds after storage changes (debounced)
-- Conflict resolution: newest `updatedAt` wins, loser saved as conflict copy
 
 ## Non-Functional Requirements
 
@@ -78,7 +73,6 @@ None — the extension has zero runtime dependencies.
 
 | Permission | Reason |
 |------------|--------|
-| `storage` | Read/write notes, prefs, crypto config, sync metadata |
+| `storage` | Read/write notes, prefs, crypto config |
 | `activeTab` | Access the active tab for content script messaging |
 | `contextMenus` | Right-click "Add to..." menus for text clipping |
-| `identity` | OAuth2 token for Google Drive sync |

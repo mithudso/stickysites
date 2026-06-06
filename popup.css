@@ -376,13 +376,6 @@ body {
   border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
 
-/* Sync status */
-.sync-status {
-  font-size: 10px;
-  cursor: help;
-  margin-right: 4px;
-}
-
 /* Settings buttons and labels */
 .settings-label {
   font-size: 12px;

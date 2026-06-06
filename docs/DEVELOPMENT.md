@@ -40,10 +40,9 @@ or permission), you must reload the extension AND close/reopen all tabs.
 ```
 src/
   background/
-    service-worker.js       — Context menus, keyboard commands, Drive sync (225 lines)
+    service-worker.js       — Context menus, keyboard commands (225 lines)
   content/
     crypto-content.js       — AES-GCM encryption namespace (198 lines)
-    sync-content.js         — Drive sync messaging namespace (30 lines)
     note-types.js           — Icon registry: 5 note types (74 lines)
     prefs.js                — Cluster position + panel mode (25 lines)
     cluster.js              — Floating draggable pill + badges (130 lines)
@@ -53,7 +52,6 @@ src/
   shared/
     notes-storage.js        — Chrome Storage CRUD for all types (304 lines)
     crypto.js               — AES-GCM (ES module for tests) (71 lines)
-    drive-sync.js           — Google Drive API client (91 lines)
 popup.html / popup.js / popup.css  — Browser action popup (all-notes view)
 tests/                              — Vitest unit tests (42 tests)
 scripts/                            — Icon generation
@@ -64,7 +62,6 @@ scripts/                            — Icon generation
 Content scripts cannot use ES `import`. They share state via a namespace:
 
 - `window.StickySites.Crypto` — encryption (loaded first)
-- `window.StickySites.Sync` — sync messaging
 - `window.StickySites.noteTypes` — icon registry array
 - `window.StickySites.Prefs` — preferences read/write
 - `window.StickySites.Cluster` — floating pill manager
@@ -103,14 +100,3 @@ Vitest tests. `crypto-content.js` is the namespace duplicate of `crypto.js`.
 zip -r stickysites.zip manifest.json icons/ src/ popup.* \
   -x "*.DS_Store" -x "node_modules/*" -x "tests/*" -x "scripts/*"
 ```
-
-## Google Drive sync setup
-
-To enable Drive sync, you need a Google Cloud OAuth client ID:
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a project and enable the **Google Drive API**
-3. Create an OAuth 2.0 Client ID (type: Chrome Extension)
-4. Enter your extension ID (from `chrome://extensions`)
-5. Replace the placeholder in `manifest.json` → `oauth2.client_id`
-6. Reload the extension

@@ -1,8 +1,8 @@
 # StickySites
 
 Sticky notes for every website. A Chrome Extension (v1.8.0) with six note types, a floating
-draggable icon cluster, a rich-text workspace panel with @-mention autocomplete, AES-256-GCM
-encryption at rest, and Google Drive sync.
+draggable icon cluster, a rich-text workspace panel with @-mention autocomplete, and
+AES-256-GCM encryption at rest.
 
 ## Note types
 
@@ -49,19 +49,13 @@ encryption at rest, and Google Drive sync.
 - Sort by Recent, Oldest, or A--Z
 - Filter by note type or by active tag
 - Export a single note or all notes as markdown
-- Settings panel for encryption and Drive sync
+- Settings panel for encryption
 
 ### Encryption at rest
 - Opt-in AES-256-GCM encryption enabled from the popup Settings panel
 - Passphrase-derived key via PBKDF2 (600,000 iterations, SHA-256)
 - Derived key cached in `chrome.storage.session` for the browser session
 - Lock overlay appears in-page when notes are locked
-
-### Google Drive sync
-- OAuth via `chrome.identity.getAuthToken` with `drive.appdata` scope
-- Auto-sync 30 seconds after any storage change (debounced)
-- Manual sync, sign-in, and sign-out from the popup
-- Conflict resolution: newest `updatedAt` wins; the loser is saved as a conflict backup
 
 ## Quick start
 
@@ -70,9 +64,7 @@ encryption at rest, and Google Drive sync.
 3. Click **Load unpacked** and select the repo root
 4. Click the StickySites toolbar icon or press **Alt+S** on any page
 
-For Drive sync, the `oauth2.client_id` in `manifest.json` must be registered in Google Cloud
-Console with the extension's ID as an allowed origin. See
-[docs/INSTALLATION.md](docs/INSTALLATION.md) for full setup details.
+See [docs/INSTALLATION.md](docs/INSTALLATION.md) for full setup details.
 
 ## Development
 
@@ -89,7 +81,6 @@ Tests run in a Node environment and mock Chrome APIs where needed. Requires Node
 - Chrome Extension Manifest V3
 - Vanilla JavaScript -- no frameworks, no transpilers, no build step
 - Web Crypto API (AES-256-GCM) for encryption
-- Google Drive REST API + Chrome Identity API for sync
 - Vitest for unit testing
 
 ## Documentation
