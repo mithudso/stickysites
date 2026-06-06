@@ -2,7 +2,7 @@
 
 ## Service Worker (`src/background/service-worker.js`) — 225 lines
 
-Background script running as an ES module. Handles three responsibilities:
+Background script running as an ES module. Handles two responsibilities:
 
 **Context menus**: On `onInstalled`, creates a "StickySites" parent menu item (shown on
 text selection) with six children: Add to Global note, Site note, Page note, To-do list,
@@ -11,15 +11,8 @@ Outline, Daily note. On click, sends `STICKYSITES_CLIP` to the active tab.
 **Keyboard commands**: Listens for the `toggle-cluster` command (`Alt+S`) and sends
 `STICKYSITES_TOGGLE` to the active tab.
 
-**Drive sync orchestration**: Watches `chrome.storage.local` for changes to any of the
-six note keys. Debounces 30 seconds, then calls `doSync()`. Also handles
-`STICKYSITES_SYNC_NOW`, `STICKYSITES_SYNC_SIGNIN`, and `STICKYSITES_SYNC_SIGNOUT` messages
-from the popup/content scripts.
-
 On install, calls `chrome.storage.session.setAccessLevel` to allow content scripts to
 read `chrome.storage.session` (needed for session key caching).
-
-**Dependencies**: `src/shared/drive-sync.js` (imported as ES module)
 
 ---
 
@@ -44,20 +37,6 @@ includes higher-level helpers for enabling/disabling encryption and caching the 
 | `disable()` | Decrypts all notes, removes crypto config and session key |
 | `cacheKey(key)` / `getCachedKey()` | Stores/retrieves the CryptoKey as JWK in `chrome.storage.session` |
 | `encryptValue(value)` / `decryptValue(value)` | Convenience wrappers for note read/write |
-
----
-
-## `src/content/sync-content.js` — 30 lines
-
-Attaches `window.StickySites.Sync`. Thin message-passing facade for Drive sync operations.
-All actual sync logic lives in the service worker.
-
-| Method | Purpose |
-|--------|---------|
-| `isSignedIn()` | Reads `signedIn` from sync meta in local storage |
-| `getMeta()` | Returns full sync meta object |
-| `requestSync()` | Sends `STICKYSITES_SYNC_NOW` to service worker |
-| `signIn()` / `signOut()` | Sends sign-in/sign-out messages to service worker |
 
 ---
 
@@ -227,27 +206,6 @@ higher-level enable/unlock/disable logic and session key caching.
 
 ---
 
-## `src/shared/drive-sync.js` — 91 lines
-
-ES module wrapping the Google Drive REST API (Drive v3, `appDataFolder` scope). Used
-only by the service worker.
-
-### Exports
-
-| Export | Purpose |
-|--------|---------|
-| `getToken()` | Calls `chrome.identity.getAuthToken` (interactive) |
-| `revokeToken()` | Removes cached auth token |
-| `listFiles(token)` | Lists files in `appDataFolder` |
-| `downloadFile(token, fileId)` | Downloads and JSON-parses a file |
-| `createFile(token, name, content)` | Creates a new file in `appDataFolder` |
-| `updateFile(token, fileId, content)` | Updates an existing file (media upload) |
-| `getSyncMeta()` / `setSyncMeta(meta)` | Read/write `stickysites_sync_meta` |
-| `NOTE_KEYS` | Array of the 6 note storage keys watched for sync |
-| `SYNC_META_KEY` | The sync meta storage key string |
-
----
-
 ## Popup (`popup.html` / `popup.js` / `popup.css`) — 45 / 733 / 366 lines
 
 A separate extension page (not injected into host pages). Opened via the toolbar icon
@@ -259,8 +217,6 @@ A separate extension page (not injected into host pages). Opened via the toolbar
 - Filter by note type
 - Export all notes as JSON
 
-**Settings panel**: Toggle encryption on/off (prompts for passphrase). Sign in / sign out
-of Google Drive sync and trigger an immediate sync.
+**Settings panel**: Toggle encryption on/off (prompts for passphrase).
 
-**Dependencies**: Communicates with the service worker via `chrome.runtime.sendMessage`
-for sync operations. Reads notes directly from `chrome.storage.local`.
+**Dependencies**: Reads notes directly from `chrome.storage.local`.

@@ -4,7 +4,7 @@
 
 StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace
 into every web page. It stores notes locally in Chrome Storage with optional AES-256-GCM
-encryption and optional Google Drive sync. There are no external servers or analytics.
+encryption. There are no external servers, network calls, or analytics.
 
 ## System context
 
@@ -15,24 +15,25 @@ encryption and optional Google Drive sync. There are no external servers or anal
   Chrome Browser
     |
     +-- Service Worker (background, type: module)
-    |     Context menus, keyboard commands, Drive sync orchestration
+    |     Context menus, keyboard commands
     |
-    +-- Content Scripts (per tab, 11 files loaded in order)
+    +-- Content Scripts (per tab, 10 files loaded in order)
     |     Floating cluster pill + slide-in panel UI
     |     Reads/writes notes via chrome.storage.local
     |     Encryption/decryption via WebCrypto API
     |
     +-- Popup Page (popup.html / popup.js)
     |     All-notes list view with search, sort, filter, export
-    |     Settings: encryption toggle, Drive sync sign-in/sign-out
+    |     Settings: encryption toggle
     |
     +-- Chrome Storage
-          chrome.storage.local  — notes, prefs, crypto config, sync meta
+          chrome.storage.local  — notes, prefs, crypto config
           chrome.storage.session — cached encryption key (JWK, cleared on browser close)
 ```
 
-The only external network call is to the Google Drive API (`googleapis.com`), and only
-when the user has explicitly signed in to Drive sync.
+StickySites makes no external network calls. All data stays in `chrome.storage.local`
+(with the cached encryption key in `chrome.storage.session`). There is no OAuth, no
+telemetry, and no third-party requests.
 
 ## Data flow
 
@@ -59,15 +60,11 @@ when the user has explicitly signed in to Drive sync.
    content scripts. `panel.js` receives storage changes via `SS.Panel.syncFromStorage()`
    and updates the open panel if the changed key matches the current note type.
 
-6. **Drive sync** — After any note storage change, the service worker debounces a 30-second
-   timer then calls `doSync()`. Sync compares local vs. remote timestamps; conflicts
-   produce a `_conflict_<ts>` copy in local storage and the newest version wins.
-
-7. **Context menu clips** — Right-clicking selected text shows a "StickySites" submenu.
+6. **Context menu clips** — Right-clicking selected text shows a "StickySites" submenu.
    The service worker sends a `STICKYSITES_CLIP` message to the active tab. The content
    script appends the text to the target note type without opening the panel.
 
-8. **Toggle visibility** — The keyboard shortcut `Alt+S` (or toolbar icon, if configured)
+7. **Toggle visibility** — The keyboard shortcut `Alt+S` (or toolbar icon, if configured)
    sends `STICKYSITES_TOGGLE` to the active tab, toggling the cluster and closing the panel.
 
 ## Content script module loading order
@@ -78,16 +75,15 @@ attach themselves to the `window.StickySites` namespace in a defined load order:
 | Load order | File | Namespace key |
 |-----------|------|---------------|
 | 1 | `crypto-content.js` | `window.StickySites.Crypto` |
-| 2 | `sync-content.js` | `window.StickySites.Sync` |
-| 3 | `note-types.js` | `window.StickySites.noteTypes` |
-| 4 | `prefs.js` | `window.StickySites.Prefs` |
-| 5 | `cluster.js` | `window.StickySites.Cluster` |
-| 6 | `todo.js` | `window.StickySites.Todo` |
-| 7 | `outline-ops.js` | `window.StickySites.OutlineOps` |
-| 8 | `outline.js` | `window.StickySites.Outline` |
-| 9 | `mentions.js` | `window.StickySites.Mentions` |
-| 10 | `panel.js` | `window.StickySites.Panel` |
-| 11 | `sticky-inject.js` | (orchestrator — consumes all of the above) |
+| 2 | `note-types.js` | `window.StickySites.noteTypes` |
+| 3 | `prefs.js` | `window.StickySites.Prefs` |
+| 4 | `cluster.js` | `window.StickySites.Cluster` |
+| 5 | `todo.js` | `window.StickySites.Todo` |
+| 6 | `outline-ops.js` | `window.StickySites.OutlineOps` |
+| 7 | `outline.js` | `window.StickySites.Outline` |
+| 8 | `mentions.js` | `window.StickySites.Mentions` |
+| 9 | `panel.js` | `window.StickySites.Panel` |
+| 10 | `sticky-inject.js` | (orchestrator — consumes all of the above) |
 
 The service worker and popup use ES modules (`import`/`export`) and can reference the
 shared modules in `src/shared/` directly.
@@ -107,7 +103,6 @@ values are replaced with `{ iv: base64, data: base64 }` envelopes.
 | `stickysites_daily_v1` | `{ [YYYY-MM-DD]: DailyNote }` | Map keyed by date string |
 | `stickysites_prefs_v1` | `{ clusterPosition: { x, y }, panelMode: string }` | User preferences |
 | `stickysites_crypto_v1` | `{ enabled: bool, salt: base64, verify: envelope }` | Encryption config |
-| `stickysites_sync_meta` | `{ signedIn: bool, lastSync: ISO8601, perKey: { [key]: SyncKeyMeta } }` | Drive sync state |
 
 **chrome.storage.session** (cleared on browser close):
 
@@ -130,7 +125,6 @@ values are replaced with `{ iv: base64, data: base64 }` envelopes.
 | `storage` | Read/write `chrome.storage.local` and `chrome.storage.session` |
 | `activeTab` | Send messages to the current tab |
 | `contextMenus` | Register the "StickySites" right-click submenu |
-| `identity` | Google OAuth token acquisition for Drive sync |
 
 ## Design decisions
 
@@ -151,14 +145,3 @@ The derived AES-GCM key is stored as a JWK in `chrome.storage.session` so the us
 only enters their passphrase once per browser session. `chrome.storage.session` is
 accessible to content scripts because the service worker sets
 `setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })` on install.
-
-### Drive sync debounce
-
-Auto-sync is debounced at 30 seconds after the last note change to avoid excessive
-API calls during rapid editing. The popup can also trigger an immediate sync.
-
-### Conflict resolution
-
-When both local and remote data changed since the last sync, the newest version wins
-and the loser is saved to a `_conflict_<timestamp>` key in local storage. These copies
-are not yet surfaced in the UI.

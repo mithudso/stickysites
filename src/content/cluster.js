@@ -129,6 +129,13 @@ window.StickySites = window.StickySites || {};
       }
     },
 
+    // Flip orientation live (called from the storage listener when the popup
+    // writes clusterLayout) so the change applies without a page reload.
+    applyLayout: function (layout) {
+      if (!this.el) return;
+      this.el.classList.toggle('is-horizontal', layout === 'horizontal');
+    },
+
     _initReorder: function () {
       var self = this;
       var holdTimer = null;

@@ -80,13 +80,10 @@ API available in the Vitest environment.
   the Chrome content-script runtime. Validate manually or with Playwright E2E tests using
   `launchPersistentContext` with the extension loaded.
 - **Service worker message passing** — integration test territory, not unit tests.
-- **Drive sync** in `service-worker.js` / `drive-sync.js` — requires mocking the Drive API
-  and `chrome.identity`; currently covered by manual testing only.
 - **Popup** (`popup.js`) — DOM-heavy; covered by manual testing and visual inspection.
 
 ## Coverage priorities for future tests
 
 1. `createDebouncedSaver()` — timer behavior and cancellation
 2. `clipToNote()` in `sticky-inject.js` — requires DOM + storage mocks
-3. Drive sync conflict logic in `service-worker.js` — timestamp comparison edge cases
-4. Popup search/sort/filter logic in `popup.js` — pure filtering functions are extractable
+3. Popup search/sort/filter logic in `popup.js` — pure filtering functions are extractable

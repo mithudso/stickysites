@@ -4,10 +4,10 @@
 
 | File | Purpose |
 |------|---------|
-| `manifest.json` | Chrome Extension MV3 manifest — permissions, content script load order, service worker, popup, commands, OAuth config |
+| `manifest.json` | Chrome Extension MV3 manifest — permissions, content script load order, service worker, popup, commands |
 | `package.json` | NPM config — Vitest dev dependency, test scripts |
 | `popup.html` | Extension popup page shell — loaded when user clicks the toolbar icon |
-| `popup.js` | Popup logic — all-notes view (search, sort, filter, export) + settings (encryption, Drive sync) |
+| `popup.js` | Popup logic — all-notes view (search, sort, filter, export) + settings (encryption) |
 | `popup.css` | Popup styles |
 | `CLAUDE.md` | Claude Code project guide |
 | `README.md` | User-facing project overview and install instructions |
@@ -16,7 +16,7 @@
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `service-worker.js` | 225 | ES module. Context menus (6 note types), `toggle-cluster` command, Drive sync orchestration (auto-sync, sign-in/out, conflict resolution) |
+| `service-worker.js` | 225 | ES module. Context menus (6 note types), `toggle-cluster` command |
 
 ## `src/content/`
 
@@ -26,7 +26,6 @@ because MV3 content scripts cannot use ES module imports.
 | File | Lines | Purpose |
 |------|-------|---------|
 | `crypto-content.js` | 198 | AES-256-GCM encrypt/decrypt, PBKDF2 key derivation, session key caching, enable/unlock/disable flows |
-| `sync-content.js` | 30 | Thin facade for Drive sync message-passing to service worker |
 | `note-types.js` | 94 | 6 note type descriptors: global, site, page, todo, outline, daily |
 | `prefs.js` | 25 | Read/write cluster position and panel mode preferences |
 | `cluster.js` | 130 | Floating pill UI — 6 icon buttons, drag-to-reposition, active state, toggle visibility |
@@ -47,7 +46,6 @@ scripts directly.
 |------|-------|---------|
 | `notes-storage.js` | — | CRUD for all 6 note types + prefs: getSiteKey, getPageKey, read/write/delete/readAll for global/site/page/todo/outline/daily, parseTags, createDebouncedSaver; canonical key+label schema with legacy fallbacks |
 | `crypto.js` | 71 | Pure crypto primitives: generateSalt, deriveKey (PBKDF2), encrypt, decrypt, isEncrypted |
-| `drive-sync.js` | 91 | Google Drive API client: getToken, revokeToken, listFiles, downloadFile, createFile, updateFile, getSyncMeta, setSyncMeta |
 
 ## `tests/`
 
