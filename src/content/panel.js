@@ -48,6 +48,16 @@ window.StickySites = window.StickySites || {};
     return clone.innerHTML;
   }
 
+  // ── Shared panel-resize state ──────────────────────────────────────────
+  // The per-grip mousedown handlers are recreated on every render by
+  // _addResizeGrips (grips are panel children, so each render's child-wipe
+  // destroys them). The document-level mousemove/mouseup listeners are
+  // registered once by _initResize. Both read/write this state, so it lives at
+  // module scope rather than inside either method.
+  var RESIZE_MIN_W = 350, RESIZE_MIN_H = 250;
+  var resizeDir = null;
+  var resizeStartX, resizeStartY, resizeStartLeft, resizeStartTop, resizeStartW, resizeStartH;
+
   window.StickySites.Panel = {
     el: null,
     activeNoteType: null,
@@ -87,6 +97,8 @@ window.StickySites = window.StickySites || {};
       this._flushSave = null;
       var note = await this._readNote(noteType);
       this._render(noteType, note);
+      // _render's child-wipe destroys the resize grips; re-add them every open.
+      this._addResizeGrips();
       this.el.classList.add('is-open');
 
       try {
@@ -239,7 +251,7 @@ window.StickySites = window.StickySites || {};
 
     flushPendingSave: async function () {
       // No armed timer means no unsaved edit — skip the write entirely so a
-      // no-edit flush can't bump updatedAt (popup Recent sort, Drive sync).
+      // no-edit flush can't bump updatedAt (which drives the popup Recent sort).
       if (!this._saveTimer) return;
       clearTimeout(this._saveTimer);
       this._saveTimer = null;
@@ -248,38 +260,94 @@ window.StickySites = window.StickySites || {};
       }
     },
 
+    // Registers the document-level resize listeners once. The grips themselves
+    // are (re)created by _addResizeGrips after every render — they're panel
+    // children, so each render's child-wipe destroys them.
     _initResize: function () {
       var self = this;
-      var handle = document.createElement('div');
-      handle.className = 'stickysites-panel-resize';
-      self.el.appendChild(handle);
-
-      var isResizing = false;
-      var startX, startY, startW, startH;
-
-      handle.addEventListener('mousedown', function (e) {
-        isResizing = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        startW = self.el.offsetWidth;
-        startH = self.el.offsetHeight;
-        e.preventDefault();
-        e.stopPropagation();
-      });
+      // The popout lives in its own browser window, sized by the OS — no in-page
+      // grips and no resize listeners there.
+      if (location.protocol === 'chrome-extension:') return;
 
       document.addEventListener('mousemove', function (e) {
-        if (!isResizing) return;
-        var newW = Math.max(350, Math.min(startW + (e.clientX - startX), window.innerWidth * 0.9));
-        var newH = Math.max(250, Math.min(startH + (e.clientY - startY), window.innerHeight * 0.9));
-        self.el.style.width = newW + 'px';
-        self.el.style.height = newH + 'px';
+        if (!resizeDir) return;
+        var dx = e.clientX - resizeStartX;
+        var dy = e.clientY - resizeStartY;
+        var right = resizeStartLeft + resizeStartW;
+        var bottom = resizeStartTop + resizeStartH;
+        var left = resizeStartLeft, top = resizeStartTop, w = resizeStartW, h = resizeStartH;
+
+        if (resizeDir.indexOf('e') !== -1) {
+          // East edge moves; keep within the right side of the viewport.
+          w = Math.max(RESIZE_MIN_W, Math.min(resizeStartW + dx, window.innerWidth - resizeStartLeft));
+        }
+        if (resizeDir.indexOf('w') !== -1) {
+          // West edge moves; the right edge stays fixed.
+          left = Math.max(0, Math.min(resizeStartLeft + dx, right - RESIZE_MIN_W));
+          w = right - left;
+        }
+        if (resizeDir.indexOf('s') !== -1) {
+          h = Math.max(RESIZE_MIN_H, Math.min(resizeStartH + dy, window.innerHeight - resizeStartTop));
+        }
+        if (resizeDir.indexOf('n') !== -1) {
+          // North edge moves; the bottom edge stays fixed.
+          top = Math.max(0, Math.min(resizeStartTop + dy, bottom - RESIZE_MIN_H));
+          h = bottom - top;
+        }
+
+        self.el.style.left = left + 'px';
+        self.el.style.top = top + 'px';
+        self.el.style.width = w + 'px';
+        self.el.style.height = h + 'px';
       });
 
       document.addEventListener('mouseup', async function () {
-        if (!isResizing) return;
-        isResizing = false;
+        if (!resizeDir) return;
+        resizeDir = null;
+        var rect = self.el.getBoundingClientRect();
+        // Persist both size and position — resizing from the top/left edges
+        // moves the panel's origin as well.
         await window.StickySites.Prefs.write({
-          panelSize: { width: self.el.offsetWidth, height: self.el.offsetHeight }
+          panelSize: { width: Math.round(rect.width), height: Math.round(rect.height) },
+          panelPosition: { x: Math.round(rect.left), y: Math.round(rect.top) }
+        });
+      });
+    },
+
+    // Creates the 8 resize grips (4 edges + 4 corners) as panel children and
+    // wires each grip's mousedown to the shared resize state. Idempotent (clears
+    // existing grips first) so it is safe to call after every render — which is
+    // required, because the child-wipe at the top of _render / _renderTodo /
+    // Outline.render destroys the grips.
+    _addResizeGrips: function () {
+      var self = this;
+      // The popout window is OS-resized; no in-page grips there.
+      if (location.protocol === 'chrome-extension:') return;
+      self.el.querySelectorAll('.stickysites-panel-resize').forEach(function (g) { g.remove(); });
+
+      var DIRS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+      DIRS.forEach(function (d) {
+        var handle = document.createElement('div');
+        handle.className = 'stickysites-panel-resize stickysites-panel-resize--' + d;
+        self.el.appendChild(handle);
+        handle.addEventListener('mousedown', function (e) {
+          resizeDir = d;
+          var rect = self.el.getBoundingClientRect();
+          resizeStartX = e.clientX;
+          resizeStartY = e.clientY;
+          resizeStartLeft = rect.left;
+          resizeStartTop = rect.top;
+          resizeStartW = rect.width;
+          resizeStartH = rect.height;
+          // Pin to absolute left/top so any edge can grow regardless of the
+          // panel's current CSS anchoring (default bottom/right, or left/top
+          // after a drag).
+          self.el.style.bottom = 'auto';
+          self.el.style.right = 'auto';
+          self.el.style.left = resizeStartLeft + 'px';
+          self.el.style.top = resizeStartTop + 'px';
+          e.preventDefault();
+          e.stopPropagation();
         });
       });
     },

@@ -127,7 +127,8 @@ stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until
   `stickysites_[key]_conflict_[timestamp]` in `chrome.storage.local`.
 
 ### Rich text editor (panel.js)
-- Panel is moveable (drag header) and resizable (drag bottom-right handle), with
+- Panel is moveable (drag header) and freely resizable from any edge or corner (8 grips;
+  `_initResize` pins the panel to absolute left/top on grab so any edge can move), with
   expand/shrink toggle and popout button.
 - `contenteditable` div with a 19-tool formatting toolbar (2 rows).
 - Row 1 (buttons): Bold, Italic, Underline, Strikethrough, H1, H2, H3, Unordered list,

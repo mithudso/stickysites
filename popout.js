@@ -34,6 +34,8 @@
   });
   Panel.open(noteType);
 
-  var resize = document.querySelector('.stickysites-panel-resize');
-  if (resize) resize.remove();
+  // The popout window is resized by the OS; strip every in-page resize grip.
+  document.querySelectorAll('.stickysites-panel-resize').forEach(function (grip) {
+    grip.remove();
+  });
 })();
