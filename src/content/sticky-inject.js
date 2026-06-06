@@ -346,5 +346,10 @@
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
     SS.Panel.syncFromStorage(changes);
+    // Live-apply a cluster-layout change from the popup — no page reload needed.
+    if (changes.stickysites_prefs_v1 && SS.Cluster.applyLayout) {
+      var newPrefs = changes.stickysites_prefs_v1.newValue || {};
+      SS.Cluster.applyLayout(newPrefs.clusterLayout || 'vertical');
+    }
   });
 })();
