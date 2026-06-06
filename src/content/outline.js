@@ -113,6 +113,10 @@ window.StickySites = window.StickySites || {};
       var Ops = window.StickySites.OutlineOps;
       var el = panel.el;
       while (el.firstChild) el.removeChild(el.firstChild);
+      // The wipe just removed the panel's resize grips. Restore them here so the
+      // outliner stays resizable even when re-rendered by the document switcher,
+      // which calls render() directly and bypasses Panel.open().
+      if (panel._addResizeGrips) panel._addResizeGrips();
 
       // Locked vault: an empty read here is indistinguishable from "no
       // outlines yet" — bail instead of auto-creating (and thereby clobbering).
