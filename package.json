@@ -12,6 +12,6 @@
   },
   "devDependencies": {
     "canvas": "^3.2.3",
-    "vitest": "^4.1.0"
+    "vitest": "^4.1.9"
   }
 }
