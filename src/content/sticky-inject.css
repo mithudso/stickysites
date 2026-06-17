@@ -922,29 +922,6 @@
   transform: translateY(0);
 }
 
-/* Chord hotkey badges */
-.stickysites-cluster-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: rgba(99, 102, 241, 0.9);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-.stickysites-cluster-badge.is-visible {
-  opacity: 1;
-}
-
 /* Lock screen */
 #stickysites-lock {
   position: fixed;
