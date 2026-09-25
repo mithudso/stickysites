@@ -1,0 +1,47 @@
+<!-- Generated 2026-09-25 [gen: p/1.1.0]; verified-as-of 2026-09-25 -->
+
+# StickySites
+Source: https://github.com/mithudso/stickysites/blob/HEAD/README.md
+
+Sticky notes for every website.
+
+# Semantic Indexing Rule
+Source: https://github.com/mithudso/stickysites/blob/HEAD/CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# Architecture
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/ARCHITECTURE.md
+
+StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into every web page.
+
+# Components
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/COMPONENTS.md
+
+Background script running as an ES module.
+
+# Security
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/SECURITY.md
+
+StickySites runs as a Chrome Extension on every web page.
+
+# Installation
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/INSTALLATION.md
+
+1.
+
+# Development
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/DEVELOPMENT.md
+
+1.
+
+# Testing
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/TESTING.md
+
+[Vitest](https://vitest.dev/) v4.1+ — fast, ESM-native test runner.
+
+# Known issues
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/known-issues.md
+
+**Impact**: Low–Medium **Status**: Open
+

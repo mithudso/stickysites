@@ -1,0 +1,22 @@
+<!-- Generated 2026-09-25 [gen: p/1.1.0]; verified-as-of 2026-09-25 -->
+
+# StickySites: Sourced Project Facts
+
+One declarative fact per line, each with a `[src:]` tag.
+
+## 2026-09-25 [gen: p/1.1.0]
+
+- StickySites is a Chrome Extension on Manifest V3 written in vanilla JavaScript with no build step [src: CLAUDE.md]
+- package.json and manifest.json both declare version 1.10.0, while README.md still says v1.8.0 [src: package.json]
+- There are six note types: Global (yellow), Site (green), Page (blue), To-do list (purple), Outliner (orange), Daily (red) [src: README.md]
+- Site notes are one per domain; Page notes are one per exact URL path; Daily notes are one per YYYY-MM-DD date [src: README.md]
+- Alt+S toggles cluster visibility; keys 1 to 5 open note types and A cycles through all six [src: README.md]
+- The editor auto-saves after 500 ms of inactivity [src: README.md]
+- Encryption is opt-in AES-256-GCM with a PBKDF2 key derived at 600,000 iterations using SHA-256 [src: README.md]
+- The derived key is cached in chrome.storage.session, which clears when the browser closes [src: docs/SECURITY.md]
+- The permissions audit justifies the storage and activeTab permissions as least-privilege [src: docs/SECURITY.md]
+- Content scripts are classic scripts loaded in order, each attaching a namespace on window.StickySites [src: CLAUDE.md]
+- The service worker in src/background/service-worker.js handles context menus, commands and the popout window [src: CLAUDE.md]
+- The test command is npm test, which runs vitest run [src: package.json]
+- Unit tests cover crypto, note storage and outline operations [src: tests/crypto.test.js]
+- To install, open chrome://extensions, enable Developer mode, choose Load unpacked and select the repo root [src: README.md]

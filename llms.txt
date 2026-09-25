@@ -1,0 +1,42 @@
+<!-- Generated 2026-09-25 [gen: p/1.1.0]; verified-as-of 2026-09-25 -->
+
+# StickySites
+
+> Sticky notes for every website: a Manifest V3 Chrome extension in vanilla JavaScript with six note types, a floating icon cluster, a rich-text workspace panel and opt-in AES-256-GCM encryption.
+
+
+## Docs
+
+- [README.md](README.md): Sticky notes for every website.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into every web page.
+- [docs/COMPONENTS.md](docs/COMPONENTS.md): Background script running as an ES module.
+- [docs/SECURITY.md](docs/SECURITY.md): StickySites runs as a Chrome Extension on every web page.
+- [docs/INSTALLATION.md](docs/INSTALLATION.md): 1.
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): 1.
+- [docs/TESTING.md](docs/TESTING.md): [Vitest](https://vitest.dev/) v4.1+ — fast, ESM-native test runner.
+- [docs/known-issues.md](docs/known-issues.md): **Impact**: Low–Medium **Status**: Open
+- [docs/requirements.md](docs/requirements.md): Project document
+- [docs/onboarding.md](docs/onboarding.md): New to StickySites?
+- [docs/external-calls.md](docs/external-calls.md): StickySites makes no external network calls.
+- [docs/integrations-and-assumptions.md](docs/integrations-and-assumptions.md): StickySites makes no external network calls — there are no third-party service integrations.
+- [docs/codebase-overview.md](docs/codebase-overview.md): Content scripts loaded in order by the manifest.
+
+
+## Agent guidance
+
+- [CLAUDE.md](CLAUDE.md): This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+
+## Source
+
+- [manifest.json](manifest.json): MV3 manifest: permissions, content scripts, service worker
+- [package.json](package.json): Dev tooling only (vitest)
+- [tests/crypto.test.js](tests/crypto.test.js): Unit tests for AES-GCM crypto
+- [tests/notes-storage.test.js](tests/notes-storage.test.js): Unit tests for note storage
+- [tests/outline-ops.test.js](tests/outline-ops.test.js): Unit tests for outline tree operations
+
+## Optional
+
+- [llms-full.txt](llms-full.txt): Concatenated key documents
+- [llms-small.txt](llms-small.txt): Condensed summary
+- [llms-facts.txt](llms-facts.txt): Sourced one-line facts
