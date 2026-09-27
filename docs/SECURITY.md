@@ -24,6 +24,10 @@ untrusted host pages and stores user-created notes locally with optional encrypt
 | `storage` | Note persistence in `chrome.storage.local`; session key in `chrome.storage.session` | Yes |
 | `activeTab` | Send messages to the currently active tab | Yes — does not grant broad host access |
 | `contextMenus` | Register the "StickySites" right-click submenu | Yes |
+| `alarms` | Run the optional to-do sync every 2 minutes | Yes |
+| `nativeMessaging` | Optional to-do sync with a local TODO.md through the host `com.mitch.todo_bridge`; only a host registered on this machine for this extension id can answer | Yes — local IPC only, no network |
+
+The to-do sync sends the global to-do list in plaintext to the local host process and is skipped entirely while notes are encrypted. Without the host installed, `sendNativeMessage` fails and the list stays local.
 
 No `tabs`, `webRequest`, `cookies`, `history`, `identity`, or broad host permissions are requested.
 
