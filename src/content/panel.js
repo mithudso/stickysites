@@ -381,6 +381,11 @@ window.StickySites = window.StickySites || {};
         if (noteType.storagePattern === 'structured') {
           var map = raw || {};
           var record = map[key];
+          // Remember what this panel loaded so a later save can tell a deletion made here from
+          // an item another writer (the TODO.md sync) added while the panel was open.
+          this._loadedIds = this._loadedIds || {};
+          this._loadedIds[noteType.storageKey + '|' + key] = new Set(
+            (record && Array.isArray(record.items) ? record.items : []).map(function (i) { return String(i.id); }));
           if (!record) return null;
           return {
             items: Array.isArray(record.items) ? record.items : [],
@@ -448,10 +453,31 @@ window.StickySites = window.StickySites || {};
         }
         var map = rawMap;
         var existing = map[key];
+        var items = Array.isArray(data.items) ? data.items.slice() : [];
+        var sections = Array.isArray(data.sections) ? data.sections.slice() : (existing?.sections || []);
+        var loadKey = noteType.storageKey + '|' + key;
+        var loaded = (this._loadedIds && this._loadedIds[loadKey]) || null;
+        if (loaded && existing && Array.isArray(existing.items)) {
+          var inData = new Set(items.map(function (i) { return String(i.id); }));
+          existing.items.forEach(function (i) {
+            if (!inData.has(String(i.id)) && !loaded.has(String(i.id))) items.push(i);
+          });
+          var secIds = new Set(sections.map(function (sec) { return sec.id; }));
+          (existing.sections || []).forEach(function (sec) {
+            if (!secIds.has(sec.id) && items.some(function (i) { return i.section === sec.id; })) sections.push(sec);
+          });
+        }
+        // Only ids this panel has itself shown count as loaded; items kept above stay foreign so
+        // the next save from the same (stale) panel keeps preserving them.
+        if (this._loadedIds) {
+          var nextLoaded = new Set(loaded || []);
+          (Array.isArray(data.items) ? data.items : []).forEach(function (i) { nextLoaded.add(String(i.id)); });
+          this._loadedIds[loadKey] = nextLoaded;
+        }
         map[key] = {
           key: key,
-          items: Array.isArray(data.items) ? data.items : [],
-          sections: Array.isArray(data.sections) ? data.sections : (existing?.sections || []),
+          items: items,
+          sections: sections,
           tagColors: (data.tagColors && typeof data.tagColors === 'object') ? data.tagColors : (existing?.tagColors || {}),
           createdAt: existing?.createdAt || now,
           updatedAt: now

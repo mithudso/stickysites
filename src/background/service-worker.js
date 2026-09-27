@@ -1,3 +1,5 @@
+import { syncTodosWithHost, TODOS_KEY } from '../shared/todo-bridge.js';
+
 // Create context menus on install
 chrome.runtime.onInstalled.addListener(() => {
   // Allow content scripts to access session storage for encryption key caching
@@ -83,4 +85,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
     return true;
   }
+});
+
+// To-do sync with the local TODO.md via the native-messaging host (optional: a missing host
+// just leaves the list local). Runs on startup, every 2 minutes, and shortly after local edits.
+const TODO_SYNC_ALARM = 'stickysites-todo-sync';
+let todoSyncRunning = false;
+let todoSyncTimer = null;
+
+async function runTodoSync() {
+  if (todoSyncRunning) return;
+  todoSyncRunning = true;
+  try {
+    await syncTodosWithHost({
+      storage: chrome.storage.local,
+      extId: chrome.runtime.id,
+      sendNativeMessage: (host, msg) => chrome.runtime.sendNativeMessage(host, msg)
+    });
+  } catch {
+    // Host not installed or failed: keep working offline.
+  } finally {
+    todoSyncRunning = false;
+  }
+}
+
+chrome.alarms.create(TODO_SYNC_ALARM, { periodInMinutes: 2 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === TODO_SYNC_ALARM) runTodoSync();
+});
+chrome.runtime.onStartup.addListener(runTodoSync);
+chrome.runtime.onInstalled.addListener(runTodoSync);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes[TODOS_KEY] || todoSyncRunning) return;
+  clearTimeout(todoSyncTimer);
+  todoSyncTimer = setTimeout(runTodoSync, 3000);
 });
