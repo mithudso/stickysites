@@ -1,5 +1,19 @@
 # StickySites Memory Log
 
+## v1.12.3 - 2026-09-28
+- User request:
+  - Popup: unclear where to put an IP and which port
+- Completed:
+  - Popup Settings: explicit "Pairing key" / "Peer IPs (optional)" labels with hints; shows
+    "This laptop: <name> · <LAN IP> — type this on the other laptop"; states port 47833 is assumed
+    (or `IP:port`); daemon `/config` returns `addrs` + `discoveryPort`; static peers accept
+    `host[:port]` (unicast to that port); docs/runbook explain ports 47833 (UDP discovery) and
+    47832 (TCP snapshot exchange)
+- In progress:
+  - None
+- Next steps:
+  - Reload the extension in Chrome; set up the second laptop
+
 ## v1.12.2 - 2026-09-28
 - User request:
   - Set the pairing key after loading the extension, and specify a comma-separated set of peer IPs

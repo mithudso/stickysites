@@ -86,6 +86,13 @@ def sign(pair_key, *parts):
 def bearer(pair_key):
     return sign(pair_key, 'auth')
 
+def split_host_port(s):
+    """'192.168.1.20' → ('192.168.1.20', None); '192.168.1.20:47833' → ('192.168.1.20', 47833)."""
+    if s.count(':') == 1:
+        host, _, port = s.partition(':')
+        if port.isdigit() and 0 < int(port) < 65536: return host, int(port)
+    return s, None
+
 def default_route_ip():
     """IPv4 of the interface that carries the default route (no packet is sent)."""
     try:
@@ -185,8 +192,8 @@ class Daemon:
     # discovery
     def announce_loop(self):
         socks = {}; scanned = 0.0; failing = set()  # log a failing target once, not every 5 s
-        def send(sock, dst, what):
-            try: sock.sendto(data, (dst, port))
+        def send(sock, dst, what, dport=None):
+            try: sock.sendto(data, (dst, dport or port))
             except OSError as e:
                 if what not in failing: failing.add(what); log('announce %s failed: %s (broadcast/static peers still tried)' % (what, e))
             else:
@@ -218,7 +225,9 @@ class Daemon:
             if socks:
                 sock = next(iter(socks.values()))
                 for dst in broadcast_targets(): send(sock, dst, 'broadcast to %s' % dst)
-                for dst in self.cfg.get('static_peers', []): send(sock, str(dst), 'unicast to %s' % dst)
+                for dst in self.cfg.get('static_peers', []):
+                    host, dport = split_host_port(str(dst))
+                    send(sock, host, 'unicast to %s' % dst, dport)
             self.stop.wait(ANNOUNCE_EVERY)
 
     def _join_group(self, sock, joined):
@@ -299,7 +308,8 @@ class Daemon:
     # listen and fetch loops pick the new pairing key / static peers up on their next iteration.
     def get_config(self):
         return {'id': self.cfg['id'], 'name': self.cfg['name'], 'pairKey': self.cfg['pair_key'],
-                'staticPeers': list(self.cfg.get('static_peers', [])), 'lanPort': self.cfg['lan_port']}
+                'staticPeers': list(self.cfg.get('static_peers', [])), 'lanPort': self.cfg['lan_port'],
+                'discoveryPort': self.cfg['mcast_port'], 'addrs': local_ipv4s()}
 
     def update_config(self, body):
         changed = []
@@ -315,10 +325,12 @@ class Daemon:
             for p in raw:
                 p = str(p).strip()
                 if not p: continue
-                try: socket.inet_aton(p)
+                host, dport = split_host_port(p)
+                if ':' in host: raise ValueError('use IP or IP:port, e.g. 192.168.1.20 or 192.168.1.20:%d: %s' % (self.cfg['mcast_port'], p))
+                try: socket.inet_aton(host)
                 except OSError:
-                    try: socket.getaddrinfo(p, None, socket.AF_INET)
-                    except OSError: raise ValueError('not an IPv4 address or resolvable host: %s' % p)
+                    try: socket.getaddrinfo(host, None, socket.AF_INET)
+                    except OSError: raise ValueError('not an IPv4 address or resolvable host: %s' % host)
                 if p not in peers: peers.append(p)
             if len(peers) > 32: raise ValueError('at most 32 static peers')
             if peers != list(self.cfg.get('static_peers', [])): self.cfg['static_peers'] = peers; changed.append('staticPeers')

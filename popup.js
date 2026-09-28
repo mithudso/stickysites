@@ -374,8 +374,11 @@
     // Pairing key + static peer IPs, pushed live to the local helper (GET/PUT http://127.0.0.1:47831/config).
     var PEER_DAEMON = 'http://127.0.0.1:47831';
     var keyLabel = document.createElement('div');
-    keyLabel.className = 'settings-info';
-    keyLabel.textContent = 'Pairing key (same on every laptop) and optional peer IPs for networks that block discovery.';
+    keyLabel.className = 'settings-label';
+    keyLabel.textContent = 'Pairing key';
+    var keyHint = document.createElement('div');
+    keyHint.className = 'settings-info';
+    keyHint.textContent = 'Must be identical on every laptop. Copy this one to the others, or paste theirs here.';
     var keyRow = document.createElement('div');
     keyRow.className = 'settings-input-row';
     var keyInput = document.createElement('input');
@@ -383,8 +386,14 @@
     var keyCopy = document.createElement('button');
     keyCopy.className = 'settings-toggle-btn'; keyCopy.textContent = 'Copy'; keyCopy.title = 'Copy the pairing key to paste on another laptop';
     keyRow.append(keyInput, keyCopy);
+    var ipsLabel = document.createElement('div');
+    ipsLabel.className = 'settings-label';
+    ipsLabel.textContent = 'Peer IPs (optional)';
+    var ipsHint = document.createElement('div');
+    ipsHint.className = 'settings-info';
+    ipsHint.textContent = 'The other laptops\u2019 LAN addresses, comma-separated. IP only \u2014 port 47833 is assumed (or IP:port). Only needed when the network blocks automatic discovery.';
     var ipsInput = document.createElement('input');
-    ipsInput.type = 'text'; ipsInput.className = 'settings-input'; ipsInput.placeholder = 'Peer IPs, comma-separated (optional, e.g. 192.168.1.20, 192.168.1.21)'; ipsInput.spellcheck = false; ipsInput.autocomplete = 'off';
+    ipsInput.type = 'text'; ipsInput.className = 'settings-input'; ipsInput.placeholder = 'e.g. 192.168.1.20, 192.168.1.21'; ipsInput.spellcheck = false; ipsInput.autocomplete = 'off';
     var saveRow = document.createElement('div');
     saveRow.className = 'settings-input-row';
     var peerName = document.createElement('span');
@@ -405,7 +414,9 @@
         cfgLoaded = await r.json();
         keyInput.value = cfgLoaded.pairKey || '';
         ipsInput.value = (cfgLoaded.staticPeers || []).join(', ');
-        peerName.textContent = 'This laptop: ' + (cfgLoaded.name || '') ;
+        var addrs = (cfgLoaded.addrs || []).filter(function (a) { return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a); });
+        peerName.textContent = 'This laptop: ' + (cfgLoaded.name || '') + (addrs.length ? ' \u00b7 ' + addrs[0] + ' \u2014 type this on the other laptop' : '');
+        ipsHint.textContent = 'The other laptops\u2019 LAN addresses, comma-separated. IP only \u2014 port ' + (cfgLoaded.discoveryPort || 47833) + ' is assumed (or IP:port). Only needed when the network blocks automatic discovery.';
         setCfgInputsEnabled(true);
         cfgStatus.textContent = '';
       } catch (e) {
@@ -441,7 +452,7 @@
       } finally { saveBtn.disabled = false; }
     });
 
-    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus, keyLabel, keyRow, ipsInput, saveRow, cfgStatus);
+    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus, keyLabel, keyHint, keyRow, ipsLabel, ipsHint, ipsInput, saveRow, cfgStatus);
     loadPeerConfig();
     renderPeerState();
 
