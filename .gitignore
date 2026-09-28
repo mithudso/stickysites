@@ -11,3 +11,5 @@ coverage/
 .vscode/.history/
 .superpowers/
 .remember/
+__pycache__/
+*.pyc
