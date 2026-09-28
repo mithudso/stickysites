@@ -62,6 +62,11 @@ the broadcast path still delivers, so that log line (printed once) is noise. Fil
 `peer/stickysites-peer.py`, `docs/runbooks/peer-sync.md`.
 A VPN that tunnels every app (e.g. Surfshark with Bypasser on) also blocks the helper's LAN
 unicast and TCP entirely until **StickySites Peer** (`~/Applications`) is added to its bypass
+list; **Test connection** in the popup names this case.
+The launchd job must not run under Homebrew's python3: macOS attributes its LAN sends to
+Python.app, which never gets the Local Network prompt from a background job, so they fail with
+`No route to host` while `nc`/`curl` work. `install` therefore prefers Apple's `/usr/bin/python3`
+(Command Line Tools; `--python PATH` overrides) and the log's `interpreter …` line shows which one runs.
 list; **Test connection** in the popup names this case — or use the Sync folder transport,
 which needs no network path at all.
 
