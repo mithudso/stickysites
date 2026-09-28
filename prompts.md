@@ -1,5 +1,9 @@
 # StickySites Prompts Log
 
+## Prompt v1.12.1 - 2026-09-28T00:33:00-04:00
+- User request:
+  - 1. yes. 2. ok 3. ok  (install the peer helper on this laptop; pairing key + encryption notes acknowledged)
+
 ## Prompt v1.12.0 - 2026-09-28T00:05:00-04:00
 - User request:
   - Add a local peer sync so if my laptops are on the same network they will stay in sync with each other.

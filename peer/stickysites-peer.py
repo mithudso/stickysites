@@ -33,7 +33,8 @@ LAUNCHD_LABEL = 'com.stickysites.peer'
 
 def log(msg):
     line = time.strftime('%Y-%m-%d %H:%M:%S ') + msg
-    print(line, flush=True)
+    # Under launchd stdout is already redirected into LOG, so only echo to a terminal.
+    if sys.stdout.isatty(): print(line, flush=True)
     try:
         with open(LOG, 'a') as f: f.write(line + '\n')
     except OSError: pass
@@ -86,11 +87,42 @@ def default_route_ip():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect(('10.255.255.255', 1)); ip = s.getsockname()[0]; s.close(); return ip
     except OSError: return None
 
-def local_ipv4s():
-    """Candidate addresses peers may reach us on: default-route IP first, then hostname addresses."""
+def interface_ipv4s():
+    return [ip for ip, _brd in interfaces()]
+
+def interfaces():
+    """(ip, broadcast) of real LAN interfaces (skips loopback and tunnels such as utun/tun/tap/wg).
+    Parses `ifconfig` (macOS/BSD) or `ip -o -4 addr` (Linux); stdlib has no portable API for this."""
     out = []
+    skip = ('lo', 'utun', 'tun', 'tap', 'wg', 'ppp', 'ipsec', 'gif', 'stf', 'awdl', 'llw', 'docker', 'br-', 'vboxnet', 'vmnet')
+    try:
+        if sys.platform == 'darwin' or 'bsd' in sys.platform:
+            text = subprocess.run(['ifconfig'], capture_output=True, text=True, timeout=5).stdout
+            iface = ''
+            for line in text.splitlines():
+                if line and not line[0].isspace(): iface = line.split(':', 1)[0]
+                elif line.strip().startswith('inet ') and not iface.startswith(skip):
+                    parts = line.split()
+                    ip = parts[1]
+                    brd = parts[parts.index('broadcast') + 1] if 'broadcast' in parts else None
+                    if ' --> ' not in line and not ip.startswith('127.') and ip not in [o[0] for o in out]: out.append((ip, brd))
+        else:
+            text = subprocess.run(['ip', '-o', '-4', 'addr'], capture_output=True, text=True, timeout=5).stdout
+            for line in text.splitlines():
+                parts = line.split()
+                if len(parts) >= 4 and not parts[1].startswith(skip):
+                    ip = parts[3].split('/')[0]
+                    brd = parts[parts.index('brd') + 1] if 'brd' in parts else None
+                    if not ip.startswith('127.') and ip not in [o[0] for o in out]: out.append((ip, brd))
+    except (OSError, subprocess.SubprocessError): pass
+    return out
+
+def local_ipv4s():
+    """Candidate addresses peers may reach us on: LAN interfaces first, then the default route,
+    then hostname addresses. Tunnel addresses (VPN) are deliberately last-resort only."""
+    out = interface_ipv4s()
     d = default_route_ip()
-    if d: out.append(d)
+    if d and d not in out: out.append(d)
     try:
         for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
             ip = info[4][0]
@@ -136,17 +168,28 @@ class Daemon:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
         sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-        iface = default_route_ip()
-        if iface:
-            try: sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(iface))
-            except OSError as e: log('multicast interface %s not usable (%s); using default' % (iface, e))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        failing = set()
         while not self.stop.is_set():
             ts = int(time.time())
             addrs = local_ipv4s()
             msg = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'port': self.cfg['lan_port'], 'fp': self.fp, 'ts': ts, 'addrs': addrs}
             msg['sig'] = sign(self.cfg['pair_key'], msg['id'], msg['name'], msg['port'], msg['fp'], ts, ','.join(addrs))
-            try: sock.sendto(json.dumps(msg).encode(), (MCAST_GROUP, self.cfg['mcast_port']))
-            except OSError as e: log('announce failed: %s' % e)
+            data = json.dumps(msg).encode()
+            # Announce on every LAN interface (a VPN default route would otherwise swallow the packet):
+            # multicast to the group, plus the interface's subnet broadcast as a fallback for networks
+            # that drop multicast. Listeners bind the port on all addresses, so either delivery works.
+            sent = 0
+            for iface, brd in (interfaces() or [(None, None)]):
+                for target in ((MCAST_GROUP, self.cfg['mcast_port']),) + (((brd, self.cfg['mcast_port']),) if brd else ()):
+                    key = (iface, target[0])
+                    try:
+                        if iface and target[0] == MCAST_GROUP: sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(iface))
+                        sock.sendto(data, target); sent += 1
+                        failing.discard(key)
+                    except OSError as e:
+                        if key not in failing: log('announce via %s to %s failed: %s' % (iface or 'default', target[0], e)); failing.add(key)
+            if not sent and 'none' not in failing: log('announce failed on every interface'); failing.add('none')
             self.stop.wait(ANNOUNCE_EVERY)
 
     def listen_loop(self):
@@ -154,8 +197,16 @@ class Daemon:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if hasattr(socket, 'SO_REUSEPORT'): sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         sock.bind(('', self.cfg['mcast_port']))
-        mreq = struct.pack('4sl', socket.inet_aton(MCAST_GROUP), socket.INADDR_ANY)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        # Join the group on every LAN interface (and the default); a failed join is not fatal because
+        # peers also announce via subnet broadcast, which this socket receives regardless.
+        joined = 0
+        for iface in interface_ipv4s() + [None]:
+            try:
+                mreq = struct.pack('4s4s', socket.inet_aton(MCAST_GROUP), socket.inet_aton(iface) if iface else struct.pack('4s', b'\0\0\0\0'))
+                sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq); joined += 1
+            except OSError as e:
+                log('multicast join via %s failed: %s (broadcast discovery still works)' % (iface or 'default', e))
+        if not joined: log('no multicast membership; relying on subnet broadcast for discovery')
         sock.settimeout(1.0)
         while not self.stop.is_set():
             try: data, addr = sock.recvfrom(4096)

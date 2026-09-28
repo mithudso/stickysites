@@ -3,8 +3,9 @@
 Two or more machines on the same LAN keep their StickySites notes converged through the peer
 helper (`peer/stickysites-peer.py`). Design and security model: `peer/README.md`.
 
-**Precondition**: Python 3.9+ and `openssl` on each machine; both on the same Wi-Fi/LAN with
-multicast allowed (guest networks and some VPNs block it).
+**Precondition**: Python 3.9+ and `openssl` on each machine; both on the same Wi-Fi/LAN subnet
+(discovery uses multicast **and** subnet broadcast on every real interface, so a VPN holding the
+default route is fine; guest networks with client isolation are not).
 
 ## Set up
 
@@ -38,7 +39,7 @@ separately: disable on one, let it sync, re-enable there if wanted.
 | Symptom | Action |
 |---|---|
 | Popup: "Peer helper not running on this machine" | `launchctl list \| grep com.stickysites.peer`; `tail ~/.stickysites/peer.log`; re-run `install` |
-| Popup: "no other laptop seen yet" | Same LAN? `pair` shows the same key on both? Firewall: allow inbound TCP 47832 + UDP 47833. VPN with "block LAN" on? |
+| Popup: "no other laptop seen yet" | Same subnet? `pair` shows the same key on both? Firewall: allow inbound TCP 47832 + UDP 47833. VPN with "block LAN access" on? A lone `announce via … to 239.255.77.31 failed: No route to host` in the log is harmless — the broadcast path still delivers |
 | Log: `fetch from X failed: unreachable on …` | The peer's announced addresses are not routable from here (VPN/utun). Both machines must share a subnet; the daemon tries every address it was told about |
 | Log: `certificate fingerprint mismatch` | The peer reinstalled and rotated its cert while an old announcement was cached; clears itself within 20 s |
 | Notes resurrect after deletion | Only outline docs write tombstones today; other note types have no delete path in the UI, so nothing to resurrect. See `known-issues.md` |

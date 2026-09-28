@@ -182,7 +182,7 @@ lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout
 |---|---|
 | Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`; CORS for `chrome-extension://` origins only |
 | LAN HTTPS `0.0.0.0:47832` | `GET /snapshot` (ETag / 304 / 204), `GET /hello`; `Authorization: Bearer HMAC(pairKey,'auth')`; self-signed cert from `openssl` |
-| UDP multicast `239.255.77.31:47833` | Announce every 5 s `{ id, name, port, fp, ts, addrs, sig }`, HMAC-signed with the pairing key; sent on the default-route interface; listener drops unsigned/stale/self; peers expire after 20 s |
+| UDP `:47833` — multicast `239.255.77.31` + subnet broadcast | Announce every 5 s `{ id, name, port, fp, ts, addrs, sig }`, HMAC-signed with the pairing key, on every real LAN interface (tunnels skipped); listener joins the group per interface and also receives broadcasts; drops unsigned/stale/self; peers expire after 20 s |
 | `fetch_peer` | Tries each announced address (recv addr first), pins the cert SHA-256 from the announcement, bearer auth, `If-None-Match` |
 | CLI | `install [--pair-key] [--name]` (config + cert + launchd agent `com.stickysites.peer`), `uninstall`, `run`, `status`, `pair [KEY]`, `init` (tests) |
 

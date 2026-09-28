@@ -10,7 +10,8 @@ laptop A                                             laptop B
 │ StickySites  │ ─PUT /snapshot───────▶ │ peer     │◀──▶│ peer     │ ◀───────PUT /snapshot─ │ StickySites  │
 │ (service     │ ◀GET /peers/snapshots─ │ daemon   │    │ daemon   │ ─GET /peers/snapshots▶ │ (service     │
 │  worker)     │                        └──────────┘    └──────────┘                        │  worker)     │
-└──────────────┘      discovery: UDP multicast 239.255.77.31:47833 (HMAC-signed with the pairing key)
+└──────────────┘      discovery: UDP :47833 — multicast 239.255.77.31 + subnet broadcast on every LAN interface
+                                 (HMAC-signed with the pairing key; VPN/tunnel interfaces skipped)
                       transport: HTTPS :47832, self-signed cert pinned by fingerprint, bearer token from the pairing key
 ```
 
@@ -76,6 +77,9 @@ Enable encryption on **one** laptop and let the others adopt it.
 - Nothing leaves the LAN. Peers must hold the same pairing key: announcements are HMAC-signed
   with it (unsigned/foreign announcements are dropped) and every LAN request carries a bearer
   token derived from it.
+- Announcements go out on every real LAN interface as both multicast and subnet broadcast, so a
+  VPN that owns the default route (and often blocks multicast) does not hide the machine from
+  peers on the local subnet. Tunnel interfaces (`utun`, `tun`, `wg`, …) are never used.
 - LAN transport is HTTPS with a per-machine self-signed certificate whose SHA-256 fingerprint is
   carried in the signed announcement and pinned by the fetching peer.
 - The loopback API accepts requests only from `chrome-extension://` origins on `127.0.0.1`.
@@ -90,7 +94,7 @@ Enable encryption on **one** laptop and let the others adopt it.
 | Symptom | Check |
 |---|---|
 | Popup says "Peer helper not running" | `python3 peer/stickysites-peer.py status`; `launchctl list \| grep stickysites`; log at `~/.stickysites/peer.log` |
-| "no other laptop seen" | Same Wi-Fi/LAN? Same pairing key (`pair`)? Multicast blocked (guest networks, some VPNs)? Firewall allowing inbound TCP 47832 and UDP 47833? |
+| "no other laptop seen" | Same Wi-Fi/LAN **subnet**? Same pairing key (`pair`)? Guest network with client isolation? Firewall allowing inbound TCP 47832 and UDP 47833? `~/.stickysites/peer.log` shows `announce via … failed` when neither multicast nor broadcast can be sent |
 | Fetch from peer fails in the log | Certificate changed after reinstall → the announcement carries the new fingerprint automatically; a stale `lastSeen` entry expires in 20 s |
 | "Encryption mismatch" | See the table above |
 | Two daemons on one machine (testing) | Use `init` with distinct `--loop-port`/`--lan-port` and a shared `--mcast-port`; see `peer/test_peer.py` |

@@ -52,11 +52,14 @@ writes one (no other note type has a delete action in the UI). If a future delet
 call `addTombstone` from `src/shared/peer-sync.js` or the record will reappear from a peer.
 Files: `src/content/outline.js`, `src/shared/peer-sync.js`.
 
-## Peer sync needs multicast on the LAN
+## Peer sync needs peers on the same subnet
 **Impact**: Low · **Status**: By design
-Discovery is UDP multicast (`239.255.77.31:47833`). Guest Wi-Fi with client isolation, some
-VPNs, and firewalls that block UDP prevent peers from seeing each other; there is no manual
-peer-address fallback yet. Files: `peer/stickysites-peer.py`, `docs/runbooks/peer-sync.md`.
+Discovery is UDP multicast plus subnet broadcast on port 47833, sent on every real LAN interface
+(VPN tunnels skipped). Guest Wi-Fi with client isolation, different subnets, and firewalls that
+block UDP prevent peers from seeing each other; there is no manual peer-address fallback yet.
+Under a VPN that owns the default route macOS may refuse the multicast send (`No route to host`)
+— the broadcast path still works, so the log line is noise. Files: `peer/stickysites-peer.py`,
+`docs/runbooks/peer-sync.md`.
 
 ## To-do sync requires a per-browser host manifest
 **Impact**: Low · **Status**: By design

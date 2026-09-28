@@ -12,7 +12,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.12.0** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.12.1** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -209,8 +209,8 @@ stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer
 ### Local peer sync (service-worker.js + shared/peer-sync.js + peer/stickysites-peer.py)
 - Extension → local daemon over loopback HTTP (`PUT /snapshot`, `GET /peers/snapshots`,
   CORS-restricted to `chrome-extension://` origins; no host permission needed). Daemon does LAN
-  discovery (UDP multicast, HMAC-signed with a pairing key) and peer transport (HTTPS, pinned
-  self-signed cert, bearer token). Daemons only relay snapshots; all merging is in `peer-sync.js`.
+  discovery (UDP multicast + subnet broadcast on every real interface, HMAC-signed with a pairing
+  key; tunnels skipped) and peer transport (HTTPS, pinned self-signed cert, bearer token). Daemons only relay snapshots; all merging is in `peer-sync.js`.
 - Snapshot = six note keys as stored (envelopes stay envelopes) + tombstones + reduced crypto
   config (+ full config for adoption). Prefs and the cached key never sync.
 - Merge = record-level last-writer-wins on `updatedAt`; ties keep local; newer tombstone deletes.
