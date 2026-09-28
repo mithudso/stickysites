@@ -17,7 +17,7 @@ export async function deriveKey(passphrase, salt) {
     { name: 'PBKDF2', salt: salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     keyMaterial,
     { name: ALGO, length: KEY_LENGTH },
-    false,
+    true,
     ['encrypt', 'decrypt']
   );
 }
@@ -49,7 +49,7 @@ export async function decrypt(key, envelope) {
 }
 
 export function isEncrypted(value) {
-  return !!(value && typeof value === 'object' && typeof value.iv === 'string' && typeof value.data === 'string' && !value.body && !value.items);
+  return !!(value && typeof value === 'object' && typeof value.iv === 'string' && typeof value.data === 'string' && !value.body && !value.items && !value.siteKey);
 }
 
 function arrayBufferToBase64(buffer) {

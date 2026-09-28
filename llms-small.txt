@@ -1,11 +1,11 @@
-<!-- Generated 2026-09-25 [gen: p/1.1.0]; verified-as-of 2026-09-25 -->
+<!-- Generated 2026-09-27 [gen: repo-bootstrapper/1.0]; verified-as-of 2026-09-27 -->
 
 # StickySites
 Source: https://github.com/mithudso/stickysites/blob/HEAD/README.md
 
-Sticky notes for every website.
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.1) with six note types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
 
-# Semantic Indexing Rule
+# CLAUDE.md
 Source: https://github.com/mithudso/stickysites/blob/HEAD/CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -13,35 +13,114 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Architecture
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/ARCHITECTURE.md
 
-StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into every web page.
+StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into every web page. Notes live in `chrome.storage.local` with optional AES-256-GCM encryption. There are no servers, network calls, or analytics. The single out-of-browser boundary is an optional native-messaging host that mirrors the global to-do list into a local `TODO.md`.
 
 # Components
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/COMPONENTS.md
 
-Background script running as an ES module.
+Line counts as of v1.11.1. "Namespace" = the `window.StickySites.*` object a classic content script attaches; "Exports" = ES module exports.
+
+# Codebase overview
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/codebase-overview.md
+
+Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = generated, **T** = test-only, **C** = config/meta.
 
 # Security
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/SECURITY.md
 
-StickySites runs as a Chrome Extension on every web page.
+StickySites runs as a Chrome Extension on every web page. It injects DOM into untrusted host pages, stores user notes locally with optional encryption, and (optionally) exchanges the to-do list with a local native-messaging host. There is no network surface.
+
+# External Calls
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/external-calls.md
+
+StickySites makes **no network calls**. Everything stays in `chrome.storage.local`. The one call that leaves the browser is optional local IPC: the to-do sync with a native-messaging host. Chrome-internal APIs (`chrome.storage`, `chrome.tabs`, `chrome.windows`, `chrome.alarms`, `chrome.contextMenus`) never leave the browser and are inventoried in `integrations-and-assumptions.md`, not here.
+
+# Integrations and Assumptions
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/integrations-and-assumptions.md
+
+StickySites makes **no network calls**. Its integrations are browser APIs plus one optional local process.
 
 # Installation
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/INSTALLATION.md
 
-1.
+The global to-do list can mirror into a Markdown file through a native-messaging host that lives outside this repo (`~/.claude/skills/todo/`). Install it for every browser profile:
 
 # Development
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/DEVELOPMENT.md
 
-1.
+Runbook with verification steps: `runbooks/load-and-reload-extension.md`.
 
 # Testing
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/TESTING.md
 
-[Vitest](https://vitest.dev/) v4.1+ — fast, ESM-native test runner.
+[Vitest](https://vitest.dev/) 5.x, node environment, `globals: true` (`vitest.config.mjs`).
+
+# Logging
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/logging.md
+
+StickySites has **no logging framework and no log sink outside the browser**. There is no server, no file, and no remote service. Diagnostics are the browser's own consoles:
+
+# Caching and Optimization
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/caching-and-optimization.md
+
+There is no HTTP cache, CDN, or database — all data is `chrome.storage.local`.
+
+# MCP
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/MCP.md
+
+The hub server is the developer's machine-wide tool, not part of the extension. Both config files start it with the same command; neither carries environment values (the hub's Ollama endpoints are set in `~/.global-ai-hub/.mcp.json`, outside this public repo).
+
+# Requirements
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/requirements.md
+
+
 
 # Known issues
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/known-issues.md
 
-**Impact**: Low–Medium **Status**: Open
+Format: symptom → cause → workaround → files.
 
+# Onboarding
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/onboarding.md
+
+From zero to a merged change in about ten minutes.
+
+# Runbook: load, reload, and verify the unpacked extension
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/load-and-reload-extension.md
+
+
+
+# Runbook: cut a release (zip for the Chrome Web Store)
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/release-packaging.md
+
+Unpacked installs: `git checkout <previous tag>` and click ↻. Store installs: upload the previous zip as a new version (store versions must increase — bump patch again). Storage keys are versioned (`_v1`) and readers adapt legacy shapes, so no data migration runs on downgrade.
+
+# Runbook: to-do ↔ TODO.md sync is not happening
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/todo-sync-troubleshooting.md
+
+The global to-do list optionally syncs with a local `TODO.md` through the native-messaging host `com.mitch.todo_bridge` (`src/shared/todo-bridge.js`, driven by `src/background/service-worker.js`). Without the host the extension works normally and the list stays local.
+
+# Runbook: encryption — lock, unlock, recover
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/encryption-lock-and-recovery.md
+
+Vault design: `docs/SECURITY.md`. Code: `src/content/crypto-content.js`, popup Settings.
+
+# Repo bootstrap audit — 2026-09-27
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/repo-bootstrap-audit-2026-09-27.md
+
+Ledger for the `repo-bootstrapper` (mdb-tam standard) pass. Read this before re-auditing: **RETRACTED** findings are off-limits without new evidence; **Deferred** items are the backlog. Severity: blocking · major · medium · minor.
+
+# Copilot Instructions
+Source: https://github.com/mithudso/stickysites/blob/HEAD/.github/copilot-instructions.md
+
+Read in this order: `README.md` → `CLAUDE.md` → `docs/ARCHITECTURE.md` → `docs/COMPONENTS.md` → `docs/DEVELOPMENT.md`. Anything touching encryption or the native-messaging to-do sync: `docs/SECURITY.md` and `docs/external-calls.md` first.
+
+# AGENTS.md
+Source: https://github.com/mithudso/stickysites/blob/HEAD/AGENTS.md
+
+Catalog of repo-local agents.
+
+# GEMINI.md
+Source: https://github.com/mithudso/stickysites/blob/HEAD/GEMINI.md
+
+Gemini CLI instructions for this repo. Canonical conventions live in `CLAUDE.md` — follow its **Conventions**, **Commands**, and **Workflow log rule** sections verbatim.

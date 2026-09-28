@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "global_ai_hub": {
+      "command": "bash",
+      "args": ["-c", "exec \"$HOME/.global-ai-hub/.venv/bin/python\" \"$HOME/.global-ai-hub/mcp-server/hub_mcp_server.py\""]
+    }
+  }
+}

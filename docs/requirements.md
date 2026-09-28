@@ -1,78 +1,77 @@
 # Requirements
 
-## Functional Requirements
+## Functional
 
-### Note Types
-- **Global note** — single note visible on all websites
-- **Site note** — one note per domain (hostname, www-stripped)
-- **Page note** — one note per origin+pathname (query/hash excluded)
-- **To-do list** — single global checklist with add/delete/reorder
-- **Outliner** — global library of named outline documents with indent/outdent/collapse, zoom/hoist, keyboard navigation, and export
-- **Daily note** — one note per calendar date (YYYY-MM-DD key)
+### Note types
+- **Global** — one note on every site
+- **Site** — one per hostname (www-stripped)
+- **Page** — one per origin + pathname (query/hash excluded)
+- **To-do** — one global list: nested items (indent 0–3), sections, priority 0–5, colors,
+  tags, per-item notes, completion timestamps, drag-reorder; optional two-way sync with a
+  local `TODO.md` via native messaging
+- **Outliner** — global library of named documents: indent/outdent, move, collapse, zoom,
+  per-node notes, done state, `#tag` chips, filter, auto-group with undo, Markdown/OPML export
+- **Daily** — one per `YYYY-MM-DD`
 
 ### Editor
-- Rich text via `contenteditable` with 19-tool formatting toolbar
-- Auto-save debounced at 500 ms
-- @-mention autocomplete triggered by `@` (links, dates, contacts, files)
-- Tag input per note (comma/space separated, auto-prefixed with `#`)
-- Copy-to-clipboard action
+- Rich text via `contenteditable` with a 19-tool toolbar (two rows)
+- Find & Replace (`Cmd/Ctrl+F` / `Cmd/Ctrl+H`), match counter, Replace All
+- `@` mention autocomplete (link, date, contact, file); inline `#tags`
+- Auto-save debounced at 500 ms; live cross-tab sync without clobbering a focused editor
 
-### Navigation
-- Floating cluster pill with one icon per note type
-- Drag-to-reorder icons (long-press 400 ms)
-- Horizontal/vertical layout toggle (stored in prefs)
-- Chord hotkeys: Alt+S toggle, 1-5 open by index, A cycles all types
-- Context menus: right-click selected text to clip into any note type
+### Navigation and shell
+- Floating cluster pill with identity-bearing icons; drag to position; long-press to reorder;
+  horizontal/vertical layout; per-type visibility
+- `Alt+S` toggles the cluster; `Ctrl/Cmd+F1…F6` toggle the six note types; no bare-key hotkeys
+- Context menu: clip selected text into any note type
+- Panel: move by header, resize from any edge/corner, expand/shrink, pop out to its own window
+  (button or drag off the page); size/position persisted
+- SPA-aware: icons and open site/page notes re-key on URL change
 
-### Panel
-- Moveable (drag header), resizable (drag bottom-right handle)
-- Expand/shrink toggle, popout button (placeholder)
-- Position and size persisted to prefs, clamped to viewport on restore
-
-### Popup Dashboard
-- Search across all note types
-- Sort by recent, oldest, or alphabetical
-- Filter by note type tabs and active tags
-- Export all notes as markdown
-- Settings: encryption toggle
+### Popup
+- Quick-Open row; search; sort Recent / Oldest / A–Z; type and tag filters; Markdown export
+- Settings: encryption Enable / Disable / Lock Now, note-type visibility, cluster layout
+- Lock screen when the vault is locked
 
 ### Encryption
-- Opt-in AES-256-GCM at rest via Web Crypto API
-- PBKDF2 key derivation: 600,000 iterations, SHA-256
-- Session key cached in `chrome.storage.session` (cleared on browser close)
-- Lock overlay with passphrase input when session key is missing
+- Opt-in AES-256-GCM; PBKDF2 (600,000 iterations, SHA-256, 16-byte salt)
+- Derived key cached as JWK in `chrome.storage.local` until Lock Now
+- Lock overlay in-page; no plaintext writes while locked; to-do sync skipped while encrypted
 
-## Non-Functional Requirements
+## Non-functional
 
-- Vanilla JavaScript only — no frameworks, transpilers, or bundlers
-- Chrome Manifest V3 compliant
-- Content scripts use `window.StickySites.*` namespace (no ES modules)
-- Service worker uses ES module imports from `src/shared/`
-- All injected DOM uses `stickysites-` prefix for IDs and classes
-- z-index values near INT32_MAX to overlay host-page content
-- Storage keys versioned with `_v1` suffix for future migrations
-- 2-space indentation, LF line endings
+- Vanilla JavaScript/CSS; no frameworks, transpilers, bundlers, or runtime npm dependencies
+- Chrome Manifest V3; content scripts as classic scripts on `window.StickySites.*`; module
+  service worker
+- All injected DOM prefixed `stickysites-`; z-index near INT32_MAX
+- Storage keys versioned `_v1`; legacy shapes adapted at read time
+- Data never leaves the device except the optional local to-do host
+- Unit tests for every shared/pure module; CI: lint, test, index check, manifest validation
+- 2-space indent, LF line endings
 
 ## Dependencies
 
-### Runtime
-None — the extension has zero runtime dependencies.
+**Runtime**: none.
 
-### Development
-| Package | Purpose |
-|---------|---------|
-| vitest 4.x | Unit test runner (node environment) |
-| canvas 3.x | Icon generation script (macOS emoji rendering fallback) |
+| Dev package | Purpose |
+|---|---|
+| vitest 5.x | Unit test runner (node environment) |
+| canvas 3.x | `npm run icons` |
+| puppeteer-core (not in `package.json`; `npm i --no-save`) | `npm run verify:live` |
 
-## Browser Requirements
+**External (optional)**: Python 3 + `~/.claude/skills/todo/` for the native-messaging host.
 
-- Chrome 116+ (MV3 service worker module support)
-- Chromium-based browsers with MV3 support (Edge, Brave, etc.)
+## Browser requirements
+
+- Chrome 116+ (MV3 module service worker, `chrome.alarms`, `chrome.runtime.sendNativeMessage`)
+- Chromium-based browsers with MV3 support; native host manifest is per-browser
 
 ## Permissions
 
 | Permission | Reason |
-|------------|--------|
-| `storage` | Read/write notes, prefs, crypto config |
-| `activeTab` | Access the active tab for content script messaging |
-| `contextMenus` | Right-click "Add to..." menus for text clipping |
+|---|---|
+| `storage` | Notes, prefs, crypto config, cached key |
+| `activeTab` | Message the active tab from the SW and popup |
+| `contextMenus` | Clip submenu |
+| `alarms` | 2-minute to-do sync schedule |
+| `nativeMessaging` | To-do sync host |
