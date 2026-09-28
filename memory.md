@@ -1,5 +1,23 @@
 # StickySites Memory Log
 
+## v1.12.1 - 2026-09-28
+- User request:
+  - Yes: install the peer helper on this laptop
+- Completed:
+  - Installed (`launchd` job `com.stickysites.peer`, peer "m5"). First run exposed that a VPN owning
+    the default route makes macOS refuse the multicast send; PR #19 (parallel session) landed the
+    interface-table fix: announce on every non-tunnel interface via multicast + subnet broadcast,
+    60 s rescan, optional `install --peer IP` unicast, tunnels advertised last. My duplicate PR #20
+    was closed. This entry carries the remaining deltas: test waits for discovery in both
+    directions (was racy), no duplicate log lines under launchd, CLAUDE.md / COMPONENTS /
+    known-issues text, version 1.12.1 (PR #19 shipped without a bump).
+- In progress:
+  - None
+- Next steps:
+  - Reload the extension in the real Chrome profile(s) so the 1.12 service worker starts pushing
+    snapshots (daemon shows hasSnapshot=false until then)
+  - Install on the second laptop with the printed pairing key
+
 ## v1.12.0 - 2026-09-28
 - User request:
   - Add a local peer sync so laptops on the same network stay in sync with each other

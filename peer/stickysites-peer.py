@@ -34,7 +34,8 @@ LAUNCHD_LABEL = 'com.stickysites.peer'
 
 def log(msg):
     line = time.strftime('%Y-%m-%d %H:%M:%S ') + msg
-    print(line, flush=True)
+    # Under launchd stdout is already redirected into LOG, so only echo to a terminal.
+    if sys.stdout.isatty(): print(line, flush=True)
     try:
         with open(LOG, 'a') as f: f.write(line + '\n')
     except OSError: pass

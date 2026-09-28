@@ -1,4 +1,4 @@
-# Chrome Web Store listing copy — StickySites 1.12.0
+# Chrome Web Store listing copy — StickySites 1.12.1
 
 Paste-ready text for every field in the Developer Dashboard. Character limits are the
 store's; counts are given where they matter.
@@ -126,7 +126,7 @@ https://github.com/mithudso/stickysites/blob/main/PRIVACY.md
 
 ## Package tab
 
-Upload `dist/stickysites-1.12.0.zip` (built by `npm run build:store`). Version comes from
+Upload `dist/stickysites-1.12.1.zip` (built by `npm run build:store`). Version comes from
 `manifest.json`; every later upload must have a higher version.
 
 ## Reviewer notes (optional "Notes for reviewer" field — recommended)
