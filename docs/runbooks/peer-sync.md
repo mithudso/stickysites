@@ -48,6 +48,7 @@ and every laptop heard on the network and reports the first failing step (`tcp` 
 
 | Symptom | Action |
 |---|---|
+| Test: `tcp` fails with `No route to host` although the app is allowed; log line `interpreter /opt/homebrew/…` | Sends are attributed to the interpreter, and Homebrew's Python.app gets no Local Network prompt under launchd. `install` picks Apple `/usr/bin/python3` when the Command Line Tools exist (`xcode-select --install`), or force one with `install --python PATH`; then re-run `install` |
 | Test: `tcp` fails with `No route to host` while the peer is heard | A VPN is tunnelling the helper: add **StickySites Peer** (`~/Applications`) to its bypass list (Surfshark: Bypasser → Bypass VPN → add app), or allow it in Privacy & Security → Local Network; then `launchctl kickstart -k gui/$(id -u)/com.stickysites.peer` |
 | Test: `pairing` fails with 401 | Different pairing keys — copy one to the other laptop and Save |
 | Test: `tcp` times out | Wrong IP / helper not running there / firewall blocking TCP 47832 |

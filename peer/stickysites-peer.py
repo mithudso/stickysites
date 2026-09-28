@@ -9,7 +9,7 @@ Stdlib only (Python 3.9+). Three sockets:
 
 State lives in ~/.stickysites/ (config, self-signed cert, latest snapshot).
 
-  stickysites-peer.py install [--pair-key KEY] [--name NAME] [--peer IP ...]   create config+cert, register launchd job
+  stickysites-peer.py install [--pair-key KEY] [--name NAME] [--peer IP ...] [--python PATH]   create config+cert, register launchd job
   stickysites-peer.py uninstall                                 unload the launchd job
   stickysites-peer.py run                                       run in the foreground
   stickysites-peer.py status                                    ask the running daemon for peers
@@ -477,6 +477,7 @@ def run(cfg):
     for target in (d.announce_loop, d.listen_loop, loop.serve_forever, lan.serve_forever):
         threading.Thread(target=target, daemon=True).start()
     log('stickysites-peer %s "%s" up: loopback http://127.0.0.1:%d, lan https://0.0.0.0:%d, mcast %s:%d' % (VERSION, cfg['name'], cfg['loop_port'], cfg['lan_port'], MCAST_GROUP, cfg['mcast_port']))
+    log('interpreter %s' % sys.executable)
     try:
         while True: time.sleep(3600)
     except KeyboardInterrupt:
@@ -487,15 +488,38 @@ def run(cfg):
 # ── install ──────────────────────────────────────────────────────────────────
 APP_DIR = os.path.expanduser('~/Applications/StickySites Peer.app')
 
-def build_app_bundle():
+APPLE_PYTHON = '/usr/bin/python3'
+
+def daemon_interpreter(override=None):
+    """Interpreter the launchd job runs the daemon with.
+
+    macOS Local Network privacy attributes a launchd job's LAN traffic to the code identity of the
+    process that sends, i.e. the *interpreter* after our wrapper execs it — not to the wrapper
+    bundle. Homebrew's python3 is itself an app bundle (Python.app): a background job never gets
+    its "Allow" prompt, so every LAN unicast/multicast send fails with EHOSTUNREACH ("No route to
+    host") while `nc`/`curl`/Apple's python3 from the same shell succeed. Apple's /usr/bin/python3
+    (Command Line Tools, 3.9+) is a system binary and is allowed, so prefer it when installed.
+    It is only probed when the CLT are present: bare /usr/bin/python3 without them opens the
+    installer dialog."""
+    if override: return override
+    if sys.platform == 'darwin' and os.path.exists('/Library/Developer/CommandLineTools/usr/bin/python3') and os.path.exists(APPLE_PYTHON):
+        try:
+            ok = subprocess.run([APPLE_PYTHON, '-c', 'import sys; print(sys.version_info >= (3, 9))'], capture_output=True, text=True, timeout=15).stdout.strip()
+            if ok == 'True': return APPLE_PYTHON
+        except (OSError, subprocess.SubprocessError): pass
+    return sys.executable
+
+def build_app_bundle(interpreter=None):
     """Wrap the daemon in a minimal, ad-hoc-signed .app so macOS attributes its LAN traffic to a
     named app: recent macOS (Local Network privacy) silently refuses multicast/broadcast/unicast
     sends (EHOSTUNREACH, "No route to host") from bare background executables, but shows an
-    "Allow" prompt for an app bundle and remembers the answer. The bundle only execs this script."""
+    "Allow" prompt for an app bundle and remembers the answer. The bundle only execs this script
+    with `daemon_interpreter()` (Apple's python3 when available — see there for why)."""
+    interpreter = interpreter or daemon_interpreter()
     macos = os.path.join(APP_DIR, 'Contents', 'MacOS'); os.makedirs(macos, exist_ok=True)
     exe = os.path.join(macos, 'stickysites-peer')
     with open(exe, 'w') as f:
-        f.write('#!/bin/sh\n# launchd runs this with no args (daemon); `open -a "StickySites Peer" --args probe` runs one LAN send to trigger the macOS Local Network prompt.\nexec "%s" "%s" "${1:-run}"\n' % (sys.executable, os.path.abspath(__file__)))
+        f.write('#!/bin/sh\n# launchd runs this with no args (daemon); `open -a "StickySites Peer" --args probe` runs one LAN send to trigger the macOS Local Network prompt.\nexec "%s" "%s" "${1:-run}"\n' % (interpreter, os.path.abspath(__file__)))
     os.chmod(exe, 0o755)
     with open(os.path.join(APP_DIR, 'Contents', 'Info.plist'), 'w') as f:
         f.write('''<?xml version="1.0" encoding="UTF-8"?>
@@ -535,10 +559,11 @@ def cmd_install(a):
         plist = os.path.expanduser('~/Library/LaunchAgents/%s.plist' % LAUNCHD_LABEL)
         os.makedirs(os.path.dirname(plist), exist_ok=True)
         subprocess.run(['launchctl', 'unload', plist], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        program = build_app_bundle()
+        interpreter = daemon_interpreter(a.python)
+        program = build_app_bundle(interpreter)
         open(plist, 'w').write(launchd_plist(cfg, program))
         subprocess.run(['launchctl', 'load', plist], check=True)
-        print('launchd job %s loaded (%s) running %s' % (LAUNCHD_LABEL, plist, APP_DIR))
+        print('launchd job %s loaded (%s) running %s with %s' % (LAUNCHD_LABEL, plist, APP_DIR, interpreter))
         # A LaunchServices launch of the bundle is what reliably triggers the Local Network prompt.
         subprocess.run(['open', '-a', APP_DIR, '--args', 'probe'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         print('If macOS asks whether "StickySites Peer" may find and connect to devices on your local network, click Allow.')
@@ -617,7 +642,7 @@ def cmd_pair(a):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
-    p = sub.add_parser('install'); p.add_argument('--pair-key'); p.add_argument('--name'); p.add_argument('--peer', action='append', metavar='IP', help='static peer address (repeatable) for networks that drop multicast/broadcast'); p.add_argument('--no-launchd', action='store_true'); p.set_defaults(fn=cmd_install)
+    p = sub.add_parser('install'); p.add_argument('--pair-key'); p.add_argument('--name'); p.add_argument('--peer', action='append', metavar='IP', help='static peer address (repeatable) for networks that drop multicast/broadcast'); p.add_argument('--python', metavar='PATH', help='interpreter for the launchd job (default: Apple /usr/bin/python3 when the Command Line Tools are installed, else this one)'); p.add_argument('--no-launchd', action='store_true'); p.set_defaults(fn=cmd_install)
     p = sub.add_parser('init'); p.add_argument('--pair-key'); p.add_argument('--name'); p.add_argument('--loop-port'); p.add_argument('--lan-port'); p.add_argument('--mcast-port'); p.add_argument('--peer', action='append', metavar='IP')
     p.set_defaults(fn=lambda a: (ensure_config(a.pair_key, a.name, a.loop_port, a.lan_port, a.mcast_port, a.peer), ensure_cert(), print('initialised %s' % HOME)))
     sub.add_parser('uninstall').set_defaults(fn=cmd_uninstall)
