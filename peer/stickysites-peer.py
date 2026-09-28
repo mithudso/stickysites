@@ -9,17 +9,17 @@ Stdlib only (Python 3.9+). Three sockets:
 
 State lives in ~/.stickysites/ (config, self-signed cert, latest snapshot).
 
-  stickysites-peer.py install [--pair-key KEY] [--name NAME]   create config+cert, register launchd job
+  stickysites-peer.py install [--pair-key KEY] [--name NAME] [--peer IP ...]   create config+cert, register launchd job
   stickysites-peer.py uninstall                                 unload the launchd job
   stickysites-peer.py run                                       run in the foreground
   stickysites-peer.py status                                    ask the running daemon for peers
   stickysites-peer.py pair [KEY]                                show or set the pairing key
   stickysites-peer.py init                                      config+cert only (no launchd; used by tests)
 """
-import argparse, hashlib, hmac, http.client, json, os, secrets, socket, ssl, struct, subprocess, sys, threading, time, urllib.request
+import argparse, errno, hashlib, hmac, http.client, json, os, secrets, socket, ssl, subprocess, sys, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 HOME = os.path.expanduser(os.environ.get('STICKYSITES_HOME', '~/.stickysites'))
 CONFIG = os.path.join(HOME, 'peer.json')
 CERT = os.path.join(HOME, 'peer-cert.pem')
@@ -29,6 +29,7 @@ LOG = os.path.join(HOME, 'peer.log')
 MCAST_GROUP = '239.255.77.31'
 ANNOUNCE_EVERY = 5
 PEER_TTL = 20
+IFACE_RESCAN = 60      # seconds between interface re-enumerations (VPN up/down, Wi-Fi switch)
 LAUNCHD_LABEL = 'com.stickysites.peer'
 
 def log(msg):
@@ -48,7 +49,7 @@ def save_config(cfg):
     with open(tmp, 'w') as f: json.dump(cfg, f, indent=2)
     os.chmod(tmp, 0o600); os.replace(tmp, CONFIG)
 
-def ensure_config(pair_key=None, name=None, loop_port=None, lan_port=None, mcast_port=None):
+def ensure_config(pair_key=None, name=None, loop_port=None, lan_port=None, mcast_port=None, peers=None):
     cfg = load_config() if os.path.exists(CONFIG) else {}
     cfg.setdefault('id', 'peer_' + secrets.token_hex(6))
     cfg.setdefault('name', socket.gethostname().split('.')[0])
@@ -59,6 +60,7 @@ def ensure_config(pair_key=None, name=None, loop_port=None, lan_port=None, mcast
     if loop_port: cfg['loop_port'] = int(loop_port)
     if lan_port: cfg['lan_port'] = int(lan_port)
     if mcast_port: cfg['mcast_port'] = int(mcast_port)
+    if peers is not None: cfg['static_peers'] = [p for p in peers if p]
     save_config(cfg)
     return cfg
 
@@ -86,17 +88,62 @@ def default_route_ip():
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect(('10.255.255.255', 1)); ip = s.getsockname()[0]; s.close(); return ip
     except OSError: return None
 
-def local_ipv4s():
-    """Candidate addresses peers may reach us on: default-route IP first, then hostname addresses."""
-    out = []
-    d = default_route_ip()
-    if d: out.append(d)
+def _is_private(ip):
+    """RFC 1918 — the addresses a laptop on the same LAN can actually reach."""
+    a = ip.split('.')
+    return a[0] == '10' or (a[0] == '192' and a[1] == '168') or (a[0] == '172' and 16 <= int(a[1]) <= 31)
+
+_IFACE_CACHE = {'at': 0.0, 'table': []}
+
+def _iface_table():
+    """[(ip, point_to_point, broadcast|None)] for every non-loopback IPv4 on this host, cached IFACE_RESCAN s.
+
+    Uses `ip -4 -o addr` (Linux) or `ifconfig` (macOS/BSD); falls back to the hostname's addresses
+    and the default-route IP. VPN tunnels (utun*, tun*) are point-to-point: their address is still
+    advertised (a peer may only be reachable through one) but they are skipped for discovery, which
+    on macOS the tunnel otherwise captures via the 224.0.0/4 route so LAN peers never see us.
+    The subnet broadcast address feeds the fallback for networks/EDR agents that drop multicast."""
+    now = time.time()
+    if now - _IFACE_CACHE['at'] < IFACE_RESCAN: return list(_IFACE_CACHE['table'])
+    table = []
+    def add(ip, p2p=False, bcast=None):
+        if not ip or ip.startswith('127.') or ip.startswith('169.254.') or ip.startswith('0.'): return
+        if all(t[0] != ip for t in table): table.append((ip, p2p, bcast))
     try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = info[4][0]
-            if ip not in out and not ip.startswith('127.'): out.append(ip)
+        if sys.platform.startswith('linux'):
+            out = subprocess.run(['ip', '-4', '-o', 'addr', 'show', 'up'], capture_output=True, text=True, timeout=3).stdout
+            for line in out.splitlines():
+                parts = line.split()
+                if 'inet' in parts:
+                    add(parts[parts.index('inet') + 1].split('/')[0], 'peer' in parts, parts[parts.index('brd') + 1] if 'brd' in parts else None)
+        else:
+            out = subprocess.run(['ifconfig'], capture_output=True, text=True, timeout=3).stdout
+            p2p = False
+            for line in out.splitlines():
+                if line and not line[0].isspace(): p2p = 'POINTOPOINT' in line
+                parts = line.split()
+                if parts and parts[0] == 'inet': add(parts[1], p2p, parts[parts.index('broadcast') + 1] if 'broadcast' in parts else None)
+    except (OSError, subprocess.SubprocessError, ValueError): pass
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET): add(info[4][0])
     except OSError: pass
-    return out
+    add(default_route_ip())
+    table.sort(key=lambda t: (t[1], not _is_private(t[0])))  # LAN first, then public, tunnels last
+    _IFACE_CACHE['at'] = now; _IFACE_CACHE['table'] = table
+    return list(table)
+
+def multicast_ifaces():
+    """Interface IPs to join/announce the discovery group on: every non-tunnel IPv4, else None (kernel default)."""
+    ips = [t[0] for t in _iface_table() if not t[1]]
+    return ips or [None]
+
+def broadcast_targets():
+    """Subnet broadcast addresses of every LAN interface — reaches peers where multicast is filtered."""
+    return [t[2] for t in _iface_table() if t[2] and not t[1]]
+
+def local_ipv4s():
+    """Candidate addresses peers may reach us on: LAN addresses first, tunnels last (max 8, signed)."""
+    return [t[0] for t in _iface_table()][:8]
 
 # ── snapshot store ───────────────────────────────────────────────────────────
 class SnapshotStore:
@@ -133,31 +180,62 @@ class Daemon:
 
     # discovery
     def announce_loop(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-        iface = default_route_ip()
-        if iface:
-            try: sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(iface))
-            except OSError as e: log('multicast interface %s not usable (%s); using default' % (iface, e))
+        socks = {}; scanned = 0.0; failing = set()  # log a failing target once, not every 5 s
+        def send(sock, dst, what):
+            try: sock.sendto(data, (dst, port))
+            except OSError as e:
+                if what not in failing: failing.add(what); log('announce %s failed: %s (broadcast/static peers still tried)' % (what, e))
+            else:
+                if what in failing: failing.discard(what); log('announce %s working again' % what)
         while not self.stop.is_set():
+            if time.time() - scanned >= IFACE_RESCAN:
+                wanted = multicast_ifaces()
+                for ip in [k for k in socks if k not in wanted]: socks.pop(ip).close()
+                for ip in wanted:
+                    if ip in socks: continue
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                    if ip:
+                        try: sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(ip))
+                        except OSError as e: log('multicast interface %s not usable (%s)' % (ip, e)); sock.close(); continue
+                    socks[ip] = sock
+                if not socks: log('no multicast interface available; retrying in %ss' % IFACE_RESCAN)
+                scanned = time.time()
             ts = int(time.time())
             addrs = local_ipv4s()
             msg = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'port': self.cfg['lan_port'], 'fp': self.fp, 'ts': ts, 'addrs': addrs}
             msg['sig'] = sign(self.cfg['pair_key'], msg['id'], msg['name'], msg['port'], msg['fp'], ts, ','.join(addrs))
-            try: sock.sendto(json.dumps(msg).encode(), (MCAST_GROUP, self.cfg['mcast_port']))
-            except OSError as e: log('announce failed: %s' % e)
+            data = json.dumps(msg).encode(); port = self.cfg['mcast_port']
+            for ip, sock in socks.items(): send(sock, MCAST_GROUP, 'multicast on %s' % (ip or 'default'))
+            # fallbacks for networks / endpoint agents that drop multicast: subnet broadcast, then
+            # unicast to any statically configured peers (`static_peers` in peer.json)
+            if socks:
+                sock = next(iter(socks.values()))
+                for dst in broadcast_targets(): send(sock, dst, 'broadcast to %s' % dst)
+                for dst in self.cfg.get('static_peers', []): send(sock, str(dst), 'unicast to %s' % dst)
             self.stop.wait(ANNOUNCE_EVERY)
+
+    def _join_group(self, sock, joined):
+        """Join the discovery group on every LAN interface (plus the kernel default); idempotent, re-run on rescan."""
+        for ip in multicast_ifaces() + [None]:
+            if ip in joined: continue
+            mreq = socket.inet_aton(MCAST_GROUP) + socket.inet_aton(ip or '0.0.0.0')
+            try: sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq); joined.add(ip)
+            except OSError as e:
+                if e.errno == errno.EADDRINUSE: joined.add(ip)
+                else: log('multicast join on %s failed: %s' % (ip or 'default', e))
 
     def listen_loop(self):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if hasattr(socket, 'SO_REUSEPORT'): sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         sock.bind(('', self.cfg['mcast_port']))
-        mreq = struct.pack('4sl', socket.inet_aton(MCAST_GROUP), socket.INADDR_ANY)
-        sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        joined = set(); self._join_group(sock, joined); scanned = time.time()
         sock.settimeout(1.0)
         while not self.stop.is_set():
+            if time.time() - scanned >= IFACE_RESCAN: self._join_group(sock, joined); scanned = time.time()
             try: data, addr = sock.recvfrom(4096)
             except socket.timeout: continue
             except OSError: break
@@ -302,7 +380,7 @@ def launchd_plist(cfg):
 ''' % (LAUNCHD_LABEL, sys.executable, os.path.abspath(__file__), LOG, LOG)
 
 def cmd_install(a):
-    cfg = ensure_config(a.pair_key, a.name); ensure_cert()
+    cfg = ensure_config(a.pair_key, a.name, peers=a.peer); ensure_cert()
     if sys.platform == 'darwin' and not a.no_launchd:
         plist = os.path.expanduser('~/Library/LaunchAgents/%s.plist' % LAUNCHD_LABEL)
         os.makedirs(os.path.dirname(plist), exist_ok=True)
@@ -336,9 +414,9 @@ def cmd_pair(a):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
-    p = sub.add_parser('install'); p.add_argument('--pair-key'); p.add_argument('--name'); p.add_argument('--no-launchd', action='store_true'); p.set_defaults(fn=cmd_install)
-    p = sub.add_parser('init'); p.add_argument('--pair-key'); p.add_argument('--name'); p.add_argument('--loop-port'); p.add_argument('--lan-port'); p.add_argument('--mcast-port')
-    p.set_defaults(fn=lambda a: (ensure_config(a.pair_key, a.name, a.loop_port, a.lan_port, a.mcast_port), ensure_cert(), print('initialised %s' % HOME)))
+    p = sub.add_parser('install'); p.add_argument('--pair-key'); p.add_argument('--name'); p.add_argument('--peer', action='append', metavar='IP', help='static peer address (repeatable) for networks that drop multicast/broadcast'); p.add_argument('--no-launchd', action='store_true'); p.set_defaults(fn=cmd_install)
+    p = sub.add_parser('init'); p.add_argument('--pair-key'); p.add_argument('--name'); p.add_argument('--loop-port'); p.add_argument('--lan-port'); p.add_argument('--mcast-port'); p.add_argument('--peer', action='append', metavar='IP')
+    p.set_defaults(fn=lambda a: (ensure_config(a.pair_key, a.name, a.loop_port, a.lan_port, a.mcast_port, a.peer), ensure_cert(), print('initialised %s' % HOME)))
     sub.add_parser('uninstall').set_defaults(fn=cmd_uninstall)
     sub.add_parser('run').set_defaults(fn=lambda a: run(load_config() if os.path.exists(CONFIG) else ensure_config()))
     sub.add_parser('status').set_defaults(fn=cmd_status)

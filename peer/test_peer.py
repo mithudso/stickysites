@@ -30,6 +30,7 @@ class TwoDaemons(unittest.TestCase):
                 if st['peers']: return
             except Exception: pass
             time.sleep(0.5)
+        cls.tearDownClass()  # unittest skips tearDownClass when setUpClass raises — do not orphan the daemons
         raise RuntimeError('peers never discovered each other')
 
     @classmethod

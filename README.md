@@ -59,7 +59,7 @@ your own laptops on the same network. No servers, no internet calls.
 
 ### Local peer sync (optional)
 - Keep two or more of your laptops converged over the local network — no account, no cloud
-- A tiny stdlib-Python helper on each machine discovers peers (multicast, pairing key) and relays
+- A tiny stdlib-Python helper on each machine discovers peers (multicast + subnet broadcast, pairing key) and relays
   snapshots over pinned TLS; merging is record-level last-writer-wins inside the extension
 - Encrypted vaults sync as envelopes; enable encryption on one laptop and the others adopt it
 - Setup: `python3 peer/stickysites-peer.py install` — see [peer/README.md](peer/README.md)

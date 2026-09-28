@@ -4,7 +4,8 @@ Two or more machines on the same LAN keep their StickySites notes converged thro
 helper (`peer/stickysites-peer.py`). Design and security model: `peer/README.md`.
 
 **Precondition**: Python 3.9+ and `openssl` on each machine; both on the same Wi-Fi/LAN with
-multicast allowed (guest networks and some VPNs block it).
+multicast or subnet broadcast allowed (the daemon uses both; guest networks with client isolation
+block both — configure `--peer IP` on each side, see `peer/README.md`).
 
 ## Set up
 

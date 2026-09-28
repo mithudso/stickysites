@@ -162,7 +162,8 @@ extension needs no file access. Sync is skipped for encrypted data so plaintext 
 
 ### ADR-9 Peer sync through a local relay daemon, merge in the extension
 Extensions cannot listen on sockets or do multicast, so a stdlib-Python daemon per machine handles
-discovery (UDP multicast, HMAC-signed with a shared pairing key) and transport (HTTPS, pinned
+discovery (UDP multicast plus subnet broadcast on every non-tunnel interface, optional static
+peers; HMAC-signed with a shared pairing key) and transport (HTTPS, pinned
 self-signed cert, bearer token). The daemon only stores and relays opaque snapshots; the merge
 (record-level LWW + tombstones, vault-aware) lives in `src/shared/peer-sync.js` where it is
 unit-tested. The extension reaches the daemon with a CORS-gated loopback `fetch`, so no manifest
