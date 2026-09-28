@@ -1,5 +1,27 @@
 # StickySites Memory Log
 
+## v1.12.0 - 2026-09-28
+- User request:
+  - Add a local peer sync so laptops on the same network stay in sync with each other
+- Completed:
+  - `src/shared/peer-sync.js` (snapshot, vault compatibility, record-level LWW merge + tombstones,
+    `syncWithDaemon`) + 24 tests; SW wiring (1-min alarm, 4 s debounce, `STICKYSITES_PEER_SYNC_NOW`,
+    crypto adapter via `importJwk`); popup Settings → Local Peer Sync (On/Off, Sync now, status)
+  - `peer/stickysites-peer.py` daemon (loopback API with CORS for the extension, LAN HTTPS relay with
+    pinned self-signed cert + bearer token, HMAC-signed multicast discovery on the default-route
+    interface with address candidates, launchd install) + `peer/test_peer.py` (2 daemons; in CI) + README
+  - `importJwk` in both crypto modules; outline delete writes a tombstone; new storage keys
+    `stickysites_tombstones_v1`, `stickysites_peer_v1`
+  - Docs: CLAUDE.md, ARCHITECTURE (flow 9, ADR-9), SECURITY, external-calls (row 2 + outcomes),
+    COMPONENTS, codebase-overview, TESTING, DEVELOPMENT, INSTALLATION, known-issues, logging,
+    runbooks/peer-sync.md, PRIVACY.md, store listing; index; llms suite; version 1.12.0
+  - Live smoke: real daemon + extension in Chrome for Testing → snapshot pushed, settings renders status
+- In progress:
+  - None
+- Next steps:
+  - Install the helper on each laptop (`peer/README.md`); consider a manual peer-address fallback
+    for networks without multicast; tombstones for any future delete paths
+
 ## v1.11.2 - 2026-09-27
 - User request:
   - Get the repo ready for Chrome Web Store submission; produce a full file listing of everything needed

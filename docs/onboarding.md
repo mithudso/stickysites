@@ -17,7 +17,7 @@ npm run lint && npm test
 ```
 
 Expected: `✔ 26 JavaScript files parse; manifest.json and package.json versions agree`, then
-`Test Files 4 passed · Tests 101 passed`.
+`Test Files 5 passed · Tests 125 passed`.
 
 ## 3. Load the extension
 
@@ -44,7 +44,7 @@ Read in order:
 
 ## 6. Make a change
 
-Good first tasks: add a test to `tests/todo-bridge.test.js` or `tests/outline-ops.test.js`;
+Good first tasks: add a test to `tests/peer-sync.test.js` or `tests/outline-ops.test.js`;
 a style fix in `src/content/sticky-inject.css`; a doc correction.
 
 Then:

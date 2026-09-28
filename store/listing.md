@@ -1,4 +1,4 @@
-# Chrome Web Store listing copy — StickySites 1.11.2
+# Chrome Web Store listing copy — StickySites 1.12.0
 
 Paste-ready text for every field in the Developer Dashboard. Character limits are the
 store's; counts are given where they matter.
@@ -50,6 +50,11 @@ PRIVATE BY DESIGN
 THE POPUP
 Search across every note, sort by recency or name, filter by type or tag, export, and manage
 settings (encryption, which note types are shown, cluster layout).
+
+OPTIONAL: KEEP YOUR OWN LAPTOPS IN SYNC — WITHOUT THE CLOUD
+Install the small open-source peer helper on two or more of your computers with the same
+pairing key and they keep each other's notes converged over your local network only: multicast
+discovery, pinned TLS, record-level merge. No account, nothing leaves your LAN.
 
 OPTIONAL: SYNC YOUR TO-DO LIST WITH A LOCAL FILE
 Power users can install a small companion program on their own computer so the to-do list
@@ -121,7 +126,7 @@ https://github.com/mithudso/stickysites/blob/main/PRIVACY.md
 
 ## Package tab
 
-Upload `dist/stickysites-1.11.2.zip` (built by `npm run build:store`). Version comes from
+Upload `dist/stickysites-1.12.0.zip` (built by `npm run build:store`). Version comes from
 `manifest.json`; every later upload must have a higher version.
 
 ## Reviewer notes (optional "Notes for reviewer" field — recommended)
@@ -130,6 +135,8 @@ StickySites is a local-only note-taking extension. It makes no network requests;
 in chrome.storage.local. The content script runs on all URLs because the core feature is a
 note attached to whatever page the user is on. `nativeMessaging` + `alarms` power an optional
 sync of the to-do list with a local Markdown file through a companion program the user
-installs themselves; without it the code path exits quietly. Encryption (AES-256-GCM) is
-opt-in from the popup Settings. Source: https://github.com/mithudso/stickysites
+installs themselves; without it the code path exits quietly. The service worker also
+fetches http://127.0.0.1:47831 (an optional local helper the user installs for LAN sync between
+their own machines; CORS-gated to the extension origin, no host permission required; unreachable
+→ silent no-op). Encryption (AES-256-GCM) is opt-in from the popup Settings. Source: https://github.com/mithudso/stickysites
 ```

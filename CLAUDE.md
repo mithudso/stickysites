@@ -12,7 +12,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.11.2** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.12.0** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -38,9 +38,14 @@ stickysites/
       sticky-inject.css    # All injected styles (z-index near INT32_MAX)
     shared/                # ES modules — service worker + vitest
       todo-bridge.js       # Native-messaging to-do sync (used by the SW; unit-tested)
+      peer-sync.js         # Local peer sync: snapshot build + LWW merge + daemon round-trip (SW; unit-tested)
       crypto.js            # AES-GCM primitives (ES duplicate of crypto-content.js; tests)
       notes-storage.js     # Storage CRUD reference implementation (tests only today)
-  tests/                   # 4 vitest files, 101 tests
+  tests/                   # 5 vitest files, 125 tests
+  peer/
+    stickysites-peer.py    # Local peer daemon (stdlib Python): LAN discovery + snapshot relay; install/uninstall/status/pair
+    test_peer.py           # Two-daemon end-to-end test (npm run test:peer)
+    README.md              # Design, install, encryption rules, security model
   scripts/
     check-syntax.mjs       # npm run lint — node --check + manifest/package version agreement
     check-doc-indexes.mjs  # npm run docs:check-indexes — path-validates the retrieval indexes
@@ -63,7 +68,8 @@ stickysites/
 ```bash
 npm install                 # dev deps only
 npm run lint                # syntax gate for every .js/.mjs + version agreement (CI step 1)
-npm test                    # vitest run — 101 tests, node env, chrome mocked (CI step 2)
+npm test                    # vitest run — 125 tests, node env, chrome mocked (CI step 2)
+npm run test:peer           # two peer daemons on ephemeral ports discover + exchange a snapshot (CI step 3)
 npm run test:watch          # watch mode
 npx vitest run tests/outline-ops.test.js   # one file
 npm run docs:check-indexes  # docs/high_signal_file_index.json + llms.txt links resolve (CI step 3)
@@ -93,12 +99,13 @@ Manifest changes also need every test tab closed and reopened. Runbook:
  service worker (ES module) ─────────────────────────────┘
    context menus (6 clips) · Alt+S command · windows.create(popout.html)
    to-do sync: alarms (2 min) + 3 s after todos change → sendNativeMessage(com.mitch.todo_bridge)
+   peer sync:  alarms (1 min) + 4 s after notes change → fetch http://127.0.0.1:47831 (peer daemon) → LWW merge
  popup.html (Quick-Open, search, settings)   popout.html (Panel full-window)
  chrome.storage.local: stickysites_*_v1 keys, stickysites_cached_key (JWK)
 ```
 
-No network calls. The only out-of-browser boundary is the optional native-messaging host
-(`docs/external-calls.md`).
+No internet calls. Out-of-browser boundaries: the optional native-messaging to-do host and the
+optional loopback peer daemon (`docs/external-calls.md`).
 
 ### Module system split
 - **Content scripts** (`src/content/`) are classic scripts in `manifest.json` order; they
@@ -106,7 +113,8 @@ No network calls. The only out-of-browser boundary is the optional native-messag
   depend on namespaces set up by earlier scripts. `popout.html` loads the same files with
   `<script>` tags (minus `cluster.js` and `sticky-inject.js`); `popup.html` loads only
   `crypto-content.js` + `popup.js`.
-- **Service worker** is `"type": "module"` and imports `src/shared/todo-bridge.js`.
+- **Service worker** is `"type": "module"` and imports `src/shared/todo-bridge.js`,
+  `src/shared/peer-sync.js`, `src/shared/crypto.js`.
 - **Shared modules** (`src/shared/`) are ES modules. `crypto-content.js` is the
   namespace-style duplicate of `crypto.js` — same algorithm, different packaging; change
   both together. `notes-storage.js` is a reference CRUD layer exercised by tests; the
@@ -143,6 +151,8 @@ stickysites_prefs_v1      # { clusterPosition, clusterLayout, iconOrder, enabled
                           #   panelSize, panelPosition, activeOutlineId, panelMode (unused) }
 stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
 stickysites_cached_key    # JWK of the derived AES-GCM key — persists until Lock Now
+stickysites_tombstones_v1 # { storageKey: { recordKey: deletedAtISO } } — deletions for peer sync (plaintext)
+stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer sync state/status
 ```
 `chrome.storage.session` is **not** used (an earlier design cached the key there).
 
@@ -195,6 +205,23 @@ stickysites_cached_key    # JWK of the derived AES-GCM key — persists until Lo
 - `applyHostResult` keeps StickySites-only fields, maps section names ↔ ids, prunes empty
   host-origin sections, and compares canonical JSON so unchanged syncs never write.
 - Skipped when the todos value is an encrypted envelope. Host missing → warning, list stays local.
+
+### Local peer sync (service-worker.js + shared/peer-sync.js + peer/stickysites-peer.py)
+- Extension → local daemon over loopback HTTP (`PUT /snapshot`, `GET /peers/snapshots`,
+  CORS-restricted to `chrome-extension://` origins; no host permission needed). Daemon does LAN
+  discovery (UDP multicast, HMAC-signed with a pairing key) and peer transport (HTTPS, pinned
+  self-signed cert, bearer token). Daemons only relay snapshots; all merging is in `peer-sync.js`.
+- Snapshot = six note keys as stored (envelopes stay envelopes) + tombstones + reduced crypto
+  config (+ full config for adoption). Prefs and the cached key never sync.
+- Merge = record-level last-writer-wins on `updatedAt`; ties keep local; newer tombstone deletes.
+- Vault rules: locked → skip; same salt → decrypt/merge/re-encrypt in the SW (`crypto.js` +
+  `importJwk` of the cached JWK); local off + remote on → adopt remote config (then locked until
+  passphrase); both on with different salts → `mismatch`, nothing written.
+- Triggers: alarm `stickysites-peer-sync` every 1 min, startup/install, 4 s after a note /
+  tombstone / crypto change, and `STICKYSITES_PEER_SYNC_NOW` from the popup. `peerSyncRunning`
+  guards re-entrancy; the merge's own writes re-trigger only a push (nothing new to apply).
+- Popup Settings → Local Peer Sync: On/Off (`stickysites_peer_v1.enabled`), Sync now, status.
+- Outline doc deletion writes a tombstone; other note types have no delete path in the UI.
 
 ### Popout window
 - ⧉ button or dragging the panel header until the cursor leaves the viewport
@@ -263,6 +290,8 @@ cluster icons and re-opens an open site/page note under the new key (flushing fi
 | `STICKYSITES_CLIP`    | SW → content             | Clip selected text into a note |
 | `STICKYSITES_POPOUT`  | content / popup → SW     | Open note in a standalone window |
 | native `{cmd:'sync'}` | SW → `com.mitch.todo_bridge` | Two-way to-do sync (`docs/external-calls.md`) |
+| `STICKYSITES_PEER_SYNC_NOW` | popup → SW | Run a peer sync immediately; replies with `stickysites_peer_v1` |
+| HTTP `PUT /snapshot`, `GET /peers/snapshots` | SW → `127.0.0.1:47831` | Local peer daemon (`peer/README.md`) |
 
 ## MCP servers
 None shipped. `global_ai_hub` (`.mcp.json`) is the developer's local semantic index over this

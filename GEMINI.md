@@ -9,7 +9,7 @@ Quick facts:
   unpacked at `chrome://extensions`.
 - Content scripts (`src/content/`) are classic scripts sharing `window.StickySites.*`;
   only the service worker is an ES module. Load order in `manifest.json` matters.
-- Checks: `npm run lint && npm test` (syntax gate + 101 vitest unit tests). CI mirrors this.
+- Checks: `npm run lint && npm test` (syntax gate + 125 vitest unit tests; `npm run test:peer` for the daemon). CI mirrors this.
 - Storage: `chrome.storage.local` only, keys `stickysites_*_v1` + `stickysites_cached_key`.
   Encryption invariants (never write plaintext while locked, `{ iv, data }` envelopes)
   must not be weakened — see `docs/SECURITY.md`.

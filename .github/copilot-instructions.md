@@ -7,7 +7,7 @@
 1. **Read before editing.** Open every file you are about to change, plus `manifest.json`
    (content-script load order) and the module it depends on. Never edit `panel.js`,
    `outline.js`, or `sticky-inject.js` from memory of an older version.
-2. **Run the checks after every change.** `npm run lint && npm test` (syntax gate + 101 unit
+2. **Run the checks after every change.** `npm run lint && npm test` (syntax gate + 125 unit
    tests). Then reload the unpacked extension at `chrome://extensions` and exercise the
    changed surface on a real page — the UI layer has no unit tests.
 3. **Never invent commands, paths, permissions, or storage keys.** Everything runnable is in
@@ -34,7 +34,8 @@ There is no build step. Chrome loads the repo root unpacked.
 | Command | What it does |
 |---|---|
 | `npm install` | Dev deps only (vitest, canvas) |
-| `npm test` | `vitest run` — 4 files, 101 unit tests (node env, mocked `chrome`) |
+| `npm test` | `vitest run` — 5 files, 125 unit tests (node env, mocked `chrome`) |
+| `npm run test:peer` | Two peer-sync daemons on ephemeral ports (Python unittest) |
 | `npm run test:watch` | Vitest watch mode |
 | `npx vitest run tests/outline-ops.test.js` | Single test file |
 | `npm run lint` | `node --check` every `.js`/`.mjs` + manifest↔package version agreement |

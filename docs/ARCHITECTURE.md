@@ -4,8 +4,9 @@
 
 StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into
 every web page. Notes live in `chrome.storage.local` with optional AES-256-GCM encryption.
-There are no servers, network calls, or analytics. The single out-of-browser boundary is an
-optional native-messaging host that mirrors the global to-do list into a local `TODO.md`.
+There are no servers, internet calls, or analytics. Two optional out-of-browser boundaries exist,
+both local: a native-messaging host that mirrors the global to-do list into `TODO.md`, and a
+loopback peer daemon that syncs notes between the user's own machines on the same LAN.
 
 ## System context
 
@@ -17,20 +18,23 @@ optional native-messaging host that mirrors the global to-do list into a local `
             ├─ Service worker (ES module)
             │    context menus · Alt+S command · popout window · to-do sync scheduler
             │    ──▶ chrome.runtime.sendNativeMessage('com.mitch.todo_bridge')  (optional)
-            │          └─▶ ~/.claude/skills/todo/scripts/todo_host ⇄ TODO.md
+            │    │     └─▶ ~/.claude/skills/todo/scripts/todo_host ⇄ TODO.md
+            │    ──▶ fetch http://127.0.0.1:47831  (optional peer daemon, peer/stickysites-peer.py)
+            │          └─▶ LAN: multicast discovery + HTTPS snapshot relay ⇄ other laptops' daemons
             ├─ Popup page (popup.html)   Quick-Open · search · settings · lock screen
             └─ Popout page (popout.html) Panel filling its own window
 ```
 
 External actors: the user; the host web page (untrusted DOM the UI is injected into); the
-optional native host process. Nothing else.
+optional native host process; the optional peer daemon and, through it, the user's other
+machines holding the same pairing key. Nothing else.
 
 ## Runtime contexts and communication
 
 | Context | File(s) | Module system | Talks to |
 |---|---|---|---|
 | Content scripts | `src/content/*.js` | classic, `window.StickySites.*` | storage; SW via `runtime.sendMessage(POPOUT)`; receives `TOGGLE` / `OPEN` / `CLIP` |
-| Service worker | `src/background/service-worker.js` | ES module (imports `src/shared/todo-bridge.js`) | tabs via `tabs.sendMessage`; native host; `windows.create` |
+| Service worker | `src/background/service-worker.js` | ES module (imports `src/shared/todo-bridge.js`, `peer-sync.js`, `crypto.js`) | tabs via `tabs.sendMessage`; native host; `windows.create`; loopback `fetch` to the peer daemon |
 | Popup | `popup.html` + `crypto-content.js` + `popup.js` | classic `<script>` | storage; active tab via `tabs.sendMessage(OPEN/TOGGLE)`; SW via `POPOUT` |
 | Popout | `popout.html` + 8 namespace scripts + `popout.js` | classic `<script>` | storage only |
 | Tests | `tests/*.test.js` | ES modules (vitest, node) | mocked `chrome.storage.local` |
@@ -61,7 +65,14 @@ optional native host process. Nothing else.
    3 s after `stickysites_todos_v1` changes. Skipped if the value is an encrypted envelope.
    The host three-way-merges with `TODO.md`; `applyHostResult` folds the reply back while
    keeping StickySites-only fields and writes only if the canonical JSON changed.
-9. **Encryption lifecycle** — popup Settings → `Crypto.enable(passphrase)` derives the key,
+9. **Local peer sync** — SW runs `syncWithDaemon` on startup/install, every minute (alarm),
+   4 s after a note/tombstone/crypto change, and on `STICKYSITES_PEER_SYNC_NOW`. It `PUT`s a
+   snapshot (six note keys as stored + tombstones + reduced vault config) to
+   `http://127.0.0.1:47831`, `GET`s every peer's snapshot the daemon fetched over the LAN, merges
+   record-level last-writer-wins on `updatedAt` (decrypting/re-encrypting with the cached key
+   when the vault is on and salts match), and writes only the changed keys. No daemon → one
+   warning, no-op.
+10. **Encryption lifecycle** — popup Settings → `Crypto.enable(passphrase)` derives the key,
    stores `{ enabled, salt, verify }`, caches the JWK in `stickysites_cached_key`, re-encrypts
    the six note keys. **Lock Now** removes the cached key; unlock re-derives and verifies.
 
@@ -95,6 +106,8 @@ Encrypted note values are replaced wholesale by `{ iv: base64, data: base64 }` e
 | `stickysites_prefs_v1` | `{ clusterPosition {x,y}, clusterLayout, iconOrder, enabledTypes, panelSize, panelPosition, activeOutlineId, panelMode (unused) }` |
 | `stickysites_crypto_v1` | `{ enabled, salt: base64, verify: envelope }` |
 | `stickysites_cached_key` | JWK of the derived AES-GCM key; present only while unlocked |
+| `stickysites_tombstones_v1` | `{ [storageKey]: { [recordKey]: deletedAtISO } }` — deletions to propagate via peer sync (plaintext) |
+| `stickysites_peer_v1` | `{ deviceId, enabled, lastSync, lastResult: { status, peers[], changedKeys[], stats } }` |
 
 **Todo item**: `{ id, text, done, indent 0–3, priority 0–5, color, tags[], note, section, completedAt }`.
 **Outline node**: `{ id, text, children[], collapsed, note, done, tags[] }`.
@@ -146,6 +159,15 @@ Bare `1`–`5`/`A` shortcuts hijacked typing and `Cmd+A`; only `Alt+S` and `Ctrl
 The extension sends its full list and accepts the host's result; it adds nothing but
 StickySites-only fields. Consequence: merge rules live in one place (`todo.py`), and the
 extension needs no file access. Sync is skipped for encrypted data so plaintext never reaches disk.
+
+### ADR-9 Peer sync through a local relay daemon, merge in the extension
+Extensions cannot listen on sockets or do multicast, so a stdlib-Python daemon per machine handles
+discovery (UDP multicast, HMAC-signed with a shared pairing key) and transport (HTTPS, pinned
+self-signed cert, bearer token). The daemon only stores and relays opaque snapshots; the merge
+(record-level LWW + tombstones, vault-aware) lives in `src/shared/peer-sync.js` where it is
+unit-tested. The extension reaches the daemon with a CORS-gated loopback `fetch`, so no manifest
+permission was added. Consequence: snapshots are full-state each minute (fine at note scale);
+deletions need tombstones (only outline docs delete today).
 
 ### ADR-8 Read-time schema adaptation instead of migrations
 Legacy field names and keys are normalised when read. Storage keys are versioned (`_v1`)

@@ -5,7 +5,8 @@
 [Vitest](https://vitest.dev/) 5.x, node environment, `globals: true` (`vitest.config.mjs`).
 
 ```bash
-npm test                                   # single run — 4 files, 101 tests (~350 ms)
+npm test                                   # single run — 5 files, 125 tests (~400 ms)
+npm run test:peer                          # python3 -m unittest peer/test_peer.py — two daemons, ~10 s
 npm run test:watch                         # watch mode
 npx vitest run tests/todo-bridge.test.js   # one file
 npm run lint                               # syntax gate + version agreement (runs before tests in CI)
@@ -17,6 +18,8 @@ npm run verify:live                        # optional end-to-end harness (see be
 | File | Tests | Module under test | What is covered |
 |------|------:|-------------------|-----------------|
 | `tests/notes-storage.test.js` | 50 | `src/shared/notes-storage.js` | `getSiteKey` (www strip, invalid URL), `getPageKey` (query/hash stripped), `getDailyKey`, `parseTags` (split, `#` prefix, dedupe, lowercase), CRUD + `createdAt` preservation + delete + readAll for global, site, page, daily, todo, outline; prefs defaults (match `prefs.js`) / write / partial merge; todo `sections`/`tagColors` round-trip |
+| `tests/peer-sync.test.js` | 24 | `src/shared/peer-sync.js` | Snapshot shape (+ `cryptoFull`), `recordsOf`/`fromRecords`, vault compatibility matrix, `mergeNotes` (newer wins, older loses, ties keep local, legacy records lose, remote-only records added, tombstones newer/older, global + todo as single records, three peers), `syncWithDaemon` with a fake daemon and fake crypto (no-daemon, disabled, apply + state, self-echo, locked, same-salt decrypt/merge/re-encrypt, mismatch, adopt remote vault, remote-off, tombstone propagation) |
+| `peer/test_peer.py` | 4 (Python) | `peer/stickysites-peer.py` | Two daemons on ephemeral ports: CORS preflight for extension origins, bad snapshot → 400, LAN endpoint 401 without bearer, discovery + snapshot round-trip through pinned TLS with ETag cache |
 | `tests/todo-bridge.test.js` | 23 | `src/shared/todo-bridge.js` | `buildRequest` shape and coercion; `applyHostResult` — local-only fields kept, section name↔id mapping, host-origin section pruning, `completedAt` backfill/clear, `changed` detection; `syncTodosWithHost` — encrypted skip, host error, malformed reply, no-write when unchanged, storage read/write failures |
 | `tests/outline-ops.test.js` | 21 | `src/content/outline-ops.js` (with a stubbed `window`) | `findParent`, insert/indent/outdent/move/remove, `filterTree` (ancestors kept), `extractTags`, `autoGroup`, `toMarkdown`, `toOPML` |
 | `tests/crypto.test.js` | 7 | `src/shared/crypto.js` | 16-byte salt, `CryptoKey` derivation, encrypt/decrypt round-trip, wrong-key failure, `isEncrypted` |
@@ -40,7 +43,8 @@ plus the review checklist in `.github/PULL_REQUEST_TEMPLATE.md`.
 ## CI gates (`.github/workflows/ci.yml`)
 
 1. `npm run lint` — `node --check` over every `.js`/`.mjs`; `manifest.json` and `package.json` versions must agree.
-2. `npm test` — the 101 unit tests.
+2. `npm test` — the 125 unit tests.
+2b. `python3 -m unittest peer/test_peer.py` — the two-daemon test (multicast on loopback).
 3. `npm run docs:check-indexes` — `docs/high_signal_file_index.json` and `llms.txt` links resolve.
 4. `manifest.json` parses and declares `manifest_version: 3`.
 
@@ -48,8 +52,9 @@ plus the review checklist in `.github/PULL_REQUEST_TEMPLATE.md`.
 
 - **DOM layers** — `panel.js`, `cluster.js`, `outline.js`, `mentions.js`, `sticky-inject.js`,
   `popup.js`, `popout.js`. They are coupled to the content-script runtime and `execCommand`.
-- **Service worker wiring** — context menus, commands, alarms, `sendNativeMessage` glue
-  (the merge logic it calls *is* tested).
+- **Service worker wiring** — context menus, commands, alarms, `sendNativeMessage` and
+  peer-daemon `fetch` glue (the merge logic it calls *is* tested; a live smoke of daemon +
+  extension was run by hand during development).
 - **Encryption end-to-end** in the namespace module (`crypto-content.js`); the primitives are
   tested through the ES twin.
 

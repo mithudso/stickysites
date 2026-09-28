@@ -50,7 +50,8 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | File | Lines | Purpose |
 |---|---|---|
 | `todo-bridge.js` | 137 | Native-messaging to-do sync: `buildRequest`, `applyHostResult`, `syncTodosWithHost` (SW + tests) |
-| `crypto.js` | 71 | ES twin of `crypto-content.js` primitives (tests) |
+| `peer-sync.js` | ~200 | Local peer sync: snapshot build, vault compatibility, record-level LWW merge with tombstones, `syncWithDaemon` round-trip (SW + tests) |
+| `crypto.js` | ~78 | ES twin of `crypto-content.js` primitives + `importJwk` (tests, SW peer merge) |
 | `notes-storage.js` | 363 | Reference plaintext CRUD for all six note types + prefs, `parseTags`, `createDebouncedSaver` (tests only; runtime talks to storage directly) |
 
 ## `tests/` — vitest, node environment **T**
@@ -58,9 +59,18 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | File | Lines | Tests | Covers |
 |---|---|---|---|
 | `notes-storage.test.js` | 377 | 50 | Keys (`getSiteKey`, `getPageKey`, `getDailyKey`), `parseTags`, CRUD for all six types, prefs |
+| `peer-sync.test.js` | ~230 | 24 | Snapshot shape, vault compatibility matrix, LWW merge (newer/older/tie/legacy/3 peers), tombstones, `syncWithDaemon` with fake daemon + fake crypto (no-daemon, disabled, apply, self-echo, locked, same-salt merge, mismatch, adopt, remote-off, tombstone propagation) |
 | `todo-bridge.test.js` | 190 | 23 | Request shape, host-result merge (sections, local-only fields, `completedAt`), encrypted skip, error paths |
 | `outline-ops.test.js` | 184 | 21 | Tree ops, filter, auto-group, Markdown/OPML |
 | `crypto.test.js` | 56 | 7 | Salt, key derivation, round-trip, wrong key, `isEncrypted` |
+
+## `peer/` — local peer-sync daemon
+
+| File | Purpose |
+|---|---|
+| `stickysites-peer.py` | Stdlib Python daemon: loopback API for the extension, LAN HTTPS relay, multicast discovery, launchd install |
+| `test_peer.py` | Two-daemon end-to-end test (`npm run test:peer`; CI) **T** |
+| `README.md` | Design, install, merge + encryption rules, security model, troubleshooting |
 
 ## `scripts/`
 
@@ -96,7 +106,7 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | `codebase-overview.md` | This file |
 | `high_signal_file_index.json` | Machine-readable per-file index (validated by `npm run docs:check-indexes`) **G** |
 | `repo-bootstrap-audit-2026-09-27.md` | Standards audit ledger (findings, retractions, deferrals) |
-| `runbooks/load-and-reload-extension.md` · `release-packaging.md` · `todo-sync-troubleshooting.md` · `encryption-lock-and-recovery.md` | Operational procedures |
+| `runbooks/load-and-reload-extension.md` · `release-packaging.md` · `todo-sync-troubleshooting.md` · `encryption-lock-and-recovery.md` · `peer-sync.md` | Operational procedures |
 | `archive/` | Rotated workflow-log sections |
 | `superpowers/specs/*.md` · `superpowers/plans/*.md` | Historical design specs and implementation plans (phases 1–5, to-do overhaul, note identity + outliner) |
 
@@ -114,7 +124,7 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 
 | File | Purpose |
 |---|---|
-| `workflows/ci.yml` | lint → test → index check → manifest validation on push/PR to `main` |
+| `workflows/ci.yml` | lint → test → peer daemon test → index check → manifest validation on push/PR to `main` |
 | `copilot-instructions.md` | Copilot rules (mirrors `CLAUDE.md`) |
 | `dependabot.yml` | Weekly npm updates |
 | `CODEOWNERS` | `@mithudso` |

@@ -80,13 +80,18 @@ window.StickySites = window.StickySites || {};
       this._cachedKey = key;
     },
 
+    // Import a cached JWK back into a CryptoKey (mirrors importJwk in src/shared/crypto.js).
+    importJwk: function (jwk) {
+      return crypto.subtle.importKey('jwk', jwk, { name: ALGO }, true, ['encrypt', 'decrypt']);
+    },
+
     getCachedKey: async function () {
       if (this._cachedKey) return this._cachedKey;
       try {
         var stored = await chrome.storage.local.get('stickysites_cached_key');
         var jwk = stored?.stickysites_cached_key;
         if (!jwk) return null;
-        var key = await crypto.subtle.importKey('jwk', jwk, { name: ALGO }, true, ['encrypt', 'decrypt']);
+        var key = await this.importJwk(jwk);
         this._cachedKey = key;
         return key;
       } catch { return null; }

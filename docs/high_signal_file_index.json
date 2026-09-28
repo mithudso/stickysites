@@ -8,7 +8,7 @@
     "patterns": [
       "load-order"
     ],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "package.json",
@@ -17,7 +17,7 @@
     "exports": [],
     "depends_on": [],
     "patterns": [],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "vitest.config.mjs",
@@ -30,11 +30,13 @@
   },
   {
     "path": "src/background/service-worker.js",
-    "purpose": "ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync scheduled by chrome.alarms",
+    "purpose": "ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync, and local peer sync (loopback fetch to the peer daemon, LWW merge via peer-sync.js)",
     "layer": "backend",
     "exports": [],
     "depends_on": [
-      "src/shared/todo-bridge.js"
+      "src/shared/todo-bridge.js",
+      "src/shared/peer-sync.js",
+      "src/shared/crypto.js"
     ],
     "patterns": [
       "event-listeners",
@@ -42,7 +44,7 @@
       "re-entrancy-guard",
       "alarm-schedule"
     ],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "src/content/crypto-content.js",
@@ -68,7 +70,7 @@
       "namespace-iife",
       "envelope"
     ],
-    "last_updated": "2026-05-26"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "src/content/note-types.js",
@@ -184,7 +186,7 @@
       "locked-vault-guard",
       "undo-bar"
     ],
-    "last_updated": "2026-06-05"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "src/content/mentions.js",
@@ -289,13 +291,14 @@
       "deriveKey",
       "encrypt",
       "decrypt",
-      "isEncrypted"
+      "isEncrypted",
+      "importJwk"
     ],
     "depends_on": [],
     "patterns": [
       "envelope"
     ],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "src/shared/notes-storage.js",
@@ -364,7 +367,7 @@
       "iife",
       "direct-storage-writes"
     ],
-    "last_updated": "2026-06-05"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "popup.css",
@@ -530,7 +533,7 @@
     "exports": [],
     "depends_on": [],
     "patterns": [],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": ".github/copilot-instructions.md",
@@ -548,7 +551,7 @@
     "exports": [],
     "depends_on": [],
     "patterns": [],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "AGENTS.md",
@@ -593,7 +596,7 @@
     "exports": [],
     "depends_on": [],
     "patterns": [],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "docs/ARCHITECTURE.md",
@@ -834,7 +837,7 @@
     "exports": [],
     "depends_on": [],
     "patterns": [],
-    "last_updated": "2026-09-27"
+    "last_updated": "2026-09-28"
   },
   {
     "path": "scripts/build-store-zip.mjs",
@@ -908,5 +911,95 @@
     ],
     "patterns": [],
     "last_updated": "2026-09-27"
+  },
+  {
+    "path": "src/shared/peer-sync.js",
+    "purpose": "Local peer sync: snapshot build, vault compatibility, record-level LWW merge with tombstones, syncWithDaemon round-trip against the loopback daemon",
+    "layer": "shared",
+    "exports": [
+      "NOTE_KEYS",
+      "TOMBSTONES_KEY",
+      "CRYPTO_KEY",
+      "CACHED_KEY",
+      "PEER_STATE_KEY",
+      "DEFAULT_DAEMON_URL",
+      "buildSnapshot",
+      "recordsOf",
+      "fromRecords",
+      "cryptoCompatibility",
+      "mergeNotes",
+      "syncWithDaemon",
+      "addTombstone",
+      "isEnvelope",
+      "genDeviceId"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "dependency-injection",
+      "last-writer-wins",
+      "tombstones",
+      "envelope-aware"
+    ],
+    "last_updated": "2026-09-28"
+  },
+  {
+    "path": "tests/peer-sync.test.js",
+    "purpose": "24 tests for peer-sync: snapshot, compatibility matrix, merge semantics, orchestration with fake daemon and fake crypto",
+    "layer": "test",
+    "exports": [],
+    "depends_on": [
+      "src/shared/peer-sync.js"
+    ],
+    "patterns": [
+      "fakes"
+    ],
+    "last_updated": "2026-09-28"
+  },
+  {
+    "path": "peer/stickysites-peer.py",
+    "purpose": "Stdlib Python peer daemon: loopback API for the extension, LAN HTTPS snapshot relay with pinned certs and bearer auth, HMAC-signed multicast discovery, launchd install",
+    "layer": "backend",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "daemon",
+      "multicast-discovery",
+      "cert-pinning",
+      "etag-cache"
+    ],
+    "last_updated": "2026-09-28"
+  },
+  {
+    "path": "peer/test_peer.py",
+    "purpose": "Two-daemon end-to-end test: discovery, CORS, auth, snapshot round-trip",
+    "layer": "test",
+    "exports": [],
+    "depends_on": [
+      "peer/stickysites-peer.py"
+    ],
+    "patterns": [
+      "subprocess"
+    ],
+    "last_updated": "2026-09-28"
+  },
+  {
+    "path": "peer/README.md",
+    "purpose": "Peer sync design, install, merge + encryption rules, security model, troubleshooting",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-28"
+  },
+  {
+    "path": "docs/runbooks/peer-sync.md",
+    "purpose": "Runbook: set up, verify, troubleshoot, remove local peer sync",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ],
+    "last_updated": "2026-09-28"
   }
 ]
