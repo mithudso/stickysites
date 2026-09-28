@@ -7,7 +7,7 @@ One declarative fact per line, each with a `[src:]` tag.
 ## 2026-09-27 [gen: repo-bootstrapper/1.0]
 
 - StickySites is a Chrome Extension on Manifest V3 written in vanilla JavaScript with no build step [src: CLAUDE.md]
-- manifest.json is the canonical version file (1.12.0) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
+- manifest.json is the canonical version file (1.12.1) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
 - There are six note types: Global (yellow), Site (green), Page (blue), To-do list (purple), Outliner (orange), Daily (red) [src: src/content/note-types.js]
 - Site notes are keyed by hostname without www, Page notes by origin plus pathname, Daily notes by YYYY-MM-DD [src: src/content/note-types.js]
 - The outliner is a global library of named documents keyed ol_<id>; the active doc is the activeOutlineId pref [src: src/content/outline.js]
@@ -37,7 +37,7 @@ One declarative fact per line, each with a `[src:]` tag.
 - Every change appends to prompts.md, updates memory.md, and bumps the patch version in manifest.json and package.json [src: CLAUDE.md]
 - To install, open chrome://extensions, enable Developer mode, choose Load unpacked and select the repo root [src: docs/INSTALLATION.md]
 - Local peer sync keeps laptops on the same LAN converged: the service worker pushes a snapshot to a loopback daemon at http://127.0.0.1:47831 every minute and 4 seconds after a note changes, then merges every peer's snapshot [src: src/background/service-worker.js]
-- The peer daemon peer/stickysites-peer.py is stdlib Python; it discovers peers with HMAC-signed UDP multicast on 239.255.77.31:47833 and relays snapshots over HTTPS on port 47832 with a pinned self-signed certificate and a bearer token derived from the pairing key [src: peer/stickysites-peer.py]
+- The peer daemon peer/stickysites-peer.py is stdlib Python; it discovers peers with HMAC-signed UDP announcements on port 47833 (multicast 239.255.77.31 plus subnet broadcast on every non-tunnel interface, plus optional unicast to static peers) and relays snapshots over HTTPS on port 47832 with a pinned self-signed certificate and a bearer token derived from the pairing key [src: peer/stickysites-peer.py]
 - Peer merge is record-level last-writer-wins on updatedAt with tombstones; ties keep the local copy; prefs and the cached key never sync [src: src/shared/peer-sync.js]
 - Peer sync never mixes vaults: same salt merges on decrypted data, different salts report mismatch and write nothing, and a laptop with encryption off adopts a peer's vault config and locks [src: src/shared/peer-sync.js]
 - The peer daemon's loopback API accepts only chrome-extension:// origins via CORS, so no host permission was added to the manifest [src: peer/stickysites-peer.py]

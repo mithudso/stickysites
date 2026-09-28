@@ -23,11 +23,12 @@ class TwoDaemons(unittest.TestCase):
                             '--loop-port', str(57831 + i * 10), '--lan-port', str(57832 + i * 10), '--mcast-port', '57833'],
                            env=env, check=True, stdout=subprocess.DEVNULL)
             cls.procs.append(subprocess.Popen([sys.executable, SCRIPT, 'run'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
-        deadline = time.time() + 15
+        deadline = time.time() + 20
         while time.time() < deadline:
             try:
-                st = json.loads(http('GET', 'http://127.0.0.1:57841/status')[2])
-                if st['peers']: return
+                a = json.loads(http('GET', 'http://127.0.0.1:57831/status')[2])['peers']
+                b = json.loads(http('GET', 'http://127.0.0.1:57841/status')[2])['peers']
+                if a and b: return  # both directions discovered; the round-trip test reads both views
             except Exception: pass
             time.sleep(0.5)
         cls.tearDownClass()  # unittest skips tearDownClass when setUpClass raises — do not orphan the daemons
@@ -50,6 +51,7 @@ class TwoDaemons(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as cm:
             http('PUT', 'http://127.0.0.1:57831/snapshot', b'{"nope":1}')
         self.assertEqual(cm.exception.code, 400)
+        cm.exception.close()
 
     def test_snapshot_round_trip_between_peers(self):
         snap = {'version': 1, 'deviceId': 'dev_a', 'ts': 'T', 'notes': {'stickysites_sites_v1': {'example.com': {'key': 'example.com', 'body': 'hello', 'updatedAt': '2026-01-01T00:00:00Z'}}}, 'tombstones': {}, 'crypto': None}
