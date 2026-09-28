@@ -74,17 +74,18 @@ class TwoDaemons(unittest.TestCase):
         _, _, body = http('GET', 'http://127.0.0.1:57831/config')
         cfg = json.loads(body)
         self.assertEqual(cfg['name'], 'peer0'); self.assertEqual(cfg['pairKey'], 'test-pair-key-123'); self.assertEqual(cfg['staticPeers'], [])
+        self.assertEqual(cfg['discoveryPort'], 57833); self.assertIsInstance(cfg['addrs'], list)
         # set static peers (comma-separated string accepted, whitespace/dupes dropped) — persists to peer.json
-        _, _, body = http('PUT', 'http://127.0.0.1:57831/config', b'{"staticPeers": "192.168.1.50, 192.168.1.51,,192.168.1.50"}')
+        _, _, body = http('PUT', 'http://127.0.0.1:57831/config', b'{"staticPeers": "192.168.1.50, 192.168.1.51:57833,,192.168.1.50"}')
         res = json.loads(body)
         self.assertTrue(res['ok']); self.assertEqual(res['changed'], ['staticPeers'])
-        self.assertEqual(res['config']['staticPeers'], ['192.168.1.50', '192.168.1.51'])
+        self.assertEqual(res['config']['staticPeers'], ['192.168.1.50', '192.168.1.51:57833'])
         on_disk = json.load(open(os.path.join(self.homes[0], 'peer.json')))
-        self.assertEqual(on_disk['static_peers'], ['192.168.1.50', '192.168.1.51'])
+        self.assertEqual(on_disk['static_peers'], ['192.168.1.50', '192.168.1.51:57833'])
         st = json.loads(http('GET', 'http://127.0.0.1:57831/status')[2])
-        self.assertEqual(st['staticPeers'], ['192.168.1.50', '192.168.1.51'])
+        self.assertEqual(st['staticPeers'], ['192.168.1.50', '192.168.1.51:57833'])
         # invalid inputs are rejected and leave config untouched
-        for bad in (b'{"pairKey": "short"}', b'{"staticPeers": ["not an ip !!"]}', b'[1,2]'):
+        for bad in (b'{"pairKey": "short"}', b'{"staticPeers": ["not an ip !!"]}', b'{"staticPeers": ["192.168.1.9:99999"]}', b'[1,2]'):
             with self.assertRaises(urllib.error.HTTPError) as cm:
                 http('PUT', 'http://127.0.0.1:57831/config', bad)
             self.assertEqual(cm.exception.code, 400); cm.exception.close()

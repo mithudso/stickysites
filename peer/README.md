@@ -34,11 +34,16 @@ key; restart after changing), `uninstall` (removes the launchd job; keeps `~/.st
 `run` (foreground, for debugging), `init` (config + cert only).
 
 **From the extension instead of the terminal:** popup → Settings → Local Peer Sync shows this
-laptop's pairing key (Copy button) and a **Peer IPs** field. Paste the other laptop's key
-and/or a comma-separated list of its LAN addresses and click **Save** — the daemon applies
-both live (`PUT /config` on loopback, written back to `~/.stickysites/peer.json`), no restart.
-Static IPs get a direct unicast announcement every 5 s, so machines on networks that drop
-multicast and broadcast still find each other.
+laptop's pairing key (Copy button), its own LAN address ("This laptop: m5 · 192.168.1.213 —
+type this on the other laptop"), and a **Peer IPs** field. Paste the other laptop's key and/or
+its LAN address(es), comma-separated, and click **Save** — the daemon applies both live
+(`PUT /config` on loopback, written back to `~/.stickysites/peer.json`), no restart.
+
+Peer IP format: `192.168.1.20` (discovery port **47833** assumed) or `192.168.1.20:47833` when
+the other machine runs a non-default `mcast_port`. Static peers get a direct unicast
+announcement every 5 s, so machines on networks that drop multicast and broadcast still find
+each other. Both sides should list each other; the snapshot exchange then uses the LAN HTTPS
+port **47832** advertised in the announcement.
 
 ### Discovery on VPNs and locked-down networks
 

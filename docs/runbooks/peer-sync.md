@@ -19,8 +19,11 @@ block both — configure `--peer IP` on each side, see `peer/README.md`).
    python3 /Users/mitch/dev/stickysites/peer/stickysites-peer.py install --pair-key <KEY>
    ```
    Or skip the key flag: after installing, open the popup → Settings → Local Peer Sync, paste the
-   first laptop's key into **Pairing key** (and the other laptop's IP into **Peer IPs** if the
-   network blocks discovery), click **Save**. Applied live.
+   first laptop's key into **Pairing key**, click **Save**. Applied live.
+   If the laptops do not find each other within a minute, put each laptop's LAN address (shown
+   in the other laptop's popup as "This laptop: … · 192.168.x.y") into **Peer IPs** on the
+   opposite machine — IP only, port 47833 assumed, comma-separated for several. Firewall: allow
+   inbound UDP 47833 (discovery) and TCP 47832 (snapshot exchange).
 3. Reload the extension on each machine (`chrome://extensions` → ↻) so the service worker
    picks up the first sync; or open the popup → Settings → **Local Peer Sync** → **Sync now**.
 

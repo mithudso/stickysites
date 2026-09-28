@@ -1,5 +1,9 @@
 # StickySites Prompts Log
 
+## Prompt v1.12.3 - 2026-09-28T01:51:00-04:00
+- User request:
+  - (screenshot of the popup) Where does one put an IP? Make that more clear. Also what port?
+
 ## Prompt v1.12.2 - 2026-09-28T01:05:00-04:00
 - User request:
   - 1. tolerant 2. Add the option to add a pair key after loading the extension, as well as the option to specify a comma separated set of peer IPs. Otherwise it'd have to listen on broadcast for an announcement
