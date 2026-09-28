@@ -1,357 +1,395 @@
-<!-- Generated 2026-09-25 [gen: p/1.1.0]; verified-as-of 2026-09-25 -->
+<!-- Generated 2026-09-27 [gen: repo-bootstrapper/1.0]; verified-as-of 2026-09-27 -->
 
 # StickySites
 Source: https://github.com/mithudso/stickysites/blob/HEAD/README.md
 
 ## StickySites
 
-Sticky notes for every website. A Chrome Extension (v1.8.0) with six note types, a floating
-draggable icon cluster, a rich-text workspace panel with @-mention autocomplete, and
-AES-256-GCM encryption at rest.
+[![CI](https://github.com/mithudso/stickysites/actions/workflows/ci.yml/badge.svg)](https://github.com/mithudso/stickysites/actions/workflows/ci.yml)
+
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.1) with six note
+types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and
+@-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global
+outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
 
 ### Note types
 
-| Color      | Type        | Scope                     |
-|------------|-------------|---------------------------|
-| Yellow     | Global      | One shared note, visible on every site |
-| Green      | Site        | One note per domain |
-| Blue       | Page        | One note per exact URL path |
-| Purple     | To-do list  | Checkbox task list per site |
-| Orange     | Outliner    | Hierarchical bullet outline per site |
-| Red        | Daily       | One note per calendar date (YYYY-MM-DD) |
+| Color  | Type        | Scope |
+|--------|-------------|-------|
+| Yellow | Global      | One shared note, visible on every site |
+| Green  | Site        | One note per domain |
+| Blue   | Page        | One note per exact URL path |
+| Purple | To-do list  | One global checklist with sections, priorities, tags, colors |
+| Orange | Outliner    | Global library of named hierarchical outlines |
+| Red    | Daily       | One note per calendar date (YYYY-MM-DD) |
 
 ### Features
 
 #### Floating icon cluster
-- Draggable pill with one icon per note type, anchored to a saved position
-- Drag-to-reorder icons within the cluster
-- Toggle between horizontal and vertical layout
-- **Alt+S** toggles visibility; keys **1**--**5** open note types; **A** cycles through all six
-- Number badges appear on icons for 3 seconds after the cluster appears
+- Draggable pill with one identity-bearing icon per note type (🌐, domain fragment, path
+  segment, day of month); long-press to reorder; horizontal or vertical layout
+- **Alt+S** shows/hides the cluster; **Ctrl/Cmd+F1…F6** open Global, Site, Page, To-do,
+  Outline, Daily (toggle: same key closes, another key switches)
+- Icons and open site/page notes follow SPA navigation automatically
 
 #### Workspace panel
-- Moveable (drag header) and resizable (drag bottom-right handle)
-- Expand/shrink toggle and popout button
-- Rich text editor with a 19-tool formatting toolbar across two rows:
-  - **Row 1:** Bold, Italic, Underline, Strikethrough, H1, H2, H3, Unordered list,
-    Ordered list, Checkbox, Align left, Align center, Align right, HR, Indent, Outdent
-  - **Row 2:** Font family (5 options), Font size (4 sizes), Text color picker
-- Inline `#tags` for organizing notes
-- Auto-save after 500 ms of inactivity
+- Move by the header; resize from any edge or corner; expand/shrink toggle
+- **Pop out** to a standalone window with the ⧉ button — or drag the panel off the page
+- Rich text editor with a 19-tool toolbar (bold, italic, underline, strikethrough, H1–H3,
+  lists, checkbox, alignment, rule, indent/outdent, font family, font size, color)
+- **Find & Replace** (`Cmd/Ctrl+F` / `Cmd/Ctrl+H`) with match counter and Replace All
+- `@` mentions: links, dates, contacts, files; inline `#tags`; auto-save after 500 ms
+- Live cross-tab sync — edits in one tab appear in every other open panel
 
-#### @-mention autocomplete
-- Type `@` in the editor to trigger an autocomplete dropdown
-- Four categories: Link (paste URL, current page URL), Date (today, tomorrow, this week,
-  pick date), Contact (name, email), File (file reference)
-- Dropdown filters as you type and positions itself near the caret
+#### To-do list
+- Nested items (Tab/Shift+Tab), sections, priority 0–5, color swatches, tags, per-item notes,
+  drag-to-reorder, completed timestamps
+- Optional two-way sync with a local `TODO.md` through a native-messaging host
+  (`docs/external-calls.md`); works fully offline without it
 
-#### Context menus
-- Right-click selected text to clip it into any of the six note types via the
-  **StickySites** context menu
+#### Outliner
+- Library of named outline documents with a switcher; New / Rename / Duplicate / Delete
+- Keyboard-first: Enter, Tab/Shift+Tab, Alt+↑/↓, Ctrl/Cmd+Enter to complete
+- Zoom into any node (breadcrumb back), collapse, per-node notes, `#tag` chips, filter,
+  heuristic Auto-group with Undo, export to Markdown or OPML
 
-#### Popup dashboard
-- Browser action popup with full-text search across all notes
-- Sort by Recent, Oldest, or A--Z
-- Filter by note type or by active tag
-- Export a single note or all notes as markdown
-- Settings panel for encryption
+#### Context menu
+- Right-click selected text → **StickySites** → clip into any of the six note types
+
+#### Popup
+- Quick-Open row (one button per note type), full-text search, sort (Recent / Oldest / A–Z),
+  type and tag filters, Markdown export
+- Settings: encryption Enable / Disable / **Lock Now**, note-type visibility, cluster layout
 
 #### Encryption at rest
-- Opt-in AES-256-GCM encryption enabled from the popup Settings panel
-- Passphrase-derived key via PBKDF2 (600,000 iterations, SHA-256)
-- Derived key cached in `chrome.storage.session` for the browser session
-- Lock overlay appears in-page when notes are locked
+- Opt-in AES-256-GCM; key derived from your passphrase with PBKDF2 (600,000 iterations, SHA-256)
+- The derived key is cached locally until you click **Lock Now**; an in-page lock overlay
+  asks for the passphrase when locked. There is no passphrase recovery — see
+  `docs/runbooks/encryption-lock-and-recovery.md`
 
 ### Quick start
 
 1. Clone this repository
-2. Open `chrome://extensions` and enable **Developer mode**
-3. Click **Load unpacked** and select the repo root
-4. Click the StickySites toolbar icon or press **Alt+S** on any page
+2. Open `chrome://extensions`, enable **Developer mode**
+3. **Load unpacked** → select the repo root
+4. Visit any page: click a cluster icon, or press **Ctrl/Cmd+F1**
 
-See [docs/INSTALLATION.md](docs/INSTALLATION.md) for full setup details.
+Full details: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ### Development
 
 ```bash
-npm install          # install dev dependencies (vitest)
-npm test             # run unit tests (single pass)
-npm run test:watch   # run tests in watch mode
+npm install                 # vitest + canvas (dev only)
+npm run lint                # syntax gate for every script + version agreement
+npm test                    # 101 unit tests (vitest, node env, chrome mocked)
+npm run docs:check-indexes  # retrieval indexes point at real files
 ```
 
-Tests run in a Node environment and mock Chrome APIs where needed. Requires Node >= 22.
+No build step — Chrome loads the repo root directly. Requires Node ≥ 22 for the tooling.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTING.md).
 
 ### Tech stack
 
-- Chrome Extension Manifest V3
-- Vanilla JavaScript -- no frameworks, no transpilers, no build step
-- Web Crypto API (AES-256-GCM) for encryption
-- Vitest for unit testing
+- Chrome Extension Manifest V3 (content scripts + module service worker)
+- Vanilla JavaScript and CSS — no frameworks, transpilers, or bundlers
+- Web Crypto API (PBKDF2, AES-256-GCM)
+- Vitest for unit tests; puppeteer-core harness for live verification
 
 ### Documentation
 
 | Document | Contents |
 |----------|----------|
-| [Architecture](docs/ARCHITECTURE.md) | System context, data flow, storage schema, design decisions |
-| [Codebase overview](docs/codebase-overview.md) | File-by-file module map |
+| [CLAUDE.md](CLAUDE.md) | Agent guide: shape, commands, conventions, storage keys, workflow log rule |
+| [Architecture](docs/ARCHITECTURE.md) | Runtime contexts, data flows, storage schema, design decisions |
 | [Components](docs/COMPONENTS.md) | Module-by-module API reference |
+| [Codebase overview](docs/codebase-overview.md) | Every file, grouped by directory |
 | [Development](docs/DEVELOPMENT.md) | Setup, commands, conventions, debugging |
-| [Installation](docs/INSTALLATION.md) | Install, update, and uninstall |
-| [Security](docs/SECURITY.md) | Threat model, permissions audit, encryption details |
-| [Testing](docs/TESTING.md) | Test framework, mocking, coverage priorities |
-| [Known issues](docs/known-issues.md) | Bugs and limitations |
+| [Testing](docs/TESTING.md) | Suites, coverage targets, CI gates, live harness |
+| [Installation](docs/INSTALLATION.md) | Install, update, uninstall, optional to-do host |
+| [Security](docs/SECURITY.md) | Threat model, permissions audit, encryption design |
+| [External calls](docs/external-calls.md) | The one out-of-browser call and its standards audit |
+| [Integrations & assumptions](docs/integrations-and-assumptions.md) | Chrome APIs relied on, hardcoded assumptions |
+| [Logging](docs/logging.md) · [Caching](docs/caching-and-optimization.md) | Diagnostics and performance notes |
+| [Runbooks](docs/runbooks/) | Load/reload, release, to-do sync troubleshooting, encryption recovery |
+| [Known issues](docs/known-issues.md) · [Requirements](docs/requirements.md) · [Onboarding](docs/onboarding.md) | |
+| [llms.txt](llms.txt) | LLM context index (`llms-full.txt`, `llms-small.txt`, `llms-facts.txt`) |
 
 ### License
 
-MIT
+MIT — see [LICENSE](LICENSE).
 
-# Semantic Indexing Rule
+# CLAUDE.md
 Source: https://github.com/mithudso/stickysites/blob/HEAD/CLAUDE.md
-
-## Semantic Indexing Rule
-- Do NOT use `view_file` to blindly explore large files.
-- ALWAYS use the `search_codebase` MCP tool (local semantic index) first to pull semantic chunks.
-- If the index does not exist, build it using `scripts/semantic_indexer.py`.
-- If the MCP server is not running or fails, attempt to start it. If it still fails, only then fallback to `view_file`.
 
 ## CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+### Semantic search first
+
+Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_codebase`,
+`hub_search_symbols`, `hub_ask`) — it indexes this repo. Config: `.mcp.json`. Fall back to
+`grep`/`Read` when the server is unreachable. This repo ships no indexer of its own; see
+`docs/MCP.md`.
+
 ### Repository shape
 
-Chrome Extension (Manifest V3), vanilla JavaScript, no build step.
-Version: **1.10.0**
+Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
+Version: **1.11.1** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
-  manifest.json            # MV3 manifest — permissions, content scripts, SW
-  package.json             # Dev tooling only (vitest)
-  popup.html               # Browser action popup
-  popup.js                 # Popup: search, sort, filter, export, settings
-  popup.css                # Popup styles
-  popout.html              # Standalone popout editor window
-  popout.js                # Popout: loads note type from URL params, opens Panel full-page
-  popout.css               # Popout overrides (panel fills window, hides expand/popout btns)
-  vitest.config.js         # Vitest config (node environment)
+  manifest.json            # MV3 manifest — permissions, content scripts (load order!), SW, command
+  package.json             # Dev tooling only (vitest, canvas) + npm scripts
+  vitest.config.mjs        # Vitest config (node environment, globals)
+  popup.html / .js / .css  # Browser action popup: Quick-Open, search, sort, filter, export, settings
+  popout.html / .js / .css # Standalone popout window: loads note type from URL params, Panel full-page
   src/
     background/
-      service-worker.js    # Context menus, commands, popout window (ES module)
-    content/               # Loaded in order as classic scripts (no ES modules)
+      service-worker.js    # ES module: context menus, Alt+S command, popout window, to-do sync
+    content/               # Classic scripts, loaded in manifest order (no ES modules)
       crypto-content.js    # window.StickySites.Crypto — AES-GCM namespace (loaded first)
-      note-types.js        # window.StickySites.noteTypes — icon registry (6 types)
-      prefs.js             # window.StickySites.Prefs — cluster position / panel mode
-      cluster.js           # window.StickySites.Cluster — floating draggable pill + drag
-      todo.js              # window.StickySites.Todo — to-do list renderer
-      outline-ops.js       # window.StickySites.OutlineOps — pure outline tree ops (unit-tested)
-      outline.js           # window.StickySites.Outline — outliner UI (global named library)
-      mentions.js          # window.StickySites.Mentions — @-mention autocomplete (links,
-                           #   dates, contacts, files)
-      panel.js             # window.StickySites.Panel — workspace panel, rich text editor,
-                           #   todo list, outliner
-      sticky-inject.js     # Orchestrator: wiring, clip handler, chord keys, toast
+      note-types.js        # window.StickySites.noteTypes — 6 type descriptors, identity icons
+      prefs.js             # window.StickySites.Prefs — read/write stickysites_prefs_v1
+      cluster.js           # window.StickySites.Cluster — floating pill, drag, reorder, layout
+      todo.js              # window.StickySites.Todo — item normalisation + drag controller
+      outline-ops.js       # window.StickySites.OutlineOps — pure tree ops (unit-tested)
+      outline.js           # window.StickySites.Outline — outliner UI, global doc library
+      mentions.js          # window.StickySites.Mentions — @-mention autocomplete
+      panel.js             # window.StickySites.Panel — panel, rich text, find/replace, to-do UI
+      sticky-inject.js     # Orchestrator: wiring, lock overlay, clip, F-key shortcuts, SPA watch
       sticky-inject.css    # All injected styles (z-index near INT32_MAX)
-    shared/                # ES modules — used by service worker and vitest tests
-      notes-storage.js     # Chrome Storage CRUD (all 6 note types + prefs)
-      crypto.js            # AES-GCM primitives (ES module duplicate of crypto-content.js)
-  tests/
-    crypto.test.js         # AES-GCM unit tests
-    notes-storage.test.js  # Storage CRUD unit tests
-    outline-ops.test.js    # Outline tree-op unit tests
-  docs/                    # Architecture, testing, security, components docs
-  icons/                   # Extension icons (16, 48, 128 px)
+    shared/                # ES modules — service worker + vitest
+      todo-bridge.js       # Native-messaging to-do sync (used by the SW; unit-tested)
+      crypto.js            # AES-GCM primitives (ES duplicate of crypto-content.js; tests)
+      notes-storage.js     # Storage CRUD reference implementation (tests only today)
+  tests/                   # 4 vitest files, 101 tests
   scripts/
-    generate-icons.js      # Icon generation utility
+    check-syntax.mjs       # npm run lint — node --check + manifest/package version agreement
+    check-doc-indexes.mjs  # npm run docs:check-indexes — path-validates the retrieval indexes
+    rotate-workflow-logs.mjs # npm run logs:rotate — memory.md/prompts.md → docs/archive/
+    generate-icons.js      # npm run icons — regenerate icons/*.png (canvas)
+    verify-live.mjs        # npm run verify:live — puppeteer harness (Chrome for Testing)
+  docs/                    # Architecture, components, security, testing, runbooks, indexes
+  icons/                   # 16 / 48 / 128 px
+  llms*.txt                # LLM context suite (index, full, small, facts)
+  .github/                 # ci.yml, dependabot, CODEOWNERS, templates, copilot-instructions.md
 ```
-
-### Key facts
-
-#### Module system split
-- **Content scripts** (`src/content/`) are loaded as classic scripts in the order listed in
-  `manifest.json`. They cannot use ES module `import`. All logic is exposed on
-  `window.StickySites.*` namespace.
-- **Service worker** (`src/background/service-worker.js`) is declared `"type": "module"` and
-  uses ES module imports from `src/shared/`.
-- **Shared modules** (`src/shared/`) are ES modules for use by the service worker and vitest.
-- `crypto-content.js` is the namespace-style duplicate of `crypto.js` — same algorithm,
-  different packaging. Do not conflate them.
-- Content script load order in `manifest.json` matters — e.g. `mentions.js` depends on
-  namespace objects set up by earlier scripts.
-
-#### Canonical record schema
-
-Map-pattern records (site/page/daily) store `key` + `label`. Readers must fall back to the legacy field names (`siteKey`/`pageKey`/`dateKey`, `siteLabel`/`pageLabel`) written before v1.10. Structured records (todo/outline) also store `key`.
-
-#### Note types (6)
-| ID       | Color  | Label       | Storage key                  | Pattern    |
-|----------|--------|-------------|------------------------------|------------|
-| global   | yellow | Global note | `stickysites_global_v1`      | single     |
-| site     | green  | Site note   | `stickysites_sites_v1`       | map        |
-| page     | blue   | Page note   | `stickysites_pages_v1`       | map        |
-| todo     | purple | To-do list  | `stickysites_todos_v1`       | structured |
-| outline  | orange | Outliner    | `stickysites_outlines_v1`    | structured |
-| daily    | red    | Daily note  | `stickysites_daily_v1`       | map        |
-
-The outliner is a global library of named documents — not site-keyed. Its panel resolves the active document itself (`activeOutlineId` pref); `getKey` returns `''`.
-
-#### Storage keys (8 primary)
-```
-stickysites_global_v1     # Single note record { body, updatedAt }
-stickysites_sites_v1      # Map of hostname → { key, label, body, tags, ... }
-stickysites_pages_v1      # Map of origin+path → { key, label, body, tags, ... }
-stickysites_todos_v1      # Global todo: { __global__: { key, items: [...], ... } }
-stickysites_outlines_v1   # Map of outlineKey → { key, name, items, ... } — named outline docs (ol_<id> keys; legacy hostname keys adapt at read time)
-stickysites_daily_v1      # Map of YYYY-MM-DD → { key, body, ... }
-stickysites_prefs_v1      # { clusterPosition, panelMode, clusterLayout, iconOrder, enabledTypes, panelSize, panelPosition, activeOutlineId }
-stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
-```
-
-Also in `chrome.storage.local`:
-```
-stickysites_cached_key    # JWK export of the cached AES-GCM key (persists until manually locked)
-```
-
-#### Permissions
-`storage`, `activeTab`, `contextMenus`
-
-#### Encryption (opt-in, AES-256-GCM)
-- Enabled from the popup Settings panel.
-- On enable: generates a random 16-byte salt, derives an AES-GCM 256-bit key via PBKDF2
-  (600,000 iterations, SHA-256), encrypts a verify string, then re-encrypts all 6 note keys.
-- The derived key is exported as JWK and cached in `chrome.storage.local` as
-  `stickysites_cached_key`. It persists until manually locked via the popup "Lock Now"
-  button or by calling `StickySites.Crypto.clearCachedKey()`.
-- Encrypted values are stored as `{ iv: string, data: string }`. `isEncrypted()` detects this
-  shape (must not have `body`, `items`, or `siteKey` keys).
-- The lock overlay appears in-page if the cluster is opened while locked.
-
-#### Rich text editor (panel.js)
-- Panel is moveable (drag header) and freely resizable from any edge or corner (8 grips;
-  `_initResize` pins the panel to absolute left/top on grab so any edge can move), with
-  expand/shrink toggle and popout button.
-- `contenteditable` div with a 19-tool formatting toolbar (2 rows).
-- Row 1 (buttons): Bold, Italic, Underline, Strikethrough, H1, H2, H3, Unordered list,
-  Ordered list, Checkbox, Align left, Align center, Align right, HR, Indent, Outdent.
-- Row 2 (dropdowns + picker): Font family (5 options), Font size (4 sizes), Text color picker.
-- Toolbar uses `document.execCommand`. Auto-save debounced at 500 ms.
-- **Find & Replace**: "🔍 Find" button in actions bar (or `Cmd/Ctrl+F`/`Cmd/Ctrl+H`).
-  Search bar with ↑/↓ navigation, match counter, Replace, and Replace All. Matches
-  highlighted as `<mark>` elements; highlights stripped before saving via `getCleanHtml()`.
-- The panel snapshots `_activeKey`/`_activeLabel` at `open()`; every read/write uses the snapshot, so a save can never land under a different page's key after an SPA navigation. `flushPendingSave()` commits a pending debounced edit (popout, panel close, note switch, SPA re-key).
-- `syncFromStorage` guards against clobbering the editor: self-echo (skips the body this panel just wrote), focus (never rewrites while the editor is focused — re-checked after async decryption), encryption (decrypts the envelope, skips while locked or undecryptable).
-
-#### Popout window
-- The ⧉ button in the panel header opens the current note in its own browser window.
-- **Drag-out-to-popout**: dragging the panel by its header until the cursor leaves the
-  browser viewport also pops the note out. Detected in `_initDrag` via a `mouseout` whose
-  `relatedTarget === null` (pointer left the window). A dashed-outline hint with the label
-  "Drag off the page to pop out" (`.stickysites-panel--will-popout`) appears once the cursor
-  is within 28 px of any edge. Disabled inside the popout window itself
-  (`location.protocol === 'chrome-extension:'`).
-- Both the ⧉ button and drag-out route through `Panel._popoutActiveNote()`, which first
-  flushes the debounced save (`Panel._flushSave`, set by the rich-text renderer and cleared
-  on every `open()`/`close()`) so the popout reads the latest content from storage.
-- Content script sends `STICKYSITES_POPOUT` message to the service worker.
-- Service worker calls `chrome.windows.create()` (1400×1100) with
-  `popout.html?type=...&key=...&label=...`.
-- `popout.html` loads the same namespace scripts (crypto, note-types, prefs, todo, outline-ops, outline, mentions,
-  panel) and `popout.js` overrides `getKey()`/`getLabel()` on the note type before calling
-  `Panel.open()`. CSS overrides make the panel fill the window.
-
-#### Context menus (right-click)
-- On installed, creates a `StickySites` parent menu for `selection` contexts with 6 children:
-  Add to Global / Site / Page / To-do / Outline / Daily.
-- Clips selected text by sending `STICKYSITES_CLIP` to the active tab's content script.
-
-#### Cluster toggle hotkey
-- `Alt+S` (registered as a browser command in `manifest.json`) toggles the cluster
-  visibility on the active tab.
-- There are intentionally **no bare-key hotkeys**. An earlier system bound bare `1`–`5`
-  and `A` (plus 3-second number badges on the cluster icons) to open/cycle note types
-  whenever the cluster was visible. Because those bindings required no modifier, they
-  hijacked ordinary keystrokes — `Cmd+A` reached the `a` branch and its `preventDefault()`
-  broke select-all, and bare digits broke page typing/navigation. The whole system (handler,
-  `showBadges`, the `Cluster.toggle` badge patch, and the `.stickysites-cluster-badge` CSS)
-  was removed. Opening a specific note type is done via the function-key shortcuts below.
-
-#### Function-key shortcuts (Ctrl/Cmd + F1–F6)
-- `Ctrl+F1` → Global, `Ctrl+F2` → Site, `Ctrl+F3` → Page, `Ctrl+F4` → Todo,
-  `Ctrl+F5` → Outline, `Ctrl+F6` → Daily. `metaKey` works too on macOS.
-- Toggle semantics: closed → open; same type open → close; different type open → switch.
-- These fire **regardless of cluster visibility or input focus** — they're dedicated
-  function keys, so the user always wants them to work.
-- Respect the `enabledTypes` pref (hidden note types are no-ops).
-- Route through the lock check (shows the lock overlay if encryption is enabled and no
-  session key is cached).
-
-#### Cluster (cluster.js)
-- Floating draggable pill with one icon per note type, positioned from saved prefs.
-- Drag-to-reorder: long-press an icon to rearrange within the cluster.
-- Layout toggle: horizontal or vertical orientation, stored in prefs as `clusterLayout`.
-- Icons are identity-bearing: 🌐 (global), domain fragment ≤4 chars (site), trailing path segment (page), day-of-month (daily) — full value in the tooltip; refreshed on SPA navigation via `Cluster.refreshIcons()`.
-
-#### @-mention autocomplete (mentions.js)
-- Typing `@` in the rich text editor triggers an autocomplete dropdown.
-- Four categories: Link (paste URL, current page URL), Date (today, tomorrow, this week,
-  pick date), Contact (name, email), File (file reference).
-- Dropdown is positioned near the caret and filters as the user types.
-
-#### Popup
-- Browser action popup (`popup.html` / `popup.js` / `popup.css`).
-- Features: **Quick-Open row** (6 colored buttons, one per note type — opens the matching
-  note in the active tab's panel, falling back to a popout window on chrome:// pages),
-  search bar, sort (Recent / Oldest / A–Z), type filter tabs, active tag filter, export
-  button.
-- Quick-Open buttons respect the same `enabledTypes` pref used to filter the cluster.
-- Settings panel: toggle AES-256 encryption, note-type visibility, cluster layout.
-- Passphrase lock screen shown if encryption is enabled and the session key is missing.
-
-#### To-do auto-focus
-- When the to-do panel opens (in-page or popout), it auto-focuses the first empty task
-  input — or creates a new one if none exists — so the user can immediately start typing.
-
-#### Outliner (outline.js + outline-ops.js)
-- Global library of named outline documents (switcher in the panel header; New/Rename/Duplicate/Delete in the ⋯ menu).
-- Keyboard: Enter (sibling below), Tab/Shift+Tab (indent/outdent), Alt+↑/↓ (move with subtree), ↑/↓ (traverse), Backspace on empty (delete, promote children), Ctrl/Cmd+Enter (toggle done).
-- Bullet click zooms (breadcrumb to zoom out); chevron collapses; Collapse/Expand All in the toolbar.
-- Per-node notes (📝), checkboxes with strikethrough, drag-to-reorder by the ⠇ grip, `#tags` auto-chip from text, filter box (matches + ancestors), Export Markdown/OPML, heuristic Auto-group with Undo.
-- Locked-vault safe: the renderer shows a lock notice instead of auto-creating, and writes are refused while locked.
-- `outline-ops.js` holds the pure tree operations; vitest imports it with a stubbed `window` (tests/outline-ops.test.js).
-
-#### SPA navigation
-- `sticky-inject.js` watches `popstate`/`hashchange` + a 1 s `href` poll; on URL change it refreshes cluster icons and re-opens an open site/page note under the new URL's key (flushing the pending save under the old key first).
-
-#### Conventions
-- Vanilla JS only — no frameworks, no transpilers, no bundlers.
-- All DOM elements injected into host pages use `stickysites-` prefix for IDs and classes.
-- z-index values are near INT32_MAX to overlay host-page content.
-- Storage keys are versioned (`_v1` suffix) to allow future migrations.
-- Debounce auto-save at 500 ms.
-- Prefer `chrome.storage.local` over `chrome.storage.sync` (no size limits).
 
 ### Commands
 
 ```bash
-npm test            # vitest run (unit tests, single pass)
-npm run test:watch  # vitest (watch mode)
+npm install                 # dev deps only
+npm run lint                # syntax gate for every .js/.mjs + version agreement (CI step 1)
+npm test                    # vitest run — 101 tests, node env, chrome mocked (CI step 2)
+npm run test:watch          # watch mode
+npx vitest run tests/outline-ops.test.js   # one file
+npm run docs:check-indexes  # docs/high_signal_file_index.json + llms.txt links resolve (CI step 3)
+npm run docs:check-indexes -- --prune      # drop dead index entries
+npm run logs:rotate         # rotate memory.md / prompts.md when > ~200 KB
+npm run icons               # regenerate icons/
+npm run verify:live         # needs: npm i --no-save puppeteer-core; Chrome for Testing (SS_CHROME)
 ```
 
-Tests run in node environment. They mock `chrome` APIs where needed.
+Loading: `chrome://extensions` → Developer mode → Load unpacked → repo root → ↻ after changes.
+Manifest changes also need every test tab closed and reopened. Runbook:
+`docs/runbooks/load-and-reload-extension.md`.
 
-### Loading the extension
+### Runtime architecture
 
-1. `chrome://extensions` → Enable Developer mode
-2. "Load unpacked" → select this repo root
-3. After code changes, click the reload button on the extension card
+```
+ host page tab ──────────────────────────────────┐
+   content scripts (10, classic, window.StickySites.*)
+   ├─ Cluster (floating pill)  ─ click ─▶ Panel.open(type)
+   ├─ Panel (editor / to-do / outliner) ─ 500 ms debounce ─▶ chrome.storage.local
+   └─ sticky-inject: lock overlay, clip, Ctrl/Cmd+F1..F6, SPA re-key,
+        chrome.runtime.onMessage (TOGGLE / OPEN / CLIP), storage.onChanged → Panel.syncFromStorage
+                     ▲ tabs.sendMessage                  │ runtime.sendMessage(POPOUT)
+ service worker (ES module) ─────────────────────────────┘
+   context menus (6 clips) · Alt+S command · windows.create(popout.html)
+   to-do sync: alarms (2 min) + 3 s after todos change → sendNativeMessage(com.mitch.todo_bridge)
+ popup.html (Quick-Open, search, settings)   popout.html (Panel full-window)
+ chrome.storage.local: stickysites_*_v1 keys, stickysites_cached_key (JWK)
+```
+
+No network calls. The only out-of-browser boundary is the optional native-messaging host
+(`docs/external-calls.md`).
+
+#### Module system split
+- **Content scripts** (`src/content/`) are classic scripts in `manifest.json` order; they
+  cannot `import`. All logic hangs off `window.StickySites.*`. `mentions.js` and `panel.js`
+  depend on namespaces set up by earlier scripts. `popout.html` loads the same files with
+  `<script>` tags (minus `cluster.js` and `sticky-inject.js`); `popup.html` loads only
+  `crypto-content.js` + `popup.js`.
+- **Service worker** is `"type": "module"` and imports `src/shared/todo-bridge.js`.
+- **Shared modules** (`src/shared/`) are ES modules. `crypto-content.js` is the
+  namespace-style duplicate of `crypto.js` — same algorithm, different packaging; change
+  both together. `notes-storage.js` is a reference CRUD layer exercised by tests; the
+  extension's runtime reads/writes storage directly in `panel.js`, `outline.js`,
+  `sticky-inject.js`, `popup.js`.
+
+#### Canonical record schema
+Map-pattern records (site/page/daily) store `key` + `label`. Readers must fall back to the
+legacy field names (`siteKey`/`pageKey`/`dateKey`, `siteLabel`/`pageLabel`) written before
+v1.10. Structured records (todo/outline) also store `key`.
+
+#### Note types (6)
+| ID       | Color  | Label       | Storage key                  | Pattern    | Key |
+|----------|--------|-------------|------------------------------|------------|-----|
+| global   | yellow | Global note | `stickysites_global_v1`      | single     | `__global__` |
+| site     | green  | Site note   | `stickysites_sites_v1`       | map        | hostname without `www.` |
+| page     | blue   | Page note   | `stickysites_pages_v1`       | map        | origin + pathname |
+| todo     | purple | To-do list  | `stickysites_todos_v1`       | structured | `__global__` |
+| outline  | orange | Outliner    | `stickysites_outlines_v1`    | structured | `''` — panel resolves the doc |
+| daily    | red    | Daily note  | `stickysites_daily_v1`       | map        | `YYYY-MM-DD` |
+
+The outliner is a global library of named documents — not site-keyed. Its panel resolves the
+active document itself (`activeOutlineId` pref); `getKey` returns `''`.
+
+#### Storage keys (all `chrome.storage.local`)
+```
+stickysites_global_v1     # { body, updatedAt }
+stickysites_sites_v1      # hostname → { key, label, body, tags, createdAt, updatedAt }
+stickysites_pages_v1      # origin+path → { key, label, body, tags, ... }
+stickysites_todos_v1      # { __global__: { key, items, sections, tagColors, ... } }
+stickysites_outlines_v1   # ol_<id> → { key, name, items, ... } (legacy hostname keys adapt at read)
+stickysites_daily_v1      # YYYY-MM-DD → { key, body, ... }
+stickysites_prefs_v1      # { clusterPosition, clusterLayout, iconOrder, enabledTypes,
+                          #   panelSize, panelPosition, activeOutlineId, panelMode (unused) }
+stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
+stickysites_cached_key    # JWK of the derived AES-GCM key — persists until Lock Now
+```
+`chrome.storage.session` is **not** used (an earlier design cached the key there).
+
+#### Permissions
+`storage`, `activeTab`, `contextMenus`, `alarms` (to-do sync period), `nativeMessaging`
+(to-do sync host). No host permissions beyond the content-script match.
+
+#### Encryption (opt-in, AES-256-GCM)
+- Enabled from the popup Settings panel.
+- On enable: random 16-byte salt, PBKDF2 (600,000 iterations, SHA-256) → AES-GCM-256 key,
+  encrypts a verify string, re-encrypts all 6 note keys.
+- The key is exported as JWK into `stickysites_cached_key`. It persists until **Lock Now**
+  in the popup or `StickySites.Crypto.clearCachedKey()`.
+- Encrypted values are `{ iv: string, data: string }`. `isEncrypted()` requires that shape
+  and the absence of `body`, `items`, `siteKey`.
+- Locked-vault rule: never write plaintext to a note key while enabled and no cached key.
+  The lock overlay appears in-page; the outliner shows a lock notice instead of auto-creating;
+  the to-do sync skips encrypted data.
+
+#### Rich text editor (panel.js)
+- Panel is moveable (drag header) and resizable from any edge or corner (8 grips;
+  `_initResize` pins to absolute left/top on grab); expand/shrink toggle; popout button.
+  Size and position persist in prefs (`panelSize`, `panelPosition`).
+- `contenteditable` with a 19-tool toolbar in 2 rows. Row 1: Bold, Italic, Underline,
+  Strikethrough, H1, H2, H3, UL, OL, Checkbox, Align L/C/R, HR, Indent, Outdent. Row 2:
+  font family (5), font size (4), color picker. Uses `document.execCommand`. Auto-save 500 ms.
+- **Find & Replace**: `Cmd/Ctrl+F` / `Cmd/Ctrl+H`; ↑/↓, counter, Replace, Replace All;
+  `<mark>` highlights stripped before save via `getCleanHtml()`.
+- The panel snapshots `_activeKey`/`_activeLabel` at `open()`; every read/write uses the
+  snapshot, so a save can never land under another page's key after SPA navigation.
+  `flushPendingSave()` commits a pending edit (popout, close, note switch, SPA re-key).
+- `syncFromStorage` guards: self-echo (skips the body this panel just wrote), focus (never
+  rewrites while focused — re-checked after async decryption), encryption (decrypts the
+  envelope, skips while locked/undecryptable). Rich-text types only.
+
+#### To-do list (panel.js + todo.js)
+- Items: `{ id, text, done, indent 0–3, priority 0–5, color, tags, note, section, completedAt }`;
+  sections, tag colors; grip drag-reorder (`Todo.DragController`).
+- Keys: Enter new item, Tab/Shift+Tab indent, Backspace on empty deletes, Esc blurs.
+- Opening auto-focuses the first empty task input (creates one if none).
+- `_writeStructured` keeps items another writer (the TODO.md sync) added while the panel
+  was open, via `_loadedIds`.
+
+#### To-do sync with TODO.md (service-worker.js + shared/todo-bridge.js)
+- `chrome.runtime.sendNativeMessage('com.mitch.todo_bridge', { cmd: 'sync', ext, items, sections })`.
+  The host (`~/.claude/skills/todo/scripts/todo_host`, installed by
+  `python3 ~/.claude/skills/todo/scripts/todo.py install-native-host`) owns the three-way merge.
+- Triggers: `onStartup`, `onInstalled`, alarm `stickysites-todo-sync` every 2 min, 3 s after
+  `stickysites_todos_v1` changes. `todoSyncRunning` guards re-entrancy.
+- `applyHostResult` keeps StickySites-only fields, maps section names ↔ ids, prunes empty
+  host-origin sections, and compares canonical JSON so unchanged syncs never write.
+- Skipped when the todos value is an encrypted envelope. Host missing → warning, list stays local.
+
+#### Popout window
+- ⧉ button or dragging the panel header until the cursor leaves the viewport
+  (`mouseout` with `relatedTarget === null`; `.stickysites-panel--will-popout` hint within
+  28 px of an edge; disabled inside `chrome-extension:` pages).
+- Both route through `Panel._popoutActiveNote()` → flush save → `STICKYSITES_POPOUT` → SW
+  `chrome.windows.create` (1400×1100) with `popout.html?type=&key=&label=`.
+- `popout.js` overrides `getKey()`/`getLabel()` on a cloned note type, then `Panel.open()`.
+
+#### Context menus
+`StickySites` parent (selection context) with 6 children: Add to Global / Site / Page /
+To-do / Outline / Daily → `STICKYSITES_CLIP` to the active tab.
+
+#### Keyboard
+- `Alt+S` (browser command in `manifest.json`) toggles the cluster.
+- `Ctrl/Cmd+F1…F6` → Global, Site, Page, Todo, Outline, Daily. Toggle semantics
+  (closed → open; same open → close; different → switch). Fire regardless of cluster
+  visibility or focus; respect `enabledTypes`; route through the lock check.
+- **No bare-key hotkeys.** An earlier `1`–`5`/`A` scheme (with 3-second number badges)
+  hijacked ordinary typing and broke `Cmd+A`; it was removed entirely.
+
+#### Cluster (cluster.js)
+Floating draggable pill, one icon per enabled type, position/layout/order from prefs.
+Long-press (400 ms) to reorder. Icons are identity-bearing: 🌐 (global), first 4 chars of
+the domain (site), trailing path segment (page), day of month (daily); full value in the
+tooltip; refreshed on SPA navigation via `Cluster.refreshIcons()`.
+
+#### Outliner (outline.js + outline-ops.js)
+Global library of named docs (switcher in the header; New/Rename/Duplicate/Delete in ⋯).
+Keys: Enter, Tab/Shift+Tab, Alt+↑/↓, ↑/↓, Backspace-on-empty, Ctrl/Cmd+Enter (done), Esc.
+Bullet click zooms (breadcrumb back); chevron collapses; per-node notes; checkboxes;
+grip drag; `#tag` chips; filter (matches + ancestors); Export Markdown/OPML; Auto-group
+with 10 s Undo. `outline-ops.js` holds the pure tree ops (vitest with a stubbed `window`).
+
+#### @-mentions (mentions.js)
+`@` in the editor opens a dropdown: Link, Date, Contact, File; filters as you type; inserts a
+`.stickysites-mention-chip`.
+
+#### Popup
+Quick-Open row (6 buttons, respects `enabledTypes`; falls back to a popout on `chrome://`),
+search, sort (Recent / Oldest / A–Z), type tabs, tag filter, Markdown export, Settings
+(encryption Enable / Disable / Lock Now, note-type visibility, cluster layout), lock screen.
+Writes prefs directly with `chrome.storage.local` (it does not load `prefs.js`).
+
+#### SPA navigation
+`sticky-inject.js` watches `popstate`/`hashchange` + a 1 s `href` poll; on change it refreshes
+cluster icons and re-opens an open site/page note under the new key (flushing first).
+
+### Conventions
+- Vanilla JS only — no frameworks, transpilers, bundlers, or runtime npm deps.
+- New content script → add to `manifest.json` **after** its dependencies, and to `popout.html`
+  if the popout needs it.
+- All injected DOM uses the `stickysites-` prefix; z-index near INT32_MAX.
+- Storage keys versioned (`_v1`); adapt legacy shapes at read time, never bulk-migrate.
+- Debounce auto-save at 500 ms; flush before close / switch / popout / re-key.
+- `chrome.storage.local` only (no size limit); never `chrome.storage.sync`.
+- Logging: `console.warn('[stickysites] <subsystem>', {...})` on integration failure paths
+  only; never log note content or key material (`docs/logging.md`).
+- 2-space indent, LF (`.editorconfig`); content scripts use `var` in the namespace IIFEs.
 
 ### Message types
+| Type                  | Direction                | Purpose |
+|-----------------------|--------------------------|---------|
+| `STICKYSITES_TOGGLE`  | SW / popup → content     | Toggle cluster visibility |
+| `STICKYSITES_OPEN`    | popup → content          | Open a note type (`noteTypeId`, optional `key` for an outline doc) |
+| `STICKYSITES_CLIP`    | SW → content             | Clip selected text into a note |
+| `STICKYSITES_POPOUT`  | content / popup → SW     | Open note in a standalone window |
+| native `{cmd:'sync'}` | SW → `com.mitch.todo_bridge` | Two-way to-do sync (`docs/external-calls.md`) |
 
-| Type                        | Direction              | Purpose                              |
-|-----------------------------|------------------------|--------------------------------------|
-| `STICKYSITES_TOGGLE`        | SW → content           | Toggle cluster visibility            |
-| `STICKYSITES_OPEN`          | SW → content           | Open a specific note type (optional `key` targets an outline doc) |
-| `STICKYSITES_CLIP`          | SW → content           | Clip selected text into a note       |
-| `STICKYSITES_POPOUT`        | content → SW           | Open note in standalone popout window|
+### MCP servers
+None shipped. `global_ai_hub` (`.mcp.json`) is the developer's local semantic index over this
+repo — use it for "where is X" before grepping. Details: `docs/MCP.md`.
+
+### Workflow log rule
+On every change in this repo:
+1. Append the request to `prompts.md`: `## Prompt vN - <ISO timestamp>` / `- User request:` / `  - <text>`.
+2. Update `memory.md` (newest section first): active task, completed, in progress, next steps,
+   files changed.
+3. Bump the patch version in **both** `manifest.json` and `package.json` (`npm run lint` fails on drift).
+4. Run `npm run logs:rotate` if either log passes ~200 KB.
 
 # Architecture
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/ARCHITECTURE.md
@@ -360,375 +398,481 @@ Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/ARCHITECTURE.md
 
 ### Overview
 
-StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace
-into every web page. It stores notes locally in Chrome Storage with optional AES-256-GCM
-encryption. There are no external servers, network calls, or analytics.
+StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into
+every web page. Notes live in `chrome.storage.local` with optional AES-256-GCM encryption.
+There are no servers, network calls, or analytics. The single out-of-browser boundary is an
+optional native-messaging host that mirrors the global to-do list into a local `TODO.md`.
 
 ### System context
 
 ```
-  User
-    |
-    v
-  Chrome Browser
-    |
-    +-- Service Worker (background, type: module)
-    |     Context menus, keyboard commands
-    |
-    +-- Content Scripts (per tab, 10 files loaded in order)
-    |     Floating cluster pill + slide-in panel UI
-    |     Reads/writes notes via chrome.storage.local
-    |     Encryption/decryption via WebCrypto API
-    |
-    +-- Popup Page (popup.html / popup.js)
-    |     All-notes list view with search, sort, filter, export
-    |     Settings: encryption toggle
-    |
-    +-- Chrome Storage
-          chrome.storage.local  — notes, prefs, crypto config
-          chrome.storage.session — cached encryption key (JWK, cleared on browser close)
+  User ──▶ Chrome
+            ├─ Content scripts (per tab; 10 classic scripts in manifest order)
+            │    Cluster pill · Panel (rich text / to-do / outliner) · lock overlay · toast
+            │    chrome.storage.local ⇄ notes, prefs, crypto config, cached key
+            ├─ Service worker (ES module)
+            │    context menus · Alt+S command · popout window · to-do sync scheduler
+            │    ──▶ chrome.runtime.sendNativeMessage('com.mitch.todo_bridge')  (optional)
+            │          └─▶ ~/.claude/skills/todo/scripts/todo_host ⇄ TODO.md
+            ├─ Popup page (popup.html)   Quick-Open · search · settings · lock screen
+            └─ Popout page (popout.html) Panel filling its own window
 ```
 
-StickySites makes no external network calls. All data stays in `chrome.storage.local`
-(with the cached encryption key in `chrome.storage.session`). There is no OAuth, no
-telemetry, and no third-party requests.
+External actors: the user; the host web page (untrusted DOM the UI is injected into); the
+optional native host process. Nothing else.
 
-### Data flow
+### Runtime contexts and communication
 
-1. **Page load** — Content scripts run at `document_idle`. `sticky-inject.js` checks for
-   an existing `#stickysites-cluster` element to prevent double-injection, then
-   initializes the cluster (floating pill) and panel UI.
+| Context | File(s) | Module system | Talks to |
+|---|---|---|---|
+| Content scripts | `src/content/*.js` | classic, `window.StickySites.*` | storage; SW via `runtime.sendMessage(POPOUT)`; receives `TOGGLE` / `OPEN` / `CLIP` |
+| Service worker | `src/background/service-worker.js` | ES module (imports `src/shared/todo-bridge.js`) | tabs via `tabs.sendMessage`; native host; `windows.create` |
+| Popup | `popup.html` + `crypto-content.js` + `popup.js` | classic `<script>` | storage; active tab via `tabs.sendMessage(OPEN/TOGGLE)`; SW via `POPOUT` |
+| Popout | `popout.html` + 8 namespace scripts + `popout.js` | classic `<script>` | storage only |
+| Tests | `tests/*.test.js` | ES modules (vitest, node) | mocked `chrome.storage.local` |
 
-2. **Open note** — User clicks a note-type icon in the cluster (or presses a digit key
-   1–6, or uses the chord key `a`). `sticky-inject.js` calls `SS.Panel.open(noteType)`.
-   If encryption is enabled and the session key is not cached, a lock overlay is shown
-   instead.
+### Data flows
 
-3. **Rich text editing** — `panel.js` renders a `contenteditable` div with a toolbar
-   (bold, italic, underline, lists, link) for `global`/`site`/`page` note types.
-   `todo` and `outline` types render custom item-list renderers. All changes debounce
-   500 ms before writing to `chrome.storage.local`.
+1. **Page load** — content scripts run at `document_idle`. `sticky-inject.js` exits if
+   `#stickysites-cluster` already exists, else initialises `Panel` and `Cluster` from prefs.
+2. **Open a note** — cluster icon click, `Ctrl/Cmd+F1…F6`, popup Quick-Open (`STICKYSITES_OPEN`),
+   or a clip. `checkUnlocked()` first: if encryption is enabled and no cached key, the lock
+   overlay is shown instead. `Panel.open(type)` snapshots `_activeKey`/`_activeLabel`, reads
+   and decrypts the record, renders the right editor.
+3. **Edit** — rich text (`contenteditable` + `execCommand`), to-do list, or outliner. Every
+   change arms a 500 ms debounce; the write encrypts when a key is cached. `flushPendingSave()`
+   commits early on close, switch, popout, or SPA re-key.
+4. **Cross-tab sync** — `chrome.storage.onChanged` in every tab → `Panel.syncFromStorage`.
+   Guards: self-echo (skip the body this panel just wrote), focus (never rewrite a focused
+   editor, re-checked after async decryption), encryption (skip while locked).
+5. **SPA navigation** — `popstate`, `hashchange`, and a 1 s `href` poll. On change: flush the
+   pending save under the old key, `Cluster.refreshIcons()`, re-open an open site/page note
+   under the new key.
+6. **Clip** — right-click selection → SW `contextMenus.onClicked` → `STICKYSITES_CLIP` →
+   `clipToNote()` appends escaped text to the target record and shows a toast.
+7. **Popout** — ⧉ button or drag-off-page → `Panel._popoutActiveNote()` → flush →
+   `STICKYSITES_POPOUT` → SW `windows.create(popout.html?type&key&label, 1400×1100)`.
+   `popout.js` overrides `getKey/getLabel` on a cloned note type and opens the panel.
+8. **To-do sync** — SW runs `syncTodosWithHost` on startup/install, every 2 min (alarm), and
+   3 s after `stickysites_todos_v1` changes. Skipped if the value is an encrypted envelope.
+   The host three-way-merges with `TODO.md`; `applyHostResult` folds the reply back while
+   keeping StickySites-only fields and writes only if the canonical JSON changed.
+9. **Encryption lifecycle** — popup Settings → `Crypto.enable(passphrase)` derives the key,
+   stores `{ enabled, salt, verify }`, caches the JWK in `stickysites_cached_key`, re-encrypts
+   the six note keys. **Lock Now** removes the cached key; unlock re-derives and verifies.
 
-4. **Encryption at rest** — When encryption is enabled, storage values are AES-GCM
-   encrypted envelopes `{ iv, data }` before being written. On read, the session key
-   (cached in `chrome.storage.session`) is used to decrypt in-memory. If the key is
-   absent the lock overlay is shown.
+### Content script load order
 
-5. **Cross-tab sync** — `chrome.storage.onChanged` fires in every tab that has the
-   content scripts. `panel.js` receives storage changes via `SS.Panel.syncFromStorage()`
-   and updates the open panel if the changed key matches the current note type.
+| # | File | Namespace |
+|---|------|-----------|
+| 1 | `crypto-content.js` | `StickySites.Crypto` |
+| 2 | `note-types.js` | `StickySites.noteTypes` |
+| 3 | `prefs.js` | `StickySites.Prefs` |
+| 4 | `cluster.js` | `StickySites.Cluster` |
+| 5 | `todo.js` | `StickySites.Todo` |
+| 6 | `outline-ops.js` | `StickySites.OutlineOps` |
+| 7 | `outline.js` | `StickySites.Outline` |
+| 8 | `mentions.js` | `StickySites.Mentions` |
+| 9 | `panel.js` | `StickySites.Panel` |
+| 10 | `sticky-inject.js` | orchestrator (no namespace) |
 
-6. **Context menu clips** — Right-clicking selected text shows a "StickySites" submenu.
-   The service worker sends a `STICKYSITES_CLIP` message to the active tab. The content
-   script appends the text to the target note type without opening the panel.
+### Storage schema (`chrome.storage.local`)
 
-7. **Toggle visibility** — The keyboard shortcut `Alt+S` (or toolbar icon, if configured)
-   sends `STICKYSITES_TOGGLE` to the active tab, toggling the cluster and closing the panel.
+Encrypted note values are replaced wholesale by `{ iv: base64, data: base64 }` envelopes.
 
-### Content script module loading order
+| Key | Shape |
+|-----|-------|
+| `stickysites_global_v1` | `{ body, updatedAt }` |
+| `stickysites_sites_v1` | `{ [hostname]: { key, label, body, tags[], createdAt, updatedAt } }` (legacy `siteKey`/`siteLabel`) |
+| `stickysites_pages_v1` | `{ [origin+pathname]: { key, label, body, tags[], createdAt, updatedAt } }` (legacy `pageKey`/`pageLabel`) |
+| `stickysites_todos_v1` | `{ __global__: { key, items[], sections[], tagColors, createdAt, updatedAt } }` |
+| `stickysites_outlines_v1` | `{ [ol_<id>]: { key, name, items[], createdAt, updatedAt } }` (legacy hostname keys adapt at read) |
+| `stickysites_daily_v1` | `{ [YYYY-MM-DD]: { key, body, ... } }` |
+| `stickysites_prefs_v1` | `{ clusterPosition {x,y}, clusterLayout, iconOrder, enabledTypes, panelSize, panelPosition, activeOutlineId, panelMode (unused) }` |
+| `stickysites_crypto_v1` | `{ enabled, salt: base64, verify: envelope }` |
+| `stickysites_cached_key` | JWK of the derived AES-GCM key; present only while unlocked |
 
-Because MV3 content scripts do not support ES module `import`, all content-script modules
-attach themselves to the `window.StickySites` namespace in a defined load order:
+**Todo item**: `{ id, text, done, indent 0–3, priority 0–5, color, tags[], note, section, completedAt }`.
+**Outline node**: `{ id, text, children[], collapsed, note, done, tags[] }`.
 
-| Load order | File | Namespace key |
-|-----------|------|---------------|
-| 1 | `crypto-content.js` | `window.StickySites.Crypto` |
-| 2 | `note-types.js` | `window.StickySites.noteTypes` |
-| 3 | `prefs.js` | `window.StickySites.Prefs` |
-| 4 | `cluster.js` | `window.StickySites.Cluster` |
-| 5 | `todo.js` | `window.StickySites.Todo` |
-| 6 | `outline-ops.js` | `window.StickySites.OutlineOps` |
-| 7 | `outline.js` | `window.StickySites.Outline` |
-| 8 | `mentions.js` | `window.StickySites.Mentions` |
-| 9 | `panel.js` | `window.StickySites.Panel` |
-| 10 | `sticky-inject.js` | (orchestrator — consumes all of the above) |
-
-The service worker and popup use ES modules (`import`/`export`) and can reference the
-shared modules in `src/shared/` directly.
-
-### Storage schema
-
-All persistent data lives in `chrome.storage.local`. When encryption is enabled, note
-values are replaced with `{ iv: base64, data: base64 }` envelopes.
-
-| Key | Shape | Notes |
-|-----|-------|-------|
-| `stickysites_global_v1` | `{ body: string, updatedAt: ISO8601 }` | Single global note (rich HTML body) |
-| `stickysites_sites_v1` | `{ [domain]: SiteNote }` | Map keyed by hostname without `www.` |
-| `stickysites_pages_v1` | `{ [origin+path]: PageNote }` | Map keyed by `origin + pathname` |
-| `stickysites_todos_v1` | `{ __global__: TodoRecord }` | Single global to-do record |
-| `stickysites_outlines_v1` | `{ [outlineKey]: OutlineRecord }` | Named outline library (`ol_<id>` keys; legacy hostname keys adapt at read time) |
-| `stickysites_daily_v1` | `{ [YYYY-MM-DD]: DailyNote }` | Map keyed by date string |
-| `stickysites_prefs_v1` | `{ clusterPosition: { x, y }, panelMode: string }` | User preferences |
-| `stickysites_crypto_v1` | `{ enabled: bool, salt: base64, verify: envelope }` | Encryption config |
-
-**chrome.storage.session** (cleared on browser close):
-
-| Key | Shape | Notes |
-|-----|-------|-------|
-| `stickysites_session_key` | JWK object | Derived AES-GCM key cached for the browser session |
-
-**SiteNote**: `{ key, label, body: richHTML, tags: string[], createdAt, updatedAt }` (legacy: `siteKey`, `siteLabel`)
-
-**PageNote**: `{ key, label, body: richHTML, tags: string[], createdAt, updatedAt }` (legacy: `pageKey`, `pageLabel`)
-
-**TodoRecord**: `{ key, items: [{ id, text, done }], sections, tagColors, createdAt, updatedAt }` (global; key is `'__global__'`)
-
-**OutlineRecord**: `{ key, name, items: [{ id, text, children, collapsed }], createdAt, updatedAt }` (key is `ol_<id>`; legacy keys are hostname strings)
+`chrome.storage.session` is not used (an earlier design cached the key there; the dead
+`setAccessLevel` call was removed in v1.11.1).
 
 ### Permissions
 
 | Permission | Why |
 |------------|-----|
-| `storage` | Read/write `chrome.storage.local` and `chrome.storage.session` |
-| `activeTab` | Send messages to the current tab |
-| `contextMenus` | Register the "StickySites" right-click submenu |
+| `storage` | All persistence |
+| `activeTab` | `tabs.sendMessage` / `tabs.query` for the active tab |
+| `contextMenus` | The "StickySites" clip submenu |
+| `alarms` | 2-minute to-do sync period (service workers cannot hold timers) |
+| `nativeMessaging` | `runtime.sendNativeMessage` to `com.mitch.todo_bridge` |
 
-### Design decisions
+Content scripts match `<all_urls>` at `document_idle`.
 
-#### Namespace pattern for content scripts
+### Design decisions (ADRs)
 
-Content scripts cannot use ES module `import`. All content-script modules attach to
-`window.StickySites` and are loaded by the manifest in dependency order. The shared
-`src/shared/` modules are ES modules used only by the service worker, popup, and tests.
+#### ADR-1 Namespace pattern for content scripts
+MV3 content scripts cannot `import`. Every module attaches to `window.StickySites` and the
+manifest lists them in dependency order. Consequence: `popout.html` must repeat the list;
+`crypto.js` (ES) duplicates `crypto-content.js` (namespace) for tests.
 
-#### IIFE guard clause
+#### ADR-2 IIFE guard against double injection
+`sticky-inject.js` returns if `#stickysites-cluster` exists, so re-injection after an
+extension update cannot build a second UI (orphaned listeners remain — `known-issues.md`).
 
-`sticky-inject.js` exits early if `#stickysites-cluster` already exists, preventing
-double-injection when Chrome re-injects content scripts after extension updates.
+#### ADR-3 Cached key lives in `chrome.storage.local` until Lock Now
+The derived key's JWK persists across browser restarts instead of dying with a session.
+Consequence: one passphrase entry per explicit lock rather than per session; the JWK sits in
+the profile directory while unlocked (`docs/SECURITY.md`). An earlier design used
+`chrome.storage.session`; docs and code were reconciled in v1.11.1.
 
-#### Session-scoped key caching
+#### ADR-4 Snapshot the note key at `open()`
+The panel never re-derives its key mid-session; SPA navigation re-keys by flushing and
+re-opening. This closed a class of "saved under the wrong page" bugs.
 
-The derived AES-GCM key is stored as a JWK in `chrome.storage.session` so the user
-only enters their passphrase once per browser session. `chrome.storage.session` is
-accessible to content scripts because the service worker sets
-`setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })` on install.
+#### ADR-5 Outliner is a global library, not site-keyed
+Outline docs are `ol_<id>` records with names; the active doc is a pref. Legacy hostname keys
+adapt at read time. Consequence: `noteType.getKey` returns `''` and the renderer resolves the doc.
+
+#### ADR-6 No bare-key hotkeys
+Bare `1`–`5`/`A` shortcuts hijacked typing and `Cmd+A`; only `Alt+S` and `Ctrl/Cmd+F1…F6` remain.
+
+#### ADR-7 The native host owns the to-do merge
+The extension sends its full list and accepts the host's result; it adds nothing but
+StickySites-only fields. Consequence: merge rules live in one place (`todo.py`), and the
+extension needs no file access. Sync is skipped for encrypted data so plaintext never reaches disk.
+
+#### ADR-8 Read-time schema adaptation instead of migrations
+Legacy field names and keys are normalised when read. Storage keys are versioned (`_v1`)
+so a breaking change can still ship as a new key.
 
 # Components
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/COMPONENTS.md
 
 ## Components
 
-### Service Worker (`src/background/service-worker.js`) — 225 lines
+Line counts as of v1.11.1. "Namespace" = the `window.StickySites.*` object a classic content
+script attaches; "Exports" = ES module exports.
 
-Background script running as an ES module. Handles two responsibilities:
+### Service worker — `src/background/service-worker.js` (122 lines, ES module)
 
-**Context menus**: On `onInstalled`, creates a "StickySites" parent menu item (shown on
-text selection) with six children: Add to Global note, Site note, Page note, To-do list,
-Outline, Daily note. On click, sends `STICKYSITES_CLIP` to the active tab.
+Imports `syncTodosWithHost`, `TODOS_KEY` from `src/shared/todo-bridge.js`.
 
-**Keyboard commands**: Listens for the `toggle-cluster` command (`Alt+S`) and sends
-`STICKYSITES_TOGGLE` to the active tab.
-
-On install, calls `chrome.storage.session.setAccessLevel` to allow content scripts to
-read `chrome.storage.session` (needed for session key caching).
+| Responsibility | Detail |
+|---|---|
+| Context menus | `onInstalled`: parent `stickysites-parent` (selection context) + children `clip-global/site/page/todo/outline/daily`; `onClicked` → `tabs.sendMessage(STICKYSITES_CLIP)` |
+| Command | `toggle-cluster` (`Alt+S`) → `STICKYSITES_TOGGLE` to the active tab |
+| Popout | `onMessage(STICKYSITES_POPOUT)` → `windows.create(popout.html?type&key&label, popup, 1400×1100)` |
+| To-do sync | `runTodoSync()` with a `todoSyncRunning` guard; alarm `stickysites-todo-sync` every 2 min; `onStartup`, `onInstalled`; 3 s after `storage.onChanged` touches `stickysites_todos_v1` |
+| Failure paths | `console.warn('[stickysites] …')` when a tab has no content script or the native host fails |
 
 ---
 
-### `src/content/crypto-content.js` — 198 lines
-
-Attaches `window.StickySites.Crypto`. Implements AES-256-GCM encryption and decryption
-for note storage values. Mirrors the pure ES module in `src/shared/crypto.js` but also
-includes higher-level helpers for enabling/disabling encryption and caching the derived key.
-
-#### Key methods
+### `src/content/crypto-content.js` (197) — `StickySites.Crypto`
 
 | Method | Purpose |
-|--------|---------|
-| `generateSalt()` | Returns 16 random bytes |
-| `deriveKey(passphrase, salt)` | PBKDF2 (600 K iterations, SHA-256) → AES-GCM-256 CryptoKey |
-| `encrypt(key, plaintext)` | Returns `{ iv: base64, data: base64 }` |
-| `decrypt(key, envelope)` | Decrypts `{ iv, data }` → plaintext string |
-| `isEncrypted(value)` | Detects `{ iv, data }` envelope shape |
-| `isEnabled()` | Reads `stickysites_crypto_v1` from local storage |
-| `enable(passphrase)` | Derives key, stores config, encrypts all existing notes |
-| `unlock(passphrase)` | Derives key, verifies against stored verify blob, caches key |
-| `disable()` | Decrypts all notes, removes crypto config and session key |
-| `cacheKey(key)` / `getCachedKey()` | Stores/retrieves the CryptoKey as JWK in `chrome.storage.session` |
-| `encryptValue(value)` / `decryptValue(value)` | Convenience wrappers for note read/write |
+|---|---|
+| `generateSalt()` | 16 random bytes |
+| `deriveKey(passphrase, salt)` | PBKDF2-SHA256 × 600,000 → AES-GCM-256 `CryptoKey` (extractable, so it can be cached as JWK) |
+| `encrypt(key, text)` / `decrypt(key, envelope)` | 12-byte IV; `{ iv, data }` base64 envelope |
+| `isEncrypted(v)` | string `iv` + `data`, and no `body` / `items` / `siteKey` |
+| `isEnabled()` / `getConfig()` | Read `stickysites_crypto_v1` |
+| `cacheKey(key)` / `getCachedKey()` / `clearCachedKey()` | JWK in `chrome.storage.local["stickysites_cached_key"]` + in-memory `_cachedKey` |
+| `enable(passphrase)` | Salt, verify token, config write, cache key, `_encryptAllNotes` |
+| `unlock(passphrase)` | Derive, check against `verify`, cache; returns boolean |
+| `disable()` | `_decryptAllNotes`, remove config, clear key |
+| `encryptValue(v)` / `decryptValue(v)` | Pass-through when no cached key |
 
----
+Storage: `stickysites_crypto_v1`, `stickysites_cached_key`, the six note keys.
 
-### `src/content/note-types.js` — 74 lines
+### `src/content/note-types.js` (114) — `StickySites.noteTypes` (array of 6)
 
-Attaches `window.StickySites.noteTypes` — an array of 6 note type descriptor objects.
-Each descriptor defines the type's identity, color, storage key, storage pattern, and
-key/label/placeholder accessor functions.
+Each descriptor: `id, color, tint, tintText, label, emoji, cssClass, storageKey,
+storagePattern, getKey(location), getLabel(location), getPlaceholder()`; site/page/daily add
+`getIconContent()` / `getIconTitle()` (first 4 domain chars · last path segment (3 chars + …) ·
+day of month).
 
-| id | color | storageKey | storagePattern |
-|----|-------|------------|----------------|
-| `global` | amber | `stickysites_global_v1` | `single` |
-| `site` | green | `stickysites_sites_v1` | `map` |
-| `page` | blue | `stickysites_pages_v1` | `map` |
-| `todo` | purple | `stickysites_todos_v1` | `structured` |
-| `outline` | orange | `stickysites_outlines_v1` | `structured` |
-| `daily` | red | `stickysites_daily_v1` | `map` |
+| id | storageKey | pattern | getKey |
+|---|---|---|---|
+| global | `stickysites_global_v1` | single | `'__global__'` |
+| site | `stickysites_sites_v1` | map | hostname without `www.` |
+| page | `stickysites_pages_v1` | map | origin + pathname |
+| todo | `stickysites_todos_v1` | structured | `'__global__'` |
+| outline | `stickysites_outlines_v1` | structured | `''` (renderer resolves the doc) |
+| daily | `stickysites_daily_v1` | map | `YYYY-MM-DD` |
 
-**storagePattern values**:
-- `single` — storage value is one record (`{ body, updatedAt }`)
-- `map` — storage value is a keyed object of records
-- `structured` — storage value is a keyed object of item-list records
+### `src/content/prefs.js` (25) — `StickySites.Prefs`
 
----
+`read()` → defaults merged with `stickysites_prefs_v1`; `write(updates)` → shallow merge, returns
+merged prefs or `null`. Defaults: `clusterPosition {x:null,y:null}`, `panelMode 'fixed'`
+(unused), `clusterLayout 'vertical'`, `iconOrder null`, `enabledTypes` (all six true),
+`panelSize null`, `panelPosition null`. `activeOutlineId` is written by `outline.js` /
+`sticky-inject.js` without a default.
 
-### `src/content/prefs.js` — 25 lines
-
-Attaches `window.StickySites.Prefs`. Reads and writes `stickysites_prefs_v1` in local
-storage. Default prefs: `{ clusterPosition: { x: null, y: null }, panelMode: 'fixed' }`.
+### `src/content/cluster.js` (271) — `StickySites.Cluster`
 
 | Method | Purpose |
-|--------|---------|
-| `read()` | Returns merged defaults + stored prefs |
-| `write(updates)` | Merges updates into current prefs and saves |
+|---|---|
+| `init(noteTypes, onIconClick)` | Build icons in `iconOrder`, apply `clusterLayout`, `clusterPosition`, `enabledTypes`; wire drag + long-press (400 ms) reorder |
+| `setActive(typeId)` | Toggle `is-active` |
+| `refreshIcons()` | Recompute identity icon text/titles (called on SPA navigation) |
+| `getVisibleIcons()` / `getVisibleTypeIds()` | Icons not `display:none` |
+| `toggle()` | Hide/show; on hide deactivates and calls `onIconClick(null)` |
+| `applyLayout(layout)` | Toggle `is-horizontal` live (popup settings) |
+
+Writes prefs `iconOrder`, `clusterPosition`. DOM: `#stickysites-cluster`, `.stickysites-cluster-icon`.
+
+### `src/content/todo.js` (198) — `StickySites.Todo`
+
+`COLORS` (8 swatches), `PRIORITY_COLORS` (1–5), `genId()`, `normalizeItem(item)` →
+`{ id, text, done, indent 0–3, priority 0–5, color, tags, note, section, completedAt }`,
+`normalizeData(note)` → `{ items, sections, tagColors }`,
+`DragController.init(listEl, getItems, getSections, onReorder)` — grip drag with a drop
+indicator; the dropped item adopts the target's section.
+
+### `src/content/outline-ops.js` (275) — `StickySites.OutlineOps` (pure; unit-tested)
+
+`genId`, `normalizeNode/normalizeItems`, `findParent(id, arr)` → `{ parent, array, index }`,
+`findNode`, `getPathTo`, `insertSiblingAfter`, `indentNode`, `outdentNode`, `moveNode(items, id, ±1)`,
+`removeNode` (promotes children), `extractTags`, `filterTree(items, q)` (matches + ancestors,
+`null` when empty), `autoGroup` (by first tag → shared keyword → "Other"), `toMarkdown`
+(`~~done~~`), `toOPML(items, name)` (OPML 2.0 with `_note`, `_complete`).
+
+### `src/content/outline.js` (800) — `StickySites.Outline`
+
+| Member | Purpose |
+|---|---|
+| `readLibrary()` | Decrypt `stickysites_outlines_v1` → `{ map, docs }` sorted by `updatedAt` desc; legacy hostname keys adapt |
+| `writeDoc(key, name, items)` | Upsert; returns `null` (refuses) while locked |
+| `newDocKey()` | `ol_<id>` |
+| `render(panel, noteType, explicitKey)` | Resolve doc (explicit key → `getKey` → `activeOutlineId` → first doc → create "My outline"); build switcher, toolbar, ⋯ menu (New / Rename / Duplicate / Delete / Auto-group + 10 s Undo / Export Markdown / Export OPML), breadcrumb, list, filter |
+
+Keyboard on a node input: Enter (sibling), Ctrl/Cmd+Enter (done), Tab / Shift+Tab (indent /
+outdent, never above the zoom root), Alt+↑/↓ (move), ↑/↓ (focus), Backspace on empty (delete),
+Esc (blur). Prefs: reads/writes `activeOutlineId`. Shows `.stickysites-outline-locked` while locked.
+
+### `src/content/mentions.js` (262) — `StickySites.Mentions`
+
+`attach(editorEl)` watches for `@`, `show()` / `hide()`. Categories Link (paste URL, current
+page URL), Date (today, tomorrow, this week, pick), Contact (name, email), File. Dropdown
+`#stickysites-mentions` positioned at the caret; ↑/↓, Enter/Tab select, Esc; inserts
+`.stickysites-mention-chip`. Uses `prompt()` for free-text input.
+
+### `src/content/panel.js` (1874) — `StickySites.Panel`
+
+| Method | Purpose |
+|---|---|
+| `init(onClose)` | Create `#stickysites-panel`; drag (header) and 8-grip resize (`_initResize` pins to absolute left/top); drag-off-page popout hint within 28 px of an edge |
+| `open(noteType)` | Flush pending save → snapshot `_activeKey` / `_activeLabel` → `_readNote` (decrypt) → `_render` / `_renderTodo` / `Outline.render` → apply `panelSize` / `panelPosition` |
+| `close()` | Flush, tear down |
+| `flushPendingSave()` | Run an armed debounce immediately |
+| `syncFromStorage(changes)` | Rich-text types only; self-echo, focus, encryption guards |
+| `_popoutActiveNote()` | Flush → `runtime.sendMessage(STICKYSITES_POPOUT)` |
+| `_buildToolbar()` | 19 controls: 16 buttons + font family (5) + font size (4) + color |
+| `_readNote` / `_writeNote` / `_writeStructured` | Storage with encryption; `_writeStructured` preserves items another writer added (`_loadedIds`) |
+| `_toggleExpand()` | 900 px wide; min size 350×250 |
+
+Find & Replace: `Cmd/Ctrl+F` / `Cmd/Ctrl+H` toggle the bar; Enter / Shift+Enter next / prev;
+Esc closes; `<mark>` highlights stripped by `getCleanHtml()` before save. To-do input keys:
+Enter (new), Tab / Shift+Tab (indent 0–3), Backspace on empty (delete), Esc (blur); tag input
+Enter adds a tag. Opening the to-do panel focuses the first empty task (creating one if needed).
+Prefs written: `panelPosition`, `panelSize`.
+
+### `src/content/sticky-inject.js` (295) — orchestrator IIFE
+
+Exits if `#stickysites-cluster` exists. Functions: `findNoteType`, `checkUnlocked`,
+`showLockOverlay` (`#stickysites-lock`, Enter unlocks), `handleIconClick`, `showToast`
+(`#stickysites-toast`), `clipToNote`, `onUrlChange` (`popstate`, `hashchange`, 1 s poll →
+`Cluster.refreshIcons()` + re-open site/page note under the new key).
+Messages handled: `STICKYSITES_TOGGLE`, `STICKYSITES_OPEN { noteTypeId, key? }`,
+`STICKYSITES_CLIP { noteTypeId, text }`. Keyboard: `Ctrl/Cmd+F1…F6` toggle types 0–5
+(respecting `enabledTypes`, through the lock check). Forwards `storage.onChanged` to
+`Panel.syncFromStorage`.
+
+### `src/content/sticky-inject.css` (1156)
+
+All injected styles: cluster, panel, toolbar, find bar, to-do list, outliner, mentions,
+lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout.html`.
 
 ---
 
-### `src/content/cluster.js` — 130 lines
+### `src/shared/todo-bridge.js` (137, ES exports) — used by the SW; unit-tested
 
-Attaches `window.StickySites.Cluster`. Manages the floating pill (`#stickysites-cluster`)
-that contains one button per note type.
+| Export | Purpose |
+|---|---|
+| `TODO_HOST` | `'com.mitch.todo_bridge'` |
+| `TODOS_KEY` | `'stickysites_todos_v1'` |
+| `buildRequest(record, extId)` | `{ cmd:'sync', ext, items[{id,text,done,note,section}], sections[{id,name}] }` |
+| `applyHostResult(record, hostItems)` | Merge host items with local-only fields (indent, priority, color, tags, completedAt); section names ↔ ids; prune empty host-origin sections; `{ items, sections, changed }` via canonical JSON compare |
+| `isEncryptedValue(v)` | Same test as `Crypto.isEncrypted` |
+| `syncTodosWithHost({ storage, sendNativeMessage, extId })` | Skip if encrypted; round-trip; write only when `changed`; returns `{ changed, count }`, `{ skipped }`, or `{ error }` |
 
-**Init**: Creates a `div#stickysites-cluster`, appends one `button` per note type, reads
-saved cluster position from prefs, then starts the drag handler.
+### `src/shared/crypto.js` (71, ES exports) — tests
 
-**Drag**: On `mousedown` of the cluster background, tracks mouse delta and updates
-`left`/`top` CSS. On `mouseup`, persists the new position to prefs via `Prefs.write()`.
-Drag is distinguished from click by a 3-pixel movement threshold.
+`generateSalt`, `deriveKey` (same PBKDF2/AES-GCM parameters as the namespace version),
+`encrypt`, `decrypt`, `isEncrypted`. Kept in lock-step with `crypto-content.js`.
 
-**Active state**: `setActive(typeId)` adds/removes `is-active` on buttons. Clicking the
-currently active button deactivates it and closes the panel.
+### `src/shared/notes-storage.js` (363, ES exports) — reference CRUD; tests only
 
-**Toggle**: `toggle()` adds/removes `is-hidden` on the cluster element and closes the panel.
-
----
-
-### `src/content/mentions.js`
-
-Attaches `window.StickySites.Mentions`. Provides @-mention autocomplete for the rich text
-editor. Typing `@` in a `contenteditable` note body opens a dropdown with categorized
-mention items: Link (paste URL, current page URL), Date (today, tomorrow, this week, pick
-date), Contact (name, email), and File (file reference). Selecting an item inserts formatted
-text at the cursor position.
+`getSiteKey`, `getPageKey`, `getDailyKey`; read/write/delete/readAll for global, site, page,
+daily, todo, outline; `parseTags`; `createDebouncedSaver(fn, 500)`; `readPrefs` / `writePrefs`.
+Plaintext only (no encryption). The extension runtime does not import it — `panel.js`,
+`outline.js`, `sticky-inject.js`, and `popup.js` talk to `chrome.storage.local` directly — so
+it documents the record shapes and backs `tests/notes-storage.test.js`.
 
 ---
 
-### `src/content/panel.js` — 793 lines
+### Popup — `popup.html` (48) / `popup.js` (869) / `popup.css` (447)
 
-Attaches `window.StickySites.Panel`. The largest module. Manages the slide-in note panel
-(`#stickysites-panel`).
+Loads `crypto-content.js` + `popup.js` with `<script>` tags. Lock screen
+(`checkAndShowLock`), Settings (Enable / Disable / Lock Now, note-type checkboxes →
+`enabledTypes`, layout → `clusterLayout`, written directly to `stickysites_prefs_v1`),
+`loadAllNotes()` (decrypts all six keys), search / sort / type tabs / tag filter, Markdown
+export (one or all), Quick-Open row → `STICKYSITES_OPEN` to the active tab or
+`STICKYSITES_POPOUT` fallback on `chrome://` pages (`computePopoutTarget`).
 
-**init(onClose)**: Creates the panel DOM and registers its close callback.
+### Popout — `popout.html` (20) / `popout.js` (41) / `popout.css` (34)
 
-**open(noteType)**: Reads the note from storage (decrypting if needed), then renders the
-appropriate editor for the note type:
-- `global`, `site`, `page`: rich text editor (`contenteditable` div) with a toolbar
-  (bold, italic, underline, ordered/unordered list, link insertion).
-- `todo`: custom item-list renderer with checkboxes. Items can be added, toggled, and deleted.
-- `outline`: global named library of outline documents; panel shows a doc switcher. Renderer backed by `outline.js` + `outline-ops.js`.
-
-**Auto-save**: All editor changes debounce 500 ms then write back to `chrome.storage.local`,
-encrypting if needed.
-
-**syncFromStorage(changes)**: Called by `sticky-inject.js` when `chrome.storage.onChanged`
-fires. Updates the open panel's content if the changed key matches the current note type
-and the value has actually changed.
-
-**close()**: Slides the panel out and clears its state.
+Loads crypto-content, note-types, prefs, todo, outline-ops, outline, mentions, panel, then
+`popout.js`: reads `type`, `key`, `label` from the query string, clones the note type with
+overridden `getKey` / `getLabel`, `Panel.init(window.close)`, `Panel.open`, removes the resize
+grips. `popout.css` makes the panel fill the window and hides expand/popout buttons.
 
 ---
 
-### `src/content/sticky-inject.js` — 259 lines
+### Tooling — `scripts/`
 
-The orchestrator content script. Runs as an async IIFE at `document_idle`. Exits early
-if `#stickysites-cluster` already exists.
+| File | Lines | Purpose |
+|---|---|---|
+| `check-syntax.mjs` | ~60 | `npm run lint`: `node --check` every `.js`/`.mjs`; manifest ↔ package version agreement |
+| `check-doc-indexes.mjs` | ~110 | `npm run docs:check-indexes`: path-validate `docs/high_signal_file_index.json` and `llms.txt` links; `--prune` |
+| `rotate-workflow-logs.mjs` | ~170 | `npm run logs:rotate`: move oldest `## ` sections of `memory.md` / `prompts.md` to `docs/archive/` past ~200 KB; refuses while an editor swap file is live |
+| `generate-icons.js` | 44 | `npm run icons`: draw `icons/icon{16,48,128}.png` with `canvas` (CommonJS) |
+| `verify-live.mjs` | 464 | `npm run verify:live`: puppeteer-core harness — identity icons, caret stability, per-page identity, SPA re-key, cross-tab sync, outliner (a–k), popup labels/storage, encryption enable/lock/unlock. Needs Chrome for Testing (`SS_CHROME`) |
 
-**Responsibilities**:
-- Initializes `SS.Panel` and `SS.Cluster`, passing the `handleIconClick` callback.
-- **Encryption gate**: Before opening any panel, checks whether encryption is enabled and
-  whether the session key is cached. If locked, shows the `#stickysites-lock` overlay with
-  a passphrase input instead of opening the panel.
-- **Lock overlay**: DOM-built passphrase dialog. On successful unlock, proceeds to open the
-  pending note type panel.
-- **Toast notifications**: Lightweight `#stickysites-toast` element for clip confirmations.
-- **Clip handler** (`clipToNote`): Receives `STICKYSITES_CLIP` messages, appends the
-  selected text to the target note type (respecting encryption), and shows a toast.
-- **Number badges** (`showBadges`): Shows 1–6 number badges on cluster icons for 3 seconds
-  when the cluster becomes visible.
-- **Chord hotkeys**: Digit keys `1`–`6` open the corresponding note type. Key `a` cycles
-  through note types sequentially. Hotkeys are suppressed when focus is in an input field.
-- **Message listener**: Handles `STICKYSITES_TOGGLE`, `STICKYSITES_OPEN`, `STICKYSITES_CLIP`.
-- **Storage change listener**: Forwards `chrome.storage.onChanged` events to `SS.Panel.syncFromStorage`.
+# Codebase overview
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/codebase-overview.md
 
----
+## Codebase overview
 
-### `src/shared/notes-storage.js` — 304 lines
+Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = generated,
+**T** = test-only, **C** = config/meta.
 
-ES module exporting all Chrome Storage CRUD operations for every note type plus prefs.
-Used by the service worker, popup, and unit tests.
+### Root
 
-#### Exports
+| File | Lines | Purpose |
+|---|---|---|
+| `manifest.json` | 45 | MV3 manifest: 5 permissions, `Alt+S` command, 10 content scripts in load order, module service worker, popup action **C** |
+| `package.json` / `package-lock.json` | — | Dev deps (vitest, canvas) and npm scripts (`test`, `lint`, `docs:check-indexes`, `logs:rotate`, `icons`, `verify:live`) **C** |
+| `vitest.config.mjs` | 8 | Vitest: node environment, globals **C** |
+| `popup.html` / `popup.js` / `popup.css` | 48 / 869 / 447 | Browser-action popup: lock screen, settings, Quick-Open, search/sort/filter, export |
+| `popout.html` / `popout.js` / `popout.css` | 20 / 41 / 34 | Standalone window hosting the Panel for one note |
+| `README.md` | — | Overview, features, quick start, docs table |
+| `CLAUDE.md` | — | Canonical agent guide (shape, commands, conventions, storage keys, workflow log rule) |
+| `AGENTS.md` / `GEMINI.md` | — | Agent catalog (none repo-local) / Gemini pointer to `CLAUDE.md` |
+| `memory.md` / `prompts.md` | — | Versioned operator log / request log (rotate with `npm run logs:rotate`) |
+| `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `LICENSE` | — | Community files (MIT) |
+| `llms.txt` / `llms-full.txt` / `llms-small.txt` / `llms-facts.txt` | — | LLM context suite: index, concatenated docs, abstracts, sourced facts **G** |
+| `.editorconfig` / `.gitattributes` / `.gitignore` / `.nvmrc` (22) | — | Editor + VCS hygiene **C** |
+| `.env.example` | — | Documents `SS_CHROME` (harness only; no runtime env vars) **C** |
+| `.mcp.json` | — | `global_ai_hub` MCP server for Claude Code (developer tooling, not the extension) **C** |
 
-| Function | Signature | Returns |
-|----------|-----------|---------|
-| `getSiteKey` | `(url: string)` | `string` — hostname without `www.` |
-| `getPageKey` | `(url: string)` | `string` — `origin + pathname` |
-| `readGlobalNote` | `()` | `{ body, updatedAt }` |
-| `writeGlobalNote` | `(body: string)` | `{ body, updatedAt }` |
-| `readSiteNote` | `(key: string)` | `SiteNote \| null` |
-| `writeSiteNote` | `(key, { siteLabel, body, tags })` | `SiteNote \| null` |
-| `deleteSiteNote` | `(key: string)` | `void` |
-| `readAllSiteNotes` | `()` | `SiteNote[]` |
-| `readPageNote` | `(key: string)` | `PageNote \| null` |
-| `writePageNote` | `(key, { pageLabel, body, tags })` | `PageNote \| null` |
-| `deletePageNote` | `(key: string)` | `void` |
-| `readAllPageNotes` | `()` | `PageNote[]` |
-| `readTodo` | `()` | `TodoRecord \| null` |
-| `writeTodo` | `({ items })` | `TodoRecord \| null` |
-| `deleteTodo` | `()` | `void` |
-| `readAllTodos` | `()` | `TodoRecord[]` |
-| `readOutline` | `(outlineKey: string)` | `OutlineRecord \| null` |
-| `writeOutline` | `(outlineKey, { name, items })` | `OutlineRecord \| null` |
-| `deleteOutline` | `(outlineKey: string)` | `void` |
-| `readAllOutlines` | `()` | `OutlineRecord[]` |
-| `readPrefs` | `()` | `Prefs` |
-| `writePrefs` | `(updates: Partial<Prefs>)` | `Prefs \| null` |
-| `parseTags` | `(input: string)` | `string[]` — normalized, deduped, `#`-prefixed |
-| `createDebouncedSaver` | `(fn, ms?)` | debounced function |
+### `src/background/`
 
----
+| File | Lines | Purpose |
+|---|---|---|
+| `service-worker.js` | 122 | ES module. Context menus (6 clips), `Alt+S` command, popout `windows.create`, to-do sync scheduler (`chrome.alarms` 2 min + 3 s debounce) calling `runtime.sendNativeMessage` |
 
-### `src/shared/crypto.js` — 71 lines
+### `src/content/` — classic scripts, manifest load order
 
-Pure ES module with the cryptographic primitives. Used directly by unit tests. The
-content script counterpart (`crypto-content.js`) replicates these functions plus adds
-higher-level enable/unlock/disable logic and session key caching.
+| # | File | Lines | Namespace / purpose |
+|---|---|---|---|
+| 1 | `crypto-content.js` | 197 | `Crypto`: PBKDF2 + AES-GCM, `isEncrypted`, enable/unlock/disable, cached key in `stickysites_cached_key` |
+| 2 | `note-types.js` | 114 | `noteTypes`: 6 descriptors with storage keys, key/label/icon functions |
+| 3 | `prefs.js` | 25 | `Prefs`: read/write `stickysites_prefs_v1` |
+| 4 | `cluster.js` | 271 | `Cluster`: floating pill, drag, long-press reorder, layout, identity icons |
+| 5 | `todo.js` | 198 | `Todo`: item/section normalisation, colors, drag controller |
+| 6 | `outline-ops.js` | 275 | `OutlineOps`: pure tree operations, filter, auto-group, Markdown/OPML export |
+| 7 | `outline.js` | 800 | `Outline`: named-doc library, switcher, ⋯ menu, keyboard nav, zoom, lock notice |
+| 8 | `mentions.js` | 262 | `Mentions`: `@` autocomplete (link, date, contact, file) |
+| 9 | `panel.js` | 1874 | `Panel`: moveable/resizable panel, rich-text toolbar, find & replace, to-do UI, auto-save, cross-tab sync, popout |
+| 10 | `sticky-inject.js` | 295 | Orchestrator: init, lock overlay, toast, clip, `Ctrl/Cmd+F1…F6`, SPA watcher, message + storage listeners |
+| — | `sticky-inject.css` | 1156 | All injected styles (also linked by `popout.html`) |
 
-#### Exports
+### `src/shared/` — ES modules
 
-| Function | Purpose |
-|----------|---------|
-| `generateSalt()` | 16 random bytes (Uint8Array) |
-| `deriveKey(passphrase, salt)` | PBKDF2 (600 K iterations) → AES-GCM-256 CryptoKey |
-| `encrypt(key, plaintext)` | Returns `{ iv: base64, data: base64 }` |
-| `decrypt(key, envelope)` | Returns plaintext string |
-| `isEncrypted(value)` | Returns `true` if value is an `{ iv, data }` envelope |
+| File | Lines | Purpose |
+|---|---|---|
+| `todo-bridge.js` | 137 | Native-messaging to-do sync: `buildRequest`, `applyHostResult`, `syncTodosWithHost` (SW + tests) |
+| `crypto.js` | 71 | ES twin of `crypto-content.js` primitives (tests) |
+| `notes-storage.js` | 363 | Reference plaintext CRUD for all six note types + prefs, `parseTags`, `createDebouncedSaver` (tests only; runtime talks to storage directly) |
 
----
+### `tests/` — vitest, node environment **T**
 
-### Popup (`popup.html` / `popup.js` / `popup.css`) — 45 / 733 / 366 lines
+| File | Lines | Tests | Covers |
+|---|---|---|---|
+| `notes-storage.test.js` | 377 | 50 | Keys (`getSiteKey`, `getPageKey`, `getDailyKey`), `parseTags`, CRUD for all six types, prefs |
+| `todo-bridge.test.js` | 190 | 23 | Request shape, host-result merge (sections, local-only fields, `completedAt`), encrypted skip, error paths |
+| `outline-ops.test.js` | 184 | 21 | Tree ops, filter, auto-group, Markdown/OPML |
+| `crypto.test.js` | 56 | 7 | Salt, key derivation, round-trip, wrong key, `isEncrypted` |
 
-A separate extension page (not injected into host pages). Opened via the toolbar icon
-`default_popup`.
+### `scripts/`
 
-**All-notes view**: Shows every note across all 6 types in a unified list. Supports:
-- Text search across note bodies
-- Sort by updated date (newest/oldest) or by site key alphabetically
-- Filter by note type
-- Export all notes as JSON
+| File | Lines | Purpose |
+|---|---|---|
+| `check-syntax.mjs` | ~60 | `npm run lint` — `node --check` all scripts + version agreement |
+| `check-doc-indexes.mjs` | ~110 | `npm run docs:check-indexes` — validate `docs/high_signal_file_index.json`, `llms.txt` links; `--prune` |
+| `rotate-workflow-logs.mjs` | ~170 | `npm run logs:rotate` — archive old `memory.md` / `prompts.md` sections |
+| `generate-icons.js` | 44 | `npm run icons` — icon PNGs via `canvas` |
+| `verify-live.mjs` | 464 | `npm run verify:live` — puppeteer-core end-to-end harness (Chrome for Testing) |
 
-**Settings panel**: Toggle encryption on/off (prompts for passphrase).
+### `docs/`
 
-**Dependencies**: Reads notes directly from `chrome.storage.local`.
+| File | Purpose |
+|---|---|
+| `ARCHITECTURE.md` | Contexts, data flows, load order, storage schema, permissions, ADRs |
+| `COMPONENTS.md` | Per-module API reference |
+| `DEVELOPMENT.md` | Setup, commands, conventions, debugging |
+| `TESTING.md` | Suites, coverage target, CI gates, live harness |
+| `SECURITY.md` | Threat model, permissions audit, encryption lifecycle |
+| `INSTALLATION.md` | Install / update / uninstall, optional to-do host |
+| `requirements.md` | Functional / non-functional requirements, dependencies |
+| `MCP.md` | No shipped server; `global_ai_hub` developer server |
+| `logging.md` | Console-only diagnostics, silent-failure inventory, sensitive-data rules |
+| `caching-and-optimization.md` | Cache layers, debounce/detection patterns, bottlenecks, profiling |
+| `external-calls.md` | The native-messaging call and its five-standard audit |
+| `integrations-and-assumptions.md` | Chrome APIs, external tools, hardcoded assumptions, context differences |
+| `known-issues.md` | Open limitations and gotchas |
+| `onboarding.md` | Zero-to-contributing walkthrough |
+| `codebase-overview.md` | This file |
+| `high_signal_file_index.json` | Machine-readable per-file index (validated by `npm run docs:check-indexes`) **G** |
+| `repo-bootstrap-audit-2026-09-27.md` | Standards audit ledger (findings, retractions, deferrals) |
+| `runbooks/load-and-reload-extension.md` · `release-packaging.md` · `todo-sync-troubleshooting.md` · `encryption-lock-and-recovery.md` | Operational procedures |
+| `archive/` | Rotated workflow-log sections |
+| `superpowers/specs/*.md` · `superpowers/plans/*.md` | Historical design specs and implementation plans (phases 1–5, to-do overhaul, note identity + outliner) |
+
+### `.github/`
+
+| File | Purpose |
+|---|---|
+| `workflows/ci.yml` | lint → test → index check → manifest validation on push/PR to `main` |
+| `copilot-instructions.md` | Copilot rules (mirrors `CLAUDE.md`) |
+| `dependabot.yml` | Weekly npm updates |
+| `CODEOWNERS` | `@mithudso` |
+| `PULL_REQUEST_TEMPLATE.md` | What / Why / Tests / Risk / Rollback |
+| `ISSUE_TEMPLATE/bug_report.md` · `feature_request.md` | Issue templates |
+| `SECURITY.md` | Reporting channel and response SLA |
+
+### `.vscode/`
+
+`settings.json` (format on save, 2 spaces, 100-col ruler), `extensions.json` (prettier,
+editorconfig, vitest), `launch.json` (vitest current file / all, live harness), `mcp.json`
+(`global_ai_hub`).
+
+### `icons/`
+
+`icon16.png`, `icon48.png`, `icon128.png` — regenerated by `npm run icons` **G**.
 
 # Security
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/SECURITY.md
@@ -737,75 +881,198 @@ Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/SECURITY.md
 
 ### Threat model
 
-StickySites runs as a Chrome Extension on every web page. It injects DOM elements into
-untrusted host pages and stores user-created notes locally with optional encryption.
+StickySites runs as a Chrome Extension on every web page. It injects DOM into untrusted host
+pages, stores user notes locally with optional encryption, and (optionally) exchanges the
+to-do list with a local native-messaging host. There is no network surface.
 
 #### Attack surface
 
 | Vector | Risk | Mitigation |
 |--------|------|------------|
-| Host page reads note content | Medium — page JS can query the note panel DOM | Notes contain user-authored text. Opt-in encryption (AES-GCM) protects notes at rest; in-memory plaintext is exposed while the panel is open. Future improvement: Shadow DOM encapsulation. |
-| Host page spoofs StickySites UI | Low — a malicious page could create `#stickysites-cluster` to suppress injection | Extension checks element existence before injecting. Impact is denial of the extension UI, not data theft. |
-| XSS via note content | Low — notes are rendered as user-authored rich HTML in a `contenteditable` div | No untrusted third-party HTML is ever rendered. All note bodies are written by the user in the same trust context. |
-| Storage tampering | Low — `chrome.storage.local` is isolated per extension | Other extensions cannot read or write StickySites storage. |
-| Context menu selection text | Low — the service worker receives `selectionText` from the host page | Text is appended verbatim to a note. It is HTML-entity-escaped before being inserted into rich-text bodies, preventing injection. |
-| Encryption passphrase brute-force | Low — PBKDF2 600 K iterations makes offline attacks expensive | The derived key is never persisted to disk; only the JWK is stored in `chrome.storage.session` (cleared on browser close). |
-| Content script on sensitive pages | N/A — Chrome blocks content scripts on `chrome://`, `chrome-extension://`, and the Chrome Web Store | Built-in Chrome protection. |
+| Host page reads note content from the injected DOM | Medium — page JS can query `#stickysites-panel` while it is open | Encryption protects data at rest only; in-memory plaintext is exposed while a panel is open on that page. Future: Shadow DOM (`known-issues.md`). |
+| Host page spoofs `#stickysites-cluster` to suppress injection | Low | Denial of the UI only; no data exposure. |
+| XSS via note content | Low — notes are user-authored rich HTML rendered in a `contenteditable` | No third-party HTML is ever rendered; clipped selection text is HTML-escaped before insertion. `<mark>` find-highlights are stripped before save. |
+| Storage tampering by another extension | Low | `chrome.storage.local` is isolated per extension. |
+| Cached key on disk | Medium while unlocked | `stickysites_cached_key` (JWK) sits in the Chrome profile until **Lock Now**. Anyone with the profile directory and the extension id can read it. Lock when leaving the machine; see the encryption runbook. |
+| Passphrase brute force against the stored `verify` envelope | Low | PBKDF2 600,000 iterations, SHA-256, random 16-byte salt. |
+| Native host impersonation | Low | Chrome only launches the host registered in the browser's `NativeMessagingHosts` manifest whose `allowed_origins` contains this extension id; the host runs as the local user. |
+| Plaintext to-dos reaching `TODO.md` | By design when encryption is off | Sync is skipped entirely while `stickysites_todos_v1` is an encrypted envelope. |
+| Content script on sensitive pages | N/A | Chrome blocks content scripts on `chrome://`, `chrome-extension://`, the Web Store. |
 
 #### Permissions audit
 
-| Permission | Justification | Least-privilege? |
-|------------|--------------|-----------------|
-| `storage` | Note persistence in `chrome.storage.local`; session key in `chrome.storage.session` | Yes |
-| `activeTab` | Send messages to the currently active tab | Yes — does not grant broad host access |
-| `contextMenus` | Register the "StickySites" right-click submenu | Yes |
+| Permission | Justification | Least privilege? |
+|------------|--------------|------------------|
+| `storage` | Notes, prefs, crypto config, cached key in `chrome.storage.local` | Yes |
+| `activeTab` | Message the active tab from the SW and popup | Yes — no broad host access |
+| `contextMenus` | The "StickySites" clip submenu | Yes |
+| `alarms` | 2-minute to-do sync schedule | Yes |
+| `nativeMessaging` | Local IPC with `com.mitch.todo_bridge`; only a host manifest naming this extension id can answer | Yes — no network |
 
-No `tabs`, `webRequest`, `cookies`, `history`, `identity`, or broad host permissions are requested.
+No `tabs`, `webRequest`, `cookies`, `history`, `identity`, `scripting`, or extra host permissions.
 
 #### Data handling
 
-- All notes are stored in `chrome.storage.local` on the user's device.
-- No data is transmitted over the network. The extension makes no external calls and uses
-  no OAuth or identity APIs.
-- No analytics, telemetry, or crash reporting of any kind.
-- No third-party scripts, CDN resources, or external iframes.
+- All notes stay in `chrome.storage.local` on the device. No network transmission, telemetry,
+  crash reporting, third-party scripts, or remote resources.
+- The only data that leaves the browser is the to-do list (items, sections, notes) sent to the
+  local host process when the optional sync is installed and encryption is off.
 
 ### Encryption at rest
 
-Encryption is opt-in and requires the user to set a passphrase.
+Opt-in; enabled from the popup Settings panel with a passphrase.
 
 #### Algorithm
 
-- **Cipher**: AES-256-GCM (authenticated encryption, provides confidentiality and integrity)
-- **Key derivation**: PBKDF2 with 600,000 iterations, SHA-256, a random 16-byte salt
-- **IV**: 12 random bytes per encryption operation (never reused)
-- **Envelope format**: `{ iv: base64, data: base64 }`
+- **Cipher**: AES-256-GCM (confidentiality + integrity), 12-byte random IV per operation.
+- **KDF**: PBKDF2, 600,000 iterations, SHA-256, random 16-byte salt.
+- **Envelope**: `{ iv: base64, data: base64 }`. `isEncrypted()` accepts only that shape and
+  rejects objects with `body`, `items`, or `siteKey` so a plain record is never mistaken for
+  an envelope.
 
 #### Key lifecycle
 
-1. On `enable(passphrase)`, a random salt is generated and the key is derived.
-2. A verification blob is encrypted and stored in `stickysites_crypto_v1` alongside the
-   salt. The actual passphrase is never stored.
-3. The derived CryptoKey is exported as JWK and stored in `chrome.storage.session`
-   (accessible to content scripts because the service worker sets
-   `setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })`).
-4. All existing note values are re-encrypted in place.
-5. On subsequent browser sessions, the user enters their passphrase once. The key is
-   re-derived from the stored salt, verified against the stored blob, then re-cached in
-   `chrome.storage.session` for the remainder of the session.
-6. Closing the browser clears `chrome.storage.session`, requiring re-entry of the
-   passphrase on next session.
-7. On `disable()`, all notes are decrypted in place, the config key is removed, and
-   the session key is cleared.
+1. `enable(passphrase)`: generate salt → derive key → encrypt a verify string → store
+   `{ enabled: true, salt, verify }` in `stickysites_crypto_v1` → cache the key (JWK) in
+   `stickysites_cached_key` → re-encrypt all six note keys in place. The passphrase is never stored.
+2. Reads: `decryptValue()` uses the cached key; if none, the value stays an envelope and the UI
+   shows the lock overlay (or the outliner's lock notice).
+3. **Lock Now** (popup) / `clearCachedKey()`: removes `stickysites_cached_key` and the
+   in-memory key. The cached key otherwise **persists across browser restarts**.
+4. `unlock(passphrase)`: re-derive from the stored salt, decrypt `verify`, compare; on success
+   cache the key again.
+5. `disable()`: decrypt all notes in place, remove the config key and cached key.
+
+#### Invariants the code enforces
+
+- Never write plaintext to a note key while enabled and no cached key: the outliner shows a
+  lock notice instead of auto-creating; the to-do sync skips; `syncFromStorage` skips.
+- `src/content/crypto-content.js` and `src/shared/crypto.js` implement the same primitives
+  and must change together.
 
 #### Caveats
 
-- Encryption covers only the six note storage keys. Prefs are not encrypted.
-- PBKDF2 at 600 K iterations can take 1–3 seconds on low-end devices.
+- Encryption covers the six note keys only; prefs and the crypto config are plaintext.
+- There is no passphrase recovery; losing it means losing the notes
+  (`runbooks/encryption-lock-and-recovery.md`).
+- PBKDF2 at 600 K iterations takes 1–4 s on slow hardware with no spinner.
 
 ### Reporting vulnerabilities
 
-Open an issue on this repository or email the maintainer directly.
+See [`.github/SECURITY.md`](../.github/SECURITY.md): private advisory or maintainer email,
+acknowledgement within 3 business days, fix or plan within 14 days.
+
+# External Calls
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/external-calls.md
+
+## External Calls
+
+StickySites makes **no network calls**. Everything stays in `chrome.storage.local`. The one
+call that leaves the browser is optional local IPC: the to-do sync with a native-messaging
+host. Chrome-internal APIs (`chrome.storage`, `chrome.tabs`, `chrome.windows`,
+`chrome.alarms`, `chrome.contextMenus`) never leave the browser and are inventoried in
+`integrations-and-assumptions.md`, not here.
+
+### Inventory
+
+| # | Call | File:line | Target | Transport | Trigger | Logger | Test | Docs | Retry |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `chrome.runtime.sendNativeMessage(TODO_HOST, { cmd:'sync', ext, items, sections })` | `src/shared/todo-bridge.js:115` (call) · `src/background/service-worker.js:103` (injection) | Host `com.mitch.todo_bridge` → `~/.claude/skills/todo/scripts/todo_host` → `todo.py native-host` → `TODO.md` | Chrome native messaging (stdio, length-prefixed JSON) | `onStartup`, `onInstalled`, alarm every 2 min, 3 s after `stickysites_todos_v1` changes | `console.warn('[stickysites] todo-sync', …)` in `runTodoSync` | `tests/todo-bridge.test.js` (23 tests: request, merge, encrypted skip, host error, malformed reply, storage failures) | this file; `runbooks/todo-sync-troubleshooting.md`; `SECURITY.md` | None in-process; the next alarm (≤ 2 min) is the retry. Not idempotency-sensitive: the host merges, and the extension writes only when the merged result differs. |
+
+Install the host on a machine with
+`python3 ~/.claude/skills/todo/scripts/todo.py install-native-host` (finds StickySites'
+unpacked extension id in every Chromium profile and writes `allowed_origins`), then reload the
+extension.
+
+#### Data crossing the boundary
+
+Outbound: item `id`, `text`, `done`, `note`, `section`; section `id`, `name`; the extension id.
+Inbound: the merged item list with section *names*. StickySites-only fields (indent, priority,
+color, tags, `completedAt`) never leave and are re-attached by `applyHostResult`.
+**Skipped entirely while `stickysites_todos_v1` is an encrypted envelope** — plaintext never
+reaches the file when the vault is on.
+
+#### Error codes / outcomes
+
+| Outcome (`syncTodosWithHost` return) | Cause | Safety |
+|---|---|---|
+| `{ skipped: 'encrypted' }` | Vault enabled | expected; no action |
+| `{ error: 'storage read failed' }` / `'storage write failed'` | `chrome.storage.local` rejected | safe to retry (next alarm) |
+| `{ error: <native error> }` e.g. `Specified native messaging host not found`, `Access to the specified native messaging host is forbidden` | Host not installed for this browser / extension id not in `allowed_origins` | **escalate**: run `install-native-host`, reload |
+| `{ error: 'no reply from host' }` / `reply.error` | Host crashed or returned `ok:false` | escalate: run the host by hand (runbook) |
+| `{ error: 'malformed reply from host' }` | `reply.items` not an array or merge threw | escalate; nothing written |
+| `{ changed: false, count }` | Nothing to write | — |
+| `{ changed: true, count }` | Record updated | — |
+
+### Five-standard audit (mdb-tam coding standard for external calls)
+
+| Standard | Status | Notes |
+|---|---|---|
+| 1. CLI / MCP trigger | **N/A — documented** | No server or CLI exists in this repo. Manual trigger: edit any to-do (3 s), reload the extension, or run the host directly (`runbooks/todo-sync-troubleshooting.md`). An operations registry with `tam_ops_*` tools would require a runtime this extension does not have. |
+| 2. Centralized error log | **Partial** | `console.warn('[stickysites] todo-sync', { error })` in the service-worker console. There is no file sink (`~/.stickysites/errors.jsonl`) because extensions cannot write files; the host side (`todo.py`) owns any persistent log. |
+| 3. Auto-remediation map | **Documented** | Table above: storage errors safe-to-retry via the alarm; host/config errors escalate to the install runbook. Not machine-readable (no registry module). |
+| 4. Dashboard card | **N/A** | No dashboard runtime. The popup could show last-sync status — open item, not planned. |
+| 5. Datastore verification | **Structural** | `chrome.storage.local.set` rejects on failure and the error is returned; no explicit read-back. The write is skipped when unchanged, so a silent no-op is intentional rather than a lost write. |
+
+Result: the repo does **not** pass the five-standard contract literally; standards 1 and 4
+presuppose a server runtime. The deviations are recorded in
+`repo-bootstrap-audit-2026-09-27.md` with the rationale above.
+
+# Integrations and Assumptions
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/integrations-and-assumptions.md
+
+## Integrations and Assumptions
+
+### External services and processes
+
+StickySites makes **no network calls**. Its integrations are browser APIs plus one optional
+local process.
+
+| Integration | Purpose | Where | Auth | Failure mode |
+|---|---|---|---|---|
+| `chrome.storage.local` | All persistence (notes, prefs, crypto config, cached key) | every context | per-extension isolation | Extension non-functional; reads return defaults |
+| `chrome.runtime.sendNativeMessage` → `com.mitch.todo_bridge` | Two-way to-do sync with `~/dev/personal/Areas/todo/TODO.md` | `src/background/service-worker.js` → `src/shared/todo-bridge.js` | Browser-level host manifest (`allowed_origins` must list this extension id) | Host missing/forbidden → `console.warn`, list stays local; malformed reply → nothing written |
+| `chrome.alarms` | 2-minute sync period | service worker | — | Sync only runs on startup/edit |
+| `chrome.contextMenus`, `chrome.commands`, `chrome.tabs.sendMessage/query`, `chrome.windows.create` | Clip menu, `Alt+S`, popout | service worker, popup | `activeTab` | Tab without a content script → warning, no-op |
+| Web Crypto (`crypto.subtle`) | PBKDF2, AES-GCM, JWK import/export | `crypto-content.js`, `crypto.js` | — | Encryption unavailable (never on supported Chrome) |
+
+### External tools (development only)
+
+| Tool | Used by | Notes |
+|---|---|---|
+| Node ≥ 22, npm | tests, lint, index check, log rotation | `.nvmrc` = 22 |
+| vitest 5.x, canvas 3.x | `npm test`, `npm run icons` | `package.json` devDependencies |
+| puppeteer-core + Chrome for Testing | `npm run verify:live` | Not in `package.json`; branded Chrome 137+ ignores `--load-extension`; path via `SS_CHROME` |
+| Python 3 + `~/.claude/skills/todo/scripts/todo.py` | native host install and runtime | Outside this repo |
+| `global_ai_hub` MCP server | semantic search while developing | `.mcp.json`; optional |
+
+### Hardcoded assumptions
+
+| Assumption | Location | Impact if wrong |
+|---|---|---|
+| Native host name `com.mitch.todo_bridge` | `src/shared/todo-bridge.js` (`TODO_HOST`) | Sync silently stays local |
+| Host manifest path `~/Library/Application Support/<Browser>/NativeMessagingHosts/` (macOS) | `todo.py install-native-host` | Other OSes need their own install path |
+| Host sections named `From braindumps` / `Sessions · …` are host-owned | `todo-bridge.js` `isHostSection` | Renamed host sections would be treated as user sections (kept when empty) |
+| Content scripts run at `document_idle` on `<all_urls>` | `manifest.json` | Cluster may inject before late DOM; none on `chrome://` pages |
+| z-index near 2³¹ beats host overlays | `sticky-inject.css` | Cluster hidden behind hosts that also use max z-index |
+| Panel min size 350×250, expand width 900, popout window 1400×1100 | `panel.js`, `service-worker.js` | Cosmetic |
+| PBKDF2 600,000 iterations | both crypto files | Changing it invalidates existing vaults (salt + verify token would no longer match) |
+| Prefs default `clusterLayout: 'vertical'`, all six types enabled | `prefs.js` | First-run appearance |
+| 1 s URL poll detects SPA navigation | `sticky-inject.js` | Up to 1 s lag before re-key |
+
+### Context differences
+
+| Context | Module system | Scripts loaded | Storage | Notes |
+|---|---|---|---|---|
+| Content scripts (host page) | classic, `window.StickySites.*` | all 10 in manifest order | `chrome.storage.local` | Only place the cluster, lock overlay, toast, SPA watcher exist |
+| Service worker | ES module | imports `src/shared/todo-bridge.js` | `chrome.storage.local`, alarms | Only place `sendNativeMessage` and `windows.create` are called |
+| Popup page | classic `<script>` | `crypto-content.js`, `popup.js` | `chrome.storage.local` | Writes prefs directly (no `prefs.js`) |
+| Popout page | classic `<script>` | 8 namespace scripts + `popout.js` (no cluster / inject) | `chrome.storage.local` | Drag-off-page popout disabled (`chrome-extension:` origin) |
+| Vitest (node) | ES modules | `src/shared/*`, `outline-ops.js` with stubbed `window` | in-memory mock | No DOM |
+
+### Environment variables
+
+None at runtime. `SS_CHROME` is read only by `scripts/verify-live.mjs` (`.env.example`).
 
 # Installation
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/INSTALLATION.md
@@ -816,47 +1083,55 @@ Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/INSTALLATION.md
 
 #### Prerequisites
 
-- Chrome or Chromium-based browser (Edge, Brave, Arc)
-- Node.js 22+ (only needed if running tests)
+- Chrome or a Chromium-based browser (Edge, Brave, Arc, Chrome Beta) with Manifest V3 support
 - Git
+- Node.js ≥ 22 — only for running tests and tooling
 
 #### Steps
 
-1. Clone the repository:
+1. Clone:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/mithudso/stickysites.git
    cd stickysites
    ```
+2. (Optional, tests/tooling) `npm install && npm run lint && npm test`
+3. Load: `chrome://extensions` → **Developer mode** on → **Load unpacked** → select the
+   `stickysites/` directory (the one containing `manifest.json`)
+4. Verify: the StickySites icon appears in the toolbar; on any `http(s)` page a floating
+   cluster of colored icons appears (default top-right). Click one, or press `Ctrl/Cmd+F1`,
+   to open a note. `Alt+S` hides/shows the cluster.
 
-2. Install dev dependencies (optional, for tests only):
-   ```bash
-   npm install
-   ```
+#### Optional: to-do sync with a local `TODO.md`
 
-3. Load the extension in Chrome:
-   - Navigate to `chrome://extensions`
-   - Enable **Developer mode** (toggle in top-right corner)
-   - Click **Load unpacked**
-   - Select the `stickysites/` directory (the repo root)
+The global to-do list can mirror into a Markdown file through a native-messaging host that
+lives outside this repo (`~/.claude/skills/todo/`). Install it for every browser profile:
 
-4. Verify: the StickySites icon appears in the toolbar, and yellow + green
-   buttons appear on the right edge of any webpage.
+```bash
+python3 ~/.claude/skills/todo/scripts/todo.py install-native-host
+```
+
+Then reload the extension. Without the host the extension works normally and the list stays
+in the browser. Troubleshooting: `runbooks/todo-sync-troubleshooting.md`.
 
 #### Updating
 
-After pulling new changes:
-1. Go to `chrome://extensions`
-2. Click the reload icon on the StickySites card
+```bash
+git pull
+```
+then `chrome://extensions` → ↻ on the StickySites card. If `manifest.json` changed, also
+close and reopen the tabs you use.
 
 #### Uninstall
 
-- `chrome://extensions` → click **Remove** on the StickySites card
-- Delete the local repo directory
+- `chrome://extensions` → **Remove** on the StickySites card (this deletes the extension's
+  `chrome.storage.local`, i.e. all notes — export first from the popup if you want them)
+- Delete the cloned directory
+- If installed, remove the native host manifest
+  `~/Library/Application Support/<Browser>/NativeMessagingHosts/com.mitch.todo_bridge.json`
 
-### Chrome Web Store install
+### Chrome Web Store
 
-Not yet published. See [docs/DEVELOPMENT.md](DEVELOPMENT.md) for packaging
-instructions.
+Not yet published. Packaging steps: `runbooks/release-packaging.md`.
 
 # Development
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/DEVELOPMENT.md
@@ -865,238 +1140,1005 @@ Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/DEVELOPMENT.md
 
 ### Prerequisites
 
-- Node.js 22+ (for running tests and icon generation)
-- Chrome or Chromium browser (for loading the extension)
-- No build step required — source files are loaded directly by Chrome
+- Node.js ≥ 22 (`.nvmrc`) for tests and tooling — the extension itself needs no Node
+- Chrome or a Chromium-based browser (Edge, Brave, Arc, Chrome Beta)
+- No build step: Chrome loads the repo root directly
 
 ### Setup
 
 ```bash
-git clone <repo-url> && cd stickysites
-npm install          # installs vitest + canvas (dev dependencies only)
+git clone https://github.com/mithudso/stickysites.git && cd stickysites
+npm install          # vitest + canvas (dev dependencies only)
+npm run lint && npm test
 ```
 
 ### Loading the extension
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (toggle in top-right)
-3. Click **Load unpacked** and select this repo root
-4. The StickySites notepad icon appears in the toolbar
+1. `chrome://extensions` → enable **Developer mode**
+2. **Load unpacked** → select the repo root
+3. After code changes click ↻ on the StickySites card
+4. If `manifest.json` changed (script, permission, command): reload the extension **and**
+   close/reopen the tabs you test in — Chrome does not re-inject into existing tabs
+5. CSS changes in `src/content/sticky-inject.css` need a page reload on the target site
 
-After making code changes, click the reload icon on the extension card at
-`chrome://extensions` to pick up changes. CSS changes in content scripts require
-a full page reload on the target site.
-
-**Important:** If you change `manifest.json` (e.g., adding a content script file
-or permission), you must reload the extension AND close/reopen all tabs.
+Runbook with verification steps: `runbooks/load-and-reload-extension.md`.
 
 ### Commands
 
 | Command | What it does |
-|---------|-------------|
-| `npm test` | Run 42 unit tests once (vitest) |
-| `npm run test:watch` | Run tests in watch mode |
-| `node scripts/generate-icons.js` | Regenerate toolbar icon PNGs |
+|---|---|
+| `npm run lint` | `node --check` every `.js`/`.mjs`; fails if `manifest.json` and `package.json` versions differ |
+| `npm test` | 101 unit tests (vitest, node env, mocked `chrome`) |
+| `npm run test:watch` | Watch mode |
+| `npx vitest run tests/<file>` | One test file |
+| `npm run docs:check-indexes` | Validate `docs/high_signal_file_index.json` paths and `llms.txt` links; `-- --prune` drops dead entries |
+| `npm run logs:rotate` | Archive old `memory.md` / `prompts.md` sections once past ~200 KB |
+| `npm run icons` | Regenerate `icons/*.png` |
+| `npm run verify:live` | Puppeteer end-to-end harness (`npm i --no-save puppeteer-core`; Chrome for Testing via `SS_CHROME`) |
+
+CI runs lint → test → index check → manifest validation (`.github/workflows/ci.yml`).
 
 ### Project structure
 
+See `codebase-overview.md` for every file. The short version:
+
 ```
-src/
-  background/
-    service-worker.js       — Context menus, keyboard commands (225 lines)
-  content/
-    crypto-content.js       — AES-GCM encryption namespace (198 lines)
-    note-types.js           — Icon registry: 5 note types (74 lines)
-    prefs.js                — Cluster position + panel mode (25 lines)
-    cluster.js              — Floating draggable pill + badges (130 lines)
-    panel.js                — Rich text editor, todo, outliner renderers (793 lines)
-    sticky-inject.js        — Orchestrator: wiring, clip, chord keys, toast, lock (259 lines)
-    sticky-inject.css       — All injected styles (471 lines)
-  shared/
-    notes-storage.js        — Chrome Storage CRUD for all types (304 lines)
-    crypto.js               — AES-GCM (ES module for tests) (71 lines)
-popup.html / popup.js / popup.css  — Browser action popup (all-notes view)
-tests/                              — Vitest unit tests (42 tests)
-scripts/                            — Icon generation
+src/background/service-worker.js   ES module: menus, Alt+S, popout, to-do sync
+src/content/*.js                   10 classic scripts in manifest order → window.StickySites.*
+src/content/sticky-inject.css      all injected styles
+src/shared/*.js                    ES modules: todo-bridge (SW + tests), crypto, notes-storage (tests)
+popup.* / popout.*                 extension pages
+tests/                             vitest
+scripts/                           lint, index check, log rotation, icons, live harness
+docs/                              this documentation + runbooks + indexes
 ```
 
 ### Module system
 
-Content scripts cannot use ES `import`. They share state via a namespace:
+Content scripts cannot `import`; each attaches to `window.StickySites`:
 
-- `window.StickySites.Crypto` — encryption (loaded first)
-- `window.StickySites.noteTypes` — icon registry array
-- `window.StickySites.Prefs` — preferences read/write
-- `window.StickySites.Cluster` — floating pill manager
-- `window.StickySites.Panel` — workspace panel renderer
+`Crypto` → `noteTypes` → `Prefs` → `Cluster` → `Todo` → `OutlineOps` → `Outline` → `Mentions`
+→ `Panel` → orchestrator (`sticky-inject.js`). Adding a script means adding it to
+`manifest.json` **after** its dependencies and to `popout.html` if the popout needs it.
 
-The `src/shared/` ES modules are used by the service worker (`import`) and
-Vitest tests. `crypto-content.js` is the namespace duplicate of `crypto.js`.
+`src/shared/` are ES modules: `todo-bridge.js` is imported by the service worker;
+`crypto.js` (twin of `crypto-content.js`) and `notes-storage.js` (reference CRUD) are used by
+tests. Keep the two crypto files in lock-step.
 
 ### Conventions
 
-- **No frameworks** — vanilla JS, vanilla CSS. No build, no transpile, no bundle.
-- **Prefix everything** — DOM elements use `stickysites-` prefix.
-- **Versioned storage keys** — all keys include `_v1`.
-- **500ms debounce** — auto-save fires 500ms after the last keystroke.
-- **Tailwind Slate palette** — color tokens follow Tailwind's Slate scale.
-- **`var` in content scripts** — content scripts use `var` (not `let`/`const`)
-  for consistency with the namespace IIFE pattern.
+- **No frameworks, no build** — vanilla JS and CSS.
+- **Prefix everything** injected with `stickysites-`; z-index near INT32_MAX.
+- **Versioned storage keys** (`_v1`); adapt legacy shapes at read time, never bulk-migrate.
+- **500 ms debounce** on auto-save; `flushPendingSave()` before close / switch / popout / re-key.
+- **Snapshot the key at `open()`** — never re-derive `_activeKey` mid-session.
+- **Locked vault ⇒ no plaintext writes.** Check `Crypto.getCachedKey()` before writing a note key.
+- **Logging**: `console.warn('[stickysites] <subsystem>', {...})` on integration failure paths
+  only; never note content or key material (`logging.md`).
+- **Versions**: bump `manifest.json` and `package.json` together; log the change in
+  `prompts.md` / `memory.md` (see `CLAUDE.md` → Workflow log rule).
+- 2-space indent, LF, final newline (`.editorconfig`); content scripts use `var` inside the
+  namespace IIFEs.
 
 ### Debugging
 
-- **Content script**: DevTools on any page → Console. Look for `#stickysites-cluster`.
-- **Service worker**: `chrome://extensions` → click "Service worker" link.
-- **Popup**: Right-click the popup → Inspect.
-- **Storage**: In any extension context console:
-  ```js
-  chrome.storage.local.get(null, console.log)     // all local data
-  chrome.storage.session.get(null, console.log)    // session key (if encrypted)
-  ```
-- **Encrypted storage**: If encryption is enabled, storage values show `{iv, data}`
-  instead of plaintext objects.
+| Context | How |
+|---|---|
+| Content script | DevTools on the page → Console / Elements; look for `#stickysites-cluster`, `#stickysites-panel` |
+| Service worker | `chrome://extensions` → StickySites → **Service worker**; `[stickysites]` warnings show sync/tab failures |
+| Popup / popout | Right-click the page → Inspect |
+| Storage | any extension console: `chrome.storage.local.get(null, console.log)` |
+| Encryption state | `chrome.storage.local.get(['stickysites_crypto_v1','stickysites_cached_key'], console.log)` — a JWK under `stickysites_cached_key` means unlocked |
+| To-do sync | `runbooks/todo-sync-troubleshooting.md` |
 
-### Packaging for distribution
+Encrypted storage values appear as `{ iv, data }` envelopes instead of records.
 
-```bash
-## Create a .zip for Chrome Web Store upload (exclude dev files)
-zip -r stickysites.zip manifest.json icons/ src/ popup.* \
-  -x "*.DS_Store" -x "node_modules/*" -x "tests/*" -x "scripts/*"
-```
+### Packaging
+
+`runbooks/release-packaging.md` — version bump, tag, store zip, rollback.
 
 # Testing
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/TESTING.md
 
 ## Testing
 
-### Framework
+### Framework and commands
 
-[Vitest](https://vitest.dev/) v4.1+ — fast, ESM-native test runner.
-
-### Commands
+[Vitest](https://vitest.dev/) 5.x, node environment, `globals: true` (`vitest.config.mjs`).
 
 ```bash
-npm test            # single run
-npm run test:watch  # watch mode with HMR
+npm test                                   # single run — 4 files, 101 tests (~350 ms)
+npm run test:watch                         # watch mode
+npx vitest run tests/todo-bridge.test.js   # one file
+npm run lint                               # syntax gate + version agreement (runs before tests in CI)
+npm run verify:live                        # optional end-to-end harness (see below)
 ```
 
-### Test structure
+### Suites
 
-```
-tests/
-  notes-storage.test.js   — tests for the shared storage module
-  crypto.test.js          — 5 tests for the shared crypto module
-  outline-ops.test.js     — tests for the pure outline tree operations
-```
-
-Total: **72 tests** across 3 files.
-
-### `tests/notes-storage.test.js`
-
-Tests all exports from `src/shared/notes-storage.js` using a `chrome.storage.local` mock
-implemented as an in-memory `store` object. Each `describe` block calls `beforeEach(() => { store = {}; })` to reset state.
-
-#### Test suites
-
-| Suite | Tests | What is covered |
-|-------|-------|-----------------|
-| `getSiteKey` | 3 | hostname extraction, `www.` stripping, invalid URL returns `''` |
-| `parseTags` | 5 | empty input, comma/space splitting, `#` prefix preservation, deduplication, lowercasing |
-| `global note` | 2 | empty read, write + read round-trip |
-| `site note` | 5 | null on miss, write + read round-trip, `createdAt` preservation on update, delete, read-all |
-| `getPageKey` | 4 | `origin + pathname` extraction, query-string stripped, hash stripped, invalid URL returns `''` |
-| `page note` | 5 | null on miss, write + read round-trip, `createdAt` preservation, delete, read-all |
-| `preferences` | 3 | default values, write + read back, partial merge |
-| `todo` | 5 | null on miss, write + read round-trip, `createdAt` preservation, delete, read-all |
-| `outline` | 5 | null on miss, write + read round-trip, `createdAt` preservation, delete, read-all |
-| `daily note` | 6 | getDailyKey format, null on miss, write + read round-trip, `createdAt` preservation, delete, read-all |
+| File | Tests | Module under test | What is covered |
+|------|------:|-------------------|-----------------|
+| `tests/notes-storage.test.js` | 50 | `src/shared/notes-storage.js` | `getSiteKey` (www strip, invalid URL), `getPageKey` (query/hash stripped), `getDailyKey`, `parseTags` (split, `#` prefix, dedupe, lowercase), CRUD + `createdAt` preservation + delete + readAll for global, site, page, daily, todo, outline; prefs defaults (match `prefs.js`) / write / partial merge; todo `sections`/`tagColors` round-trip |
+| `tests/todo-bridge.test.js` | 23 | `src/shared/todo-bridge.js` | `buildRequest` shape and coercion; `applyHostResult` — local-only fields kept, section name↔id mapping, host-origin section pruning, `completedAt` backfill/clear, `changed` detection; `syncTodosWithHost` — encrypted skip, host error, malformed reply, no-write when unchanged, storage read/write failures |
+| `tests/outline-ops.test.js` | 21 | `src/content/outline-ops.js` (with a stubbed `window`) | `findParent`, insert/indent/outdent/move/remove, `filterTree` (ancestors kept), `extractTags`, `autoGroup`, `toMarkdown`, `toOPML` |
+| `tests/crypto.test.js` | 7 | `src/shared/crypto.js` | 16-byte salt, `CryptoKey` derivation, encrypt/decrypt round-trip, wrong-key failure, `isEncrypted` |
 
 #### Chrome API mocking
 
-```js
-let store = {};
-globalThis.chrome = {
-  storage: {
-    local: {
-      get: async (keys) => {
-        if (typeof keys === 'string') return { [keys]: store[keys] };
-        if (Array.isArray(keys)) return Object.fromEntries(keys.map(k => [k, store[k]]));
-        return { ...store };
-      },
-      set: async (items) => { Object.assign(store, items); },
-      remove: async (keys) => { for (const k of [].concat(keys)) delete store[k]; }
-    }
-  }
-};
-```
+Tests replace `globalThis.chrome.storage.local` with an in-memory object exposing `get`, `set`,
+`remove`; `beforeEach` resets it. `todo-bridge` takes `storage` and `sendNativeMessage` as
+parameters, so its tests inject fakes and never touch `chrome.*`. `outline-ops` is loaded
+after assigning `globalThis.window = {}` so the namespace IIFE has somewhere to attach.
 
-### `tests/crypto.test.js`
+### Coverage target
 
-Tests the pure cryptographic primitives in `src/shared/crypto.js`. Uses the Web Crypto
-API available in the Vitest environment.
+**Meaningful coverage of the paths that lose or corrupt data if wrong**, with assertions on
+behaviour — not a blanket line-percentage. Concretely, every exported function in
+`src/shared/` and `src/content/outline-ops.js` has at least one behavioural test, and every
+change to storage shapes, the merge in `todo-bridge.js`, or the envelope check ships with a
+test in the same PR. No numeric threshold is enforced in CI; the gate is "all tests pass"
+plus the review checklist in `.github/PULL_REQUEST_TEMPLATE.md`.
 
-| Test | What is covered |
-|------|-----------------|
-| `generateSalt returns 16 bytes` | Returns a `Uint8Array` of length 16 |
-| `deriveKey returns a CryptoKey` | Returns a secret `CryptoKey` from passphrase + salt |
-| `encrypt and decrypt round-trip` | Encrypted envelope decrypts back to the original plaintext |
-| `decrypt fails with wrong key` | Decrypting with a different derived key throws |
-| `isEncrypted detects encrypted envelopes` | Correctly identifies `{ iv, data }` vs. plain note shapes |
+### CI gates (`.github/workflows/ci.yml`)
+
+1. `npm run lint` — `node --check` over every `.js`/`.mjs`; `manifest.json` and `package.json` versions must agree.
+2. `npm test` — the 101 unit tests.
+3. `npm run docs:check-indexes` — `docs/high_signal_file_index.json` and `llms.txt` links resolve.
+4. `manifest.json` parses and declares `manifest_version: 3`.
 
 ### What is not unit-tested
 
-- **DOM injection** in `sticky-inject.js`, `cluster.js`, `panel.js` — tightly coupled to
-  the Chrome content-script runtime. Validate manually or with Playwright E2E tests using
-  `launchPersistentContext` with the extension loaded.
-- **Service worker message passing** — integration test territory, not unit tests.
-- **Popup** (`popup.js`) — DOM-heavy; covered by manual testing and visual inspection.
+- **DOM layers** — `panel.js`, `cluster.js`, `outline.js`, `mentions.js`, `sticky-inject.js`,
+  `popup.js`, `popout.js`. They are coupled to the content-script runtime and `execCommand`.
+- **Service worker wiring** — context menus, commands, alarms, `sendNativeMessage` glue
+  (the merge logic it calls *is* tested).
+- **Encryption end-to-end** in the namespace module (`crypto-content.js`); the primitives are
+  tested through the ES twin.
 
-### Coverage priorities for future tests
+These are covered by the live harness and by the manual checklist in
+`docs/runbooks/load-and-reload-extension.md`.
 
-1. `createDebouncedSaver()` — timer behavior and cancellation
-2. `clipToNote()` in `sticky-inject.js` — requires DOM + storage mocks
-3. Popup search/sort/filter logic in `popup.js` — pure filtering functions are extractable
+### Live harness (`npm run verify:live`)
+
+`scripts/verify-live.mjs` drives an unpacked build with puppeteer-core:
+
+- Needs `npm i --no-save puppeteer-core` and a Chromium that honours `--load-extension`
+  (Chrome for Testing; branded Chrome 137+ ignores it). Override the binary with `SS_CHROME`.
+- Spins up a local HTTP server with classic pages and an SPA route, then checks: identity
+  icons (S1), caret stability across save cycles (S2), per-page identity (S3), SPA re-key (S4),
+  unfocused cross-tab sync (S5), site note (S6), outliner keyboard/zoom/filter/auto-group/export
+  (S7a–k), popup labels and storage integrity (S8), encryption enable → Lock Now → locked
+  popout read-only → unlock (S9a–d).
+- Screenshots land in `/tmp/stickysites-verify`; exit code is non-zero on any ❌ step
+  (🔍 marks probes that are informational).
+
+### Adding tests
+
+- Pure logic → extract into `src/shared/` or a `*-ops.js` namespace module and test it directly.
+- Anything asserting on the service worker's `console.warn` failure logs →
+  `vi.spyOn(console, 'warn')`; see `docs/logging.md`.
+- Keep `describe` blocks per export; reset the storage mock in `beforeEach`.
+
+# Logging
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/logging.md
+
+## Logging
+
+### Approach
+
+StickySites has **no logging framework and no log sink outside the browser**. There is no
+server, no file, and no remote service. Diagnostics are the browser's own consoles:
+
+| Context | Where output appears |
+|---|---|
+| Content scripts (`src/content/*.js`) | DevTools console of the host page |
+| Service worker (`src/background/service-worker.js`) | `chrome://extensions` → StickySites → **Service worker** link |
+| Popup / popout pages | Right-click the page → Inspect |
+
+As of v1.11.1 the production code emits **`console.warn` on the service worker's failure
+paths only** (to-do sync, clip delivery, toggle delivery). Everything else fails silently
+by design — see "Silent-failure inventory" below.
+
+### Levels
+
+| Level | Meaning here |
+|---|---|
+| `console.warn` | An optional integration failed and the extension degraded gracefully (native host missing, tab without content script). Safe to ignore unless the user expected the feature. |
+| `console.error` | Reserved for corrupted storage or a failed write the user would notice as lost data. Not used yet. |
+| `console.log` / `debug` | Not used in shipped code. Add locally while debugging, remove before commit. |
+
+### Structured shape
+
+When you add a log line, prefix it so it can be filtered with the DevTools regex box:
+
+```js
+console.warn('[stickysites] todo-sync', { error: result.error, extId: chrome.runtime.id });
+```
+
+`[stickysites] <subsystem>` then one object. Never log a note body, a passphrase, or the
+cached key.
+
+### Silent-failure inventory
+
+These `catch` blocks intentionally swallow errors and return a neutral value. They are the
+paths the logging standard flags as "unlogged error paths"; each is listed with why it stays
+quiet:
+
+| Location | Behaviour | Why quiet |
+|---|---|---|
+| `src/content/crypto-content.js` `getCachedKey`, `clearCachedKey`, `unlock`, `decryptValue`, `_decryptAllNotes` | return `null` / `false` / the raw value | Called on every read; a wrong passphrase or locked vault is a normal state, not an error |
+| `src/content/prefs.js` `read`/`write`, `src/shared/notes-storage.js` (all CRUD) | return defaults / `null` / `[]` | Storage is per-extension and effectively never fails; UI must still render |
+| `src/content/panel.js` prefs writes, `_flushSave` calls | comment `best-effort` | Panel position/size are cosmetic; the pending save is retried on the next debounce |
+| `src/content/panel.js:828` | skip a `Range` that crosses element boundaries | Find-highlighting edge case; the match is simply not highlighted |
+| `src/content/outline.js:36` | treat undecryptable outline map as `{}` | Locked vault; the renderer shows the lock notice instead |
+| `src/content/sticky-inject.js:217` | proceed without prefs | Only affects `enabledTypes` filtering of function-key shortcuts |
+| `src/background/service-worker.js` (3 sites) | `console.warn('[stickysites] …')` | **Logged** — these are the integration boundaries (tabs without content script, native host missing) |
+
+If you add a new external boundary (a new `chrome.runtime.sendNativeMessage`, a new message
+type), log its failure path; if you add another storage read, the neutral-return pattern above
+is fine.
+
+### Sensitive data rules
+
+Never write to any console:
+
+- note bodies, to-do text, outline text (user content — may be confidential)
+- the passphrase or the JWK in `stickysites_cached_key`
+- the verify envelope or salt from `stickysites_crypto_v1`
+
+Extension ids, storage key names, item counts, and error messages from the native host are fine.
+
+### Testing logs
+
+Unit tests (`tests/`) run in node with a mocked `chrome`; none assert on console output today.
+When a service-worker failure path gains logic beyond `console.warn`, assert on it with
+`vi.spyOn(console, 'warn')` in a new test rather than by reading the browser console.
+
+# Caching and Optimization
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/caching-and-optimization.md
+
+## Caching and Optimization
+
+### Cache layers
+
+| Layer | What is cached | Invalidation |
+|---|---|---|
+| `Crypto._cachedKey` (in-memory, per page / per extension page) | The imported `CryptoKey` after the first `getCachedKey()` | Cleared by `clearCachedKey()` (Lock Now, disable) and on page unload |
+| `chrome.storage.local["stickysites_cached_key"]` | JWK export of the derived AES-GCM key | Removed by Lock Now / disable; **persists across browser restarts** until then |
+| `Panel._loadedIds` | Ids of to-do items present when the panel opened | Rebuilt on every `open()`; lets `_writeStructured` keep items another writer (the TODO.md sync) added meanwhile |
+| `Panel._lastWrittenBody` | The HTML this panel last saved | Used by `syncFromStorage` to skip its own echo from `chrome.storage.onChanged` |
+| Popup `loadAllNotes()` result | Decrypted list of every note | Re-read on every popup open; no persistence |
+
+There is no HTTP cache, CDN, or database — all data is `chrome.storage.local`.
+
+### Performance patterns in use
+
+- **Debounced auto-save (500 ms)** for every editor (`panel.js`); `flushPendingSave()` forces
+  the trailing write before close / switch / popout / SPA re-key.
+- **Debounced to-do sync (3 s)** after a `stickysites_todos_v1` change, plus a 2-minute
+  `chrome.alarms` period, with a `todoSyncRunning` re-entrancy guard (`service-worker.js`).
+- **Change detection before write** in `todo-bridge.applyHostResult` — a canonical
+  (key-sorted) serialization compares the merged list with the stored one so unchanged
+  syncs never touch storage or wake other tabs.
+- **Read-time schema adaptation** instead of migrations: legacy `siteKey`/`pageKey`/hostname
+  outline keys are normalised when read, never rewritten in bulk.
+- **1 s `href` poll** for SPA navigation (`sticky-inject.js`) instead of a `MutationObserver`
+  over the whole document.
+- **`document_idle`** injection so the host page finishes its own work first.
+- **Single `chrome.storage.onChanged` listener** per tab fans out to the open panel only.
+
+### Known bottlenecks
+
+| Bottleneck | Cost | Mitigation |
+|---|---|---|
+| PBKDF2 at 600,000 iterations | 1–4 s per unlock on slow hardware, blocks the unlock button | By design (NIST guidance); a spinner is an open item in `known-issues.md` |
+| `enable()` / `disable()` re-encrypt all six note keys in one pass | Proportional to total note size | Runs once; popup shows the toggle state only after completion |
+| Popup `loadAllNotes()` decrypts every record on open | Linear in note count | Acceptable at hundreds of notes; paginate if it grows |
+| `execCommand`-based toolbar | Synchronous DOM mutation on large bodies | No action; bodies are small |
+
+### Profiling
+
+- **Content script**: DevTools → Performance on the host page; filter by `stickysites` in the
+  call tree. Record while typing to see the 500 ms save cadence.
+- **Service worker**: `chrome://extensions` → Service worker → Performance tab; trigger a
+  sync by editing a to-do and watch `runTodoSync`.
+- **Storage size**: in any extension console,
+  `chrome.storage.local.getBytesInUse(null, b => console.log(b))`.
+
+# MCP
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/MCP.md
+
+## MCP
+
+### Servers shipped by this repo
+
+**None.** StickySites is a Chrome extension with no server process, so it exposes no
+Model Context Protocol tools and has no MCP-facing operations registry. The
+`server/src/lib/operations-registry.js` + `tam_ops_*` tool contract from the mdb-tam
+standard does not apply here; the single out-of-browser call (native-messaging to-do
+sync) is inventoried in [external-calls.md](external-calls.md) instead.
+
+### Servers used while developing this repo
+
+| Server | Config | Purpose | Auth |
+|---|---|---|---|
+| `global_ai_hub` | `.mcp.json` (Claude Code), `.vscode/mcp.json` (VS Code) | Local semantic index over `~/dev/*` — `hub_search_codebase`, `hub_search_symbols`, `hub_ask`, `hub_pm_get` (project registry) | None; stdio, runs from `~/.global-ai-hub/.venv` |
+
+The hub server is the developer's machine-wide tool, not part of the extension. Both config
+files start it with the same command; neither carries environment values (the hub's Ollama
+endpoints are set in `~/.global-ai-hub/.mcp.json`, outside this public repo).
+
+#### Usage
+
+- "Where is X / what does Y do" → `hub_search_codebase` with `--prefix /Users/mitch/dev/stickysites`
+  before grepping.
+- Project record (purpose, files, outstanding items) → `hub_pm_get stickysites`.
+- Register / refresh the record: `python3 ~/.global-ai-hub/scripts/project_manager.py upsert stickysites --path <abs path>`.
+
+If the server is unreachable, fall back to `grep`/`Read`; nothing in the build or tests
+depends on it.
+
+### Health check
+
+```bash
+"$HOME/.global-ai-hub/.venv/bin/python" "$HOME/.global-ai-hub/mcp-server/hub_mcp_server.py" --help
+```
+
+A non-zero exit means the hub venv is missing on this machine; the extension is unaffected.
+
+# Requirements
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/requirements.md
+
+## Requirements
+
+### Functional
+
+#### Note types
+- **Global** — one note on every site
+- **Site** — one per hostname (www-stripped)
+- **Page** — one per origin + pathname (query/hash excluded)
+- **To-do** — one global list: nested items (indent 0–3), sections, priority 0–5, colors,
+  tags, per-item notes, completion timestamps, drag-reorder; optional two-way sync with a
+  local `TODO.md` via native messaging
+- **Outliner** — global library of named documents: indent/outdent, move, collapse, zoom,
+  per-node notes, done state, `#tag` chips, filter, auto-group with undo, Markdown/OPML export
+- **Daily** — one per `YYYY-MM-DD`
+
+#### Editor
+- Rich text via `contenteditable` with a 19-tool toolbar (two rows)
+- Find & Replace (`Cmd/Ctrl+F` / `Cmd/Ctrl+H`), match counter, Replace All
+- `@` mention autocomplete (link, date, contact, file); inline `#tags`
+- Auto-save debounced at 500 ms; live cross-tab sync without clobbering a focused editor
+
+#### Navigation and shell
+- Floating cluster pill with identity-bearing icons; drag to position; long-press to reorder;
+  horizontal/vertical layout; per-type visibility
+- `Alt+S` toggles the cluster; `Ctrl/Cmd+F1…F6` toggle the six note types; no bare-key hotkeys
+- Context menu: clip selected text into any note type
+- Panel: move by header, resize from any edge/corner, expand/shrink, pop out to its own window
+  (button or drag off the page); size/position persisted
+- SPA-aware: icons and open site/page notes re-key on URL change
+
+#### Popup
+- Quick-Open row; search; sort Recent / Oldest / A–Z; type and tag filters; Markdown export
+- Settings: encryption Enable / Disable / Lock Now, note-type visibility, cluster layout
+- Lock screen when the vault is locked
+
+#### Encryption
+- Opt-in AES-256-GCM; PBKDF2 (600,000 iterations, SHA-256, 16-byte salt)
+- Derived key cached as JWK in `chrome.storage.local` until Lock Now
+- Lock overlay in-page; no plaintext writes while locked; to-do sync skipped while encrypted
+
+### Non-functional
+
+- Vanilla JavaScript/CSS; no frameworks, transpilers, bundlers, or runtime npm dependencies
+- Chrome Manifest V3; content scripts as classic scripts on `window.StickySites.*`; module
+  service worker
+- All injected DOM prefixed `stickysites-`; z-index near INT32_MAX
+- Storage keys versioned `_v1`; legacy shapes adapted at read time
+- Data never leaves the device except the optional local to-do host
+- Unit tests for every shared/pure module; CI: lint, test, index check, manifest validation
+- 2-space indent, LF line endings
+
+### Dependencies
+
+**Runtime**: none.
+
+| Dev package | Purpose |
+|---|---|
+| vitest 5.x | Unit test runner (node environment) |
+| canvas 3.x | `npm run icons` |
+| puppeteer-core (not in `package.json`; `npm i --no-save`) | `npm run verify:live` |
+
+**External (optional)**: Python 3 + `~/.claude/skills/todo/` for the native-messaging host.
+
+### Browser requirements
+
+- Chrome 116+ (MV3 module service worker, `chrome.alarms`, `chrome.runtime.sendNativeMessage`)
+- Chromium-based browsers with MV3 support; native host manifest is per-browser
+
+### Permissions
+
+| Permission | Reason |
+|---|---|
+| `storage` | Notes, prefs, crypto config, cached key |
+| `activeTab` | Message the active tab from the SW and popup |
+| `contextMenus` | Clip submenu |
+| `alarms` | 2-minute to-do sync schedule |
+| `nativeMessaging` | To-do sync host |
 
 # Known issues
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/known-issues.md
 
 ## Known issues
 
+Format: symptom → cause → workaround → files.
+
 ### No Shadow DOM encapsulation
+**Impact**: Low–Medium · **Status**: Open
+Injected elements live in the host page's DOM, so aggressive host CSS (`* { all: unset }`,
+broad `div` rules) can break the UI, and host JavaScript can read an open panel's content.
+Workaround: none; encryption protects data at rest only. Fix: wrap the UI in a Shadow DOM root.
+Files: `src/content/sticky-inject.js`, `cluster.js`, `panel.js`, `sticky-inject.css`.
 
-**Impact**: Low–Medium
-**Status**: Open
+### Orphaned listeners after extension reload
+**Impact**: Low · **Status**: Mitigated
+After an extension update Chrome may re-inject content scripts. The `#stickysites-cluster`
+guard prevents a second UI, but listeners from the previous injection remain until the page
+reloads. Workaround: reload the page after updating. Files: `sticky-inject.js`.
 
-The content scripts inject elements directly into the host page's DOM. Host-page CSS
-with aggressive selectors (e.g., `* { all: unset }` or broad `div` rules) can break
-the StickySites UI. Conversely, host-page JavaScript can read the note panel's DOM.
+### PBKDF2 unlock has no progress indicator
+**Impact**: Low (UX) · **Status**: By design
+600,000 iterations take 1–4 s on slow hardware; the unlock button appears to hang.
+Workaround: wait. Fix: spinner / "Unlocking…" state in the lock overlay and popup lock screen.
+Files: `sticky-inject.js` (`showLockOverlay`), `popup.js`.
 
-The floating cluster design (v1.7.0) reduces the visual footprint compared to the old
-fixed sidebar, but does not fully eliminate the risk.
+### Cached key persists on disk until Lock Now
+**Impact**: Medium while unlocked · **Status**: By design (ADR-3)
+`stickysites_cached_key` (JWK) sits in the Chrome profile across restarts. Anyone with the
+profile directory can read it while the vault is unlocked. Workaround: click **Lock Now**
+when leaving the machine. Files: `crypto-content.js`, `popup.js`.
 
-**Workaround**: None currently. Future fix: wrap injected elements in a Shadow DOM root.
+### `src/shared/notes-storage.js` is not the runtime storage layer
+**Impact**: Low (maintenance) · **Status**: Open
+The extension reads/writes `chrome.storage.local` directly in `panel.js`, `outline.js`,
+`sticky-inject.js`, and `popup.js`; `notes-storage.js` is imported only by tests, so its
+record shapes can drift from what the UI writes (it is plaintext-only). Workaround: treat it as documentation + test fixture; when changing a record
+shape, update both. Fix: either route the UI through it or trim it to what tests need.
 
-### Content script re-injection on extension update
+### Popup bypasses `Prefs`
+**Impact**: Low · **Status**: Open
+`popup.html` does not load `prefs.js`, so `popup.js` writes `enabledTypes` / `clusterLayout`
+with `chrome.storage.local.set` directly. Any new default added to `prefs.js` must be
+mirrored there. Files: `popup.js`, `src/content/prefs.js`.
 
-**Impact**: Low
-**Status**: Mitigated
+### `panelMode` pref is unused
+**Impact**: None · **Status**: Open
+`prefs.js` defaults `panelMode: 'fixed'` and tests round-trip it, but no runtime code reads
+it. Safe to remove once tests are adjusted. Files: `prefs.js`, `notes-storage.js`, tests.
 
-Chrome may re-inject content scripts after an extension update. The guard clause
-(`if (document.getElementById('stickysites-cluster')) return;`) prevents double UI,
-but event listeners from the previous injection may remain orphaned.
+### To-do sync requires a per-browser host manifest
+**Impact**: Low · **Status**: By design
+Each Chromium browser (Chrome, Chrome Beta, Brave, Arc…) has its own `NativeMessagingHosts`
+directory and each unpacked install has its own extension id. Re-run
+`todo.py install-native-host` after loading the extension from a new path or in a new browser.
+Files: `docs/runbooks/todo-sync-troubleshooting.md`.
 
-**Workaround**: Reload the page after updating the extension.
+### Live harness needs Chrome for Testing
+**Impact**: Low (tooling) · **Status**: By design
+Branded Chrome 137+ ignores `--load-extension`, so `npm run verify:live` needs a Chrome for
+Testing / Chromium binary (`SS_CHROME`). The harness header still says "v1.10" and strips a
+`.stickysites-cluster-badge` element that no longer exists — harmless. Files: `scripts/verify-live.mjs`.
 
-### PBKDF2 key derivation is slow on low-end devices
+### Encryption covers note keys only
+**Impact**: Low · **Status**: By design
+Prefs (`stickysites_prefs_v1`) and the crypto config are plaintext; note *titles* are not
+stored separately, but site/page keys (hostnames, paths) live inside the encrypted envelopes
+and are therefore protected. Files: `crypto-content.js`.
 
-**Impact**: Low (UX)
-**Status**: By design
+# Onboarding
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/onboarding.md
 
-Key derivation uses 600,000 PBKDF2 iterations, which is the NIST-recommended minimum
-for 2023. On low-end mobile or older desktop hardware this can take 2–4 seconds each
-time the user enters their passphrase to unlock. There is no loading indicator during
-derivation, so the unlock button appears to hang.
+## Onboarding
 
-**Workaround**: None. Future improvement: add a spinner or "Unlocking…" message during
-derivation.
+From zero to a merged change in about ten minutes.
 
+### 1. Clone and install
+
+```bash
+git clone https://github.com/mithudso/stickysites.git
+cd stickysites
+npm install
+```
+
+### 2. Run the checks
+
+```bash
+npm run lint && npm test
+```
+
+Expected: `✔ 26 JavaScript files parse; manifest.json and package.json versions agree`, then
+`Test Files 4 passed · Tests 101 passed`.
+
+### 3. Load the extension
+
+`chrome://extensions` → Developer mode → **Load unpacked** → repo root. The StickySites icon
+appears in the toolbar.
+
+### 4. See it work
+
+- Visit any page: a floating cluster of colored icons appears. Click one, or press
+  `Ctrl/Cmd+F1` (Global) … `F6` (Daily). `Alt+S` hides the cluster.
+- Type in the panel; open the same site in another tab and watch the note sync.
+- Toolbar icon → popup: search, Quick-Open, Settings (try Enable encryption, then Lock Now).
+- Optional: `python3 ~/.claude/skills/todo/scripts/todo.py install-native-host`, reload, and
+  watch the to-do list mirror into `TODO.md`.
+
+### 5. Understand the codebase
+
+Read in order:
+1. `CLAUDE.md` — shape, commands, storage keys, conventions
+2. `docs/ARCHITECTURE.md` — contexts, data flows, ADRs
+3. `docs/COMPONENTS.md` — what each module exposes
+4. `docs/DEVELOPMENT.md` — debugging and conventions
+5. `docs/SECURITY.md` before touching anything crypto-related
+
+### 6. Make a change
+
+Good first tasks: add a test to `tests/todo-bridge.test.js` or `tests/outline-ops.test.js`;
+a style fix in `src/content/sticky-inject.css`; a doc correction.
+
+Then:
+1. `npm run lint && npm test`
+2. ↻ the extension at `chrome://extensions` and refresh your test page
+3. Bump the patch version in `manifest.json` **and** `package.json`; log the change in
+   `prompts.md` and `memory.md` (see `CLAUDE.md` → Workflow log rule)
+4. Open a PR — the template asks for tests, risk, and rollback; CI runs lint, tests, and the
+   index check
+
+# Runbook: load, reload, and verify the unpacked extension
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/load-and-reload-extension.md
+
+## Runbook: load, reload, and verify the unpacked extension
+
+**Precondition**: repo checked out; `npm run lint && npm test` green.
+
+### Steps
+
+1. Open `chrome://extensions`, enable **Developer mode**.
+2. **Load unpacked** → select the repo root (the directory containing `manifest.json`).
+3. After any code change click **↻** on the StickySites card.
+4. If `manifest.json` changed (new content script, permission, command): reload the
+   extension **and** close/reopen every tab you are testing in — Chrome does not re-inject
+   content scripts into existing tabs.
+5. CSS-only changes in `src/content/sticky-inject.css` need a page reload on the target site.
+
+### Verification
+
+- Visit any `http(s)` page: the floating cluster (`#stickysites-cluster`) appears.
+- `Ctrl/Cmd+F1` opens the Global note; `Alt+S` hides/shows the cluster.
+- Toolbar icon opens the popup with the Quick-Open row.
+- Automated: `npm i --no-save puppeteer-core && npm run verify:live` (needs Chrome for Testing;
+  branded Chrome 137+ ignores `--load-extension`; override the binary with `SS_CHROME`).
+
+### Escalation
+
+- Cluster never appears → DevTools console on the page; look for a syntax error naming a
+  `src/content/*.js` file, then `npm run lint`.
+- Service worker "inactive" with errors → click **Service worker** on the card and read the
+  `[stickysites]` warnings (see `docs/logging.md`).
+
+# Runbook: cut a release (zip for the Chrome Web Store)
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/release-packaging.md
+
+## Runbook: cut a release (zip for the Chrome Web Store)
+
+**Precondition**: `main` green in CI; `manifest.json` and `package.json` carry the same new
+version (`npm run lint` enforces this); `memory.md` / `prompts.md` updated.
+
+### Steps
+
+1. Bump the version in **both** files (patch for fixes, minor for features):
+   ```bash
+   # example: 1.11.1
+   sed -i '' 's/"version": "[0-9.]*"/"version": "1.11.1"/' manifest.json package.json
+   npm run lint
+   ```
+2. Commit, push, merge via PR (CI must pass).
+3. Tag: `git tag v1.11.1 && git push origin v1.11.1`.
+4. Build the store zip from a clean tree (dev files excluded):
+   ```bash
+   zip -r stickysites-1.11.1.zip manifest.json icons/ src/ popup.html popup.js popup.css \
+     popout.html popout.js popout.css -x "*.DS_Store"
+   ```
+5. Upload at the Chrome Web Store developer dashboard (not yet published — see
+   `docs/INSTALLATION.md`).
+
+### Verification
+
+- `unzip -l stickysites-1.11.1.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
+  or `.remember/` entries.
+- Load the unzipped folder unpacked in a fresh profile and run the checks in
+  `load-and-reload-extension.md`.
+
+### Rollback
+
+Unpacked installs: `git checkout <previous tag>` and click ↻. Store installs: upload the
+previous zip as a new version (store versions must increase — bump patch again).
+Storage keys are versioned (`_v1`) and readers adapt legacy shapes, so no data migration
+runs on downgrade.
+
+# Runbook: to-do ↔ TODO.md sync is not happening
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/todo-sync-troubleshooting.md
+
+## Runbook: to-do ↔ TODO.md sync is not happening
+
+The global to-do list optionally syncs with a local `TODO.md` through the native-messaging
+host `com.mitch.todo_bridge` (`src/shared/todo-bridge.js`, driven by
+`src/background/service-worker.js`). Without the host the extension works normally and the
+list stays local.
+
+**Precondition**: the `todo` skill is present at `~/.claude/skills/todo/`.
+
+### Steps
+
+1. **Is the host installed for this browser?** The manifest lives at
+   `~/Library/Application Support/<Browser>/NativeMessagingHosts/com.mitch.todo_bridge.json`
+   (Chrome, Chrome Beta, Chromium, Brave, Arc each have their own directory). Install or
+   refresh for every profile on the machine:
+   ```bash
+   python3 ~/.claude/skills/todo/scripts/todo.py install-native-host
+   ```
+   It finds StickySites' unpacked extension id in each browser profile and writes
+   `allowed_origins`.
+2. **Does the manifest point at an executable?** `path` must be
+   `~/.claude/skills/todo/scripts/todo_host` and it must be `chmod +x`.
+3. **Is the extension id in `allowed_origins`?** Compare with the id shown on the
+   StickySites card at `chrome://extensions`. Ids change if you load the unpacked folder
+   from a different path — re-run step 1.
+4. **Reload the extension** (↻ on the card) after any manifest change.
+5. **Read the service-worker console** (`chrome://extensions` → Service worker). A
+   `[stickysites] todo-sync` warning carries the host's error text
+   (`Specified native messaging host not found`, `Access to the specified native messaging
+   host is forbidden`, …).
+6. **Is the vault locked or encrypted?** Sync is skipped while `stickysites_todos_v1` is an
+   `{ iv, data }` envelope — by design, plaintext never reaches the file. Disable
+   encryption or accept local-only to-dos.
+
+### Verification
+
+Edit a to-do in the panel; within ~3 s the item appears in `TODO.md`. Edit `TODO.md`;
+within 2 minutes (or after an extension reload) the panel reflects it.
+
+### Escalation
+
+Run the host by hand to see its own errors:
+```bash
+echo '{"cmd":"sync","ext":"test","items":[],"sections":[]}' | python3 ~/.claude/skills/todo/scripts/todo.py native-host
+```
+(Native messaging frames messages with a 4-byte length prefix, so a plain pipe may be
+rejected; the error text still tells you whether the script itself runs.)
+
+# Runbook: encryption — lock, unlock, recover
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/runbooks/encryption-lock-and-recovery.md
+
+## Runbook: encryption — lock, unlock, recover
+
+Vault design: `docs/SECURITY.md`. Code: `src/content/crypto-content.js`, popup Settings.
+
+**Precondition**: you know whether encryption is enabled — in any extension console
+`chrome.storage.local.get('stickysites_crypto_v1', console.log)` shows `{ enabled: true, … }`.
+
+### Lock now
+
+Popup → Settings → **Lock Now**. This removes `stickysites_cached_key` and clears the
+in-memory key in that page; other open tabs drop their key on next read. Clicking any
+cluster icon now shows the in-page lock overlay.
+
+Console equivalent: `await StickySites.Crypto.clearCachedKey()`.
+
+### Unlock
+
+Type the passphrase in the lock overlay (or popup lock screen). PBKDF2 takes 1–4 s with no
+spinner (known issue). A wrong passphrase returns to the input with an error; nothing is
+written.
+
+### Recovery when the passphrase is lost
+
+There is no recovery path: the key is derived from the passphrase and the stored salt; the
+passphrase is never stored. Options:
+
+1. Keep the encrypted data and wait to remember (nothing expires).
+2. Start over: remove the six note keys and the crypto config —
+   ```js
+   chrome.storage.local.remove(['stickysites_global_v1','stickysites_sites_v1','stickysites_pages_v1',
+     'stickysites_todos_v1','stickysites_outlines_v1','stickysites_daily_v1',
+     'stickysites_crypto_v1','stickysites_cached_key'])
+   ```
+   This is irreversible; export first if any plaintext copy exists (popup → Export).
+
+### Verification
+
+- After lock: `chrome.storage.local.get('stickysites_cached_key')` → `{}`; cluster icon
+  click shows `#stickysites-lock`.
+- After unlock: the same call returns a JWK object; notes render.
+
+### Safety invariants to preserve when changing this code
+
+- Never write plaintext to a note key while `enabled` and no cached key (the outliner
+  shows a lock notice instead of auto-creating a doc; `todo-bridge` skips sync).
+- `isEncrypted()` must keep rejecting shapes with `body` / `items` / `siteKey` so a plain
+  record is never mistaken for an envelope.
+- Change `src/shared/crypto.js` and `src/content/crypto-content.js` together.
+
+# Repo bootstrap audit — 2026-09-27
+Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/repo-bootstrap-audit-2026-09-27.md
+
+## Repo bootstrap audit — 2026-09-27
+
+Ledger for the `repo-bootstrapper` (mdb-tam standard) pass. Read this before re-auditing:
+**RETRACTED** findings are off-limits without new evidence; **Deferred** items are the backlog.
+Severity: blocking · major · medium · minor.
+
+Baseline: `main` @ `50ffd78` (v1.11.0), clean tree, 4 test files / 95 tests green.
+Result: v1.11.1 on branch `chore/repo-bootstrap-2026-09-27`.
+
+### Prior knowledge (memory-central)
+
+`/Users/mitch/.llms/stickysites_{actions,conventions,risks,architecture,facts,sessions}_llms.md`
+read first. One open action: *"Confirm canonical clone for stickysites repository"* — the hub
+registry pointed at `/Users/mitch.hudson/dev/stickysites`; corrected to
+`/Users/mitch/dev/stickysites` (see § Hub). Recorded risk (no Shadow DOM) is still open and
+kept in `known-issues.md`. No decisions/lessons files existed.
+
+### Manifest audit
+
+| File | Before | Finding | Severity | Action |
+|---|---|---|---|---|
+| `.github/copilot-instructions.md` | missing | — | major | **created** (Default Execution Strategy first) |
+| `CLAUDE.md` | present | Version said 1.10.0 (repo 1.11.0); permissions listed 3 of 5; `src/shared/todo-bridge.js`, `tests/todo-bridge.test.js`, `scripts/verify-live.mjs` absent from the tree; header "Semantic Indexing Rule" referenced non-existent `scripts/semantic_indexer.py` and a `search_codebase` MCP tool; no workflow log rule / MCP section | major | **rewritten** |
+| `AGENTS.md`, `GEMINI.md`, `memory.md`, `prompts.md` | missing | — | major | **created** |
+| `docs/archive/` + `scripts/rotate-workflow-logs.mjs` | missing | — | medium | **created** (`npm run logs:rotate`) |
+| `.editorconfig`, `.gitignore`, `.gitattributes`, `.nvmrc` | present | compliant (`root = true`; LF; binaries marked; Node 22 = `engines`) | — | none |
+| `.env.example` | missing | Only env var in repo is `SS_CHROME` (harness) | minor | **created** |
+| `.vscode/launch.json`, `.vscode/mcp.json`, `.mcp.json` | missing | — | medium | **created** (hub server, command only — repo is public) |
+| `.github/workflows/test.yml` | present | Tests only; no lint/type gate; no index check | medium | **replaced by `ci.yml`** (lint → test → index check → manifest validation) |
+| `.github/dependabot.yml`, `CODEOWNERS`, issue templates | present | compliant | — | none |
+| `.github/PULL_REQUEST_TEMPLATE.md` | present | No Rollback section | minor | **updated** |
+| `.github/SECURITY.md` | present | No response SLA | minor | **updated** |
+| `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` | present | compliant (CONTRIBUTING links DEVELOPMENT) | — | none |
+| `README.md` | present | Said v1.8.0; advertised removed bare `1`–`5`/`A` hotkeys and badges; "resizable (bottom-right)"; key "cached in `chrome.storage.session`"; no to-do sync, outliner library, find & replace, Quick-Open | major | **rewritten** |
+| `docs/ARCHITECTURE.md` | present | Session-storage key cache (code uses `chrome.storage.local["stickysites_cached_key"]`); 3 permissions; no to-do sync / popout / SPA flows; prefs schema incomplete; digit hotkeys | major | **rewritten** with 8 ADRs |
+| `docs/COMPONENTS.md` | present | Line counts from ~v1.7 (panel 793 → 1874, SW 225 → 122); claimed SW/popup use `notes-storage.js` (only tests do); no `todo.js`, `outline*.js`, `todo-bridge.js`, popout | major | **rewritten** from a full API inventory |
+| `docs/DEVELOPMENT.md` | present | "42 tests", 5 note types, stale tree | medium | **rewritten** |
+| `docs/TESTING.md` | present | "72 tests / 3 files" (95 / 4); no coverage target statement; no CI gates | major | **rewritten** |
+| `docs/SECURITY.md` | present | Session-storage key lifecycle wrong; cached-key-on-disk risk absent | major | **rewritten** |
+| `docs/INSTALLATION.md` | present | "yellow + green buttons on the right edge" (pre-cluster UI); no host install | medium | **rewritten** |
+| `docs/requirements.md` | present | Digit hotkeys, "popout (placeholder)", session key, 3 permissions, vitest 4.x | medium | **rewritten** |
+| `docs/integrations-and-assumptions.md` | present | No native host row; "7 scripts" | medium | **rewritten** |
+| `docs/known-issues.md` | present | Missing: cached key on disk, `notes-storage.js` drift, popup bypasses Prefs, `panelMode` unused, harness needs Chrome for Testing | medium | **rewritten** (10 entries) |
+| `docs/onboarding.md` | present | "48 tests across 2 files" | minor | **rewritten** |
+| `docs/external-calls.md` | present | Good inventory of the one call; no five-standard audit, no error/remediation table | medium | **rewritten** |
+| `docs/codebase-overview.md` | present | Missing `todo-bridge.js`, `todo-bridge.test.js`, `scripts/verify-live.mjs`, `popout.*`, `.github/`, llms suite; several "—" line counts | major | **rewritten** (every tracked component) |
+| `docs/MCP.md`, `docs/logging.md`, `docs/caching-and-optimization.md`, `docs/runbooks/*.md` | missing | — | major | **created** (4 runbooks) |
+| `docs/high_signal_file_index.json` | missing | — | major | **created** (65 entries; CI-validated) |
+| `scripts/check-doc-indexes.mjs` | missing | — | medium | **created** (`npm run docs:check-indexes`, `--prune`; also checks `llms.txt` links) |
+| `scripts/semantic_indexer.py`, `scripts/watch_and_index.sh` | missing | Referenced by the old `CLAUDE.md` header | blocking (dangling reference) | **reference removed**; indexing is provided machine-wide by `global_ai_hub` (`docs/MCP.md`) — per-repo duplicate **Deferred/declined** |
+| `server/src/lib/operations-registry.js`, `docs/operations-registry.json`, `docs/tool-inventory.json`, `scripts/generate-ops-registry-doc.mjs` | missing | No server/MCP runtime exists to host them | — | **N/A — documented** in `docs/external-calls.md` § Five-standard audit |
+| `llms.txt` suite | present (p/1.1.0, 2026-09-25) | Indexed only 9 docs; `llms-facts.txt` carried three wrong facts (v1.8 README, digit hotkeys, session key) | medium | **regenerated** (24 docs; facts rewritten with `[src:]` to code) |
+| `vitest.config.js` | present | ESM syntax in a CJS-loaded file → Vite deprecation warning on every run | minor | **renamed** `.mjs` |
+
+### Extended checks
+
+| Check | Result |
+|---|---|
+| Dependency audit | `npm audit`: 0 vulnerabilities. `npm outdated`: vitest 5.0.1 → 5.0.2 (patch; Dependabot will open it). `package-lock.json` committed. `engines.node >=22` = `.nvmrc`. |
+| Customer data in VCS | None (personal project; `git ls-files` scanned). `.remember/` is git-ignored. |
+| Native host manifest | Installed for **Chrome Beta only** (`~/Library/Application Support/Google Chrome Beta/NativeMessagingHosts/com.mitch.todo_bridge.json`); `path` → `~/.claude/skills/todo/scripts/todo_host` (executable, ok). Other browsers need `install-native-host` — documented in the runbook. Not a repo defect. |
+| Offscreen document audit (MV3) | No offscreen documents are created. N/A. |
+| Auth surface inventory | Single surface: the passphrase vault. Documented (`SECURITY.md`), health check = `stickysites_cached_key` presence, failure mode = lock overlay. No OAuth/cookies/tokens. |
+| Agent inventory | No `.claude/agents/` → `AGENTS.md` states none. |
+| Skill coverage | Stack (MV3, vanilla JS, vitest, puppeteer, native messaging) covered by installed `chrome-extension-expert`, `lang-js-ts`, `web-dev-practices`, `security-review`. No gap. |
+| Logging standard | **Major before**: zero `console.*` calls; ~40 silent `catch` blocks. **After**: service-worker integration boundaries log `console.warn('[stickysites] …')`; the remaining silent catches are inventoried with rationale in `docs/logging.md`. No secrets/PII can reach logs (no logging of bodies/keys). |
+
+### Code findings (cdo pass, scoped)
+
+Scope: `src/shared/*`, `src/background/service-worker.js`, `src/content/outline-ops.js`,
+`scripts/*.mjs`, tests — files with a verify gate (`npm run lint && npm test`). Content
+scripts, `popup.js`, `popout.js` were reviewed read-only (no UI tests) and their findings are
+listed as **Deferred** below.
+
+| # | File | Change | Severity | Verified by |
+|---|---|---|---|---|
+| C1 | `src/background/service-worker.js` | Removed dead `chrome.storage.session.setAccessLevel(...)` (session storage unused anywhere) | medium | grep; lint |
+| C2 | `src/background/service-worker.js` | Clip / toggle `catch {}` → `console.warn('[stickysites] clip'/'toggle', { tabId, noteTypeId, error })`; `runTodoSync` now warns on `{ error }` results and thrown errors; `windows.create` in the popout handler gained a `.catch` (unhandled rejection) | major (logging standard) | lint; manual SW console |
+| C3 | `src/shared/crypto.js` | `deriveKey` extractable `false` → `true` and `isEncrypted` rejects `siteKey` — parity with `crypto-content.js` (the ES copy was incompatible with `cacheKey()`'s `exportKey`) | medium | `tests/crypto.test.js` (+2) |
+| C4 | `src/shared/notes-storage.js` | `writeTodo`/`readTodo` round-trip `sections` (`[]`) and `tagColors` (`{}`) instead of dropping them; `DEFAULT_PREFS` now equals `prefs.js` | medium | `tests/notes-storage.test.js` (+4) |
+| C5 | `scripts/check-syntax.mjs` | `readFileSync` instead of spawning `cat` | minor | lint |
+| C6 | `scripts/verify-live.mjs` | Header comment (v1.10 / "untracked") corrected | minor | — |
+
+Gate after the pass: `npm run lint` ✔ 26 files; `npm test` 4 files / **101 tests** (95 → 101).
+Reviewed with no Medium+ finding: `todo-bridge.js`, `outline-ops.js`, `check-doc-indexes.mjs`, `rotate-workflow-logs.mjs`.
+
+Advisory (read-only; **Deferred D6**):
+
+| Severity | Location | Problem | Fix |
+|---|---|---|---|
+| medium | `src/content/todo.js:184-186` | `DragController` adds document `mousemove`/`mouseup` closures per drag start; a `mouseup` outside the window leaves the pair attached | Track the pair and remove before re-adding; end drag on `blur` |
+| medium | `src/content/crypto-content.js:97` | `clearCachedKey` swallows `storage.remove` errors | `console.warn('[stickysites] crypto', …)` |
+| medium | `src/content/mentions.js:117-151` | `_buildFlatItems` duplicates `_getAllDisplayItems` filtering | Derive one from the other |
+| low | `src/content/mentions.js:226-234` | `sel.getRangeAt(0)` without `rangeCount` guard | `if (!sel || !sel.rangeCount) return;` |
+| low | `src/shared/todo-bridge.js` | No dedupe if the host returns duplicate item ids | Left: trusted local host; ambiguous which wins |
+
+### Retracted
+
+| # | Finding | Why retracted |
+|---|---|---|
+| R1 | "Repo fails the five-standard external-call contract → must add `operations-registry.js` + `tam_ops_*` MCP tools" | Standards 1 (CLI/MCP trigger) and 4 (dashboard card) presuppose a server runtime; a Chrome extension has none. Deviation documented in `docs/external-calls.md`. Do not re-raise unless a server is added. |
+| R2 | "`chrome.storage.session` key cache must be documented / `setAccessLevel` is required" | Code never used session storage for the key (`crypto-content.js:79-97`); the call was dead and has been removed. Docs now say `chrome.storage.local`. |
+| R3 | "Add `scripts/semantic_indexer.py` + `watch_and_index.sh`" | Machine-wide `global_ai_hub` already indexes `~/dev/*`; a per-repo Ollama/Chroma pipeline would duplicate it. Pointer lives in `docs/MCP.md`. |
+
+### Deferred
+
+| # | Item | Severity | Where |
+|---|---|---|---|
+| D1 | Shadow DOM encapsulation for injected UI | medium | `known-issues.md` |
+| D2 | Decide the fate of `src/shared/notes-storage.js` (runtime storage layer vs test fixture) | low | `known-issues.md`, `memory.md` → Next steps |
+| D3 | Unlock spinner during PBKDF2 | low | `known-issues.md` |
+| D4 | Popup should load `prefs.js` instead of writing prefs directly | low | `known-issues.md` |
+| D5 | Remove unused `panelMode` pref (tests round-trip it) | minor | `known-issues.md` |
+| D6 | Content-script advisory findings from the cdo read-only pass | see table above | this file |
+
+### Hub
+
+`project_manager.py upsert stickysites --path /Users/mitch/dev/stickysites` — path corrected
+from `/Users/mitch.hudson/…`; purpose/remote unchanged; memory-central files attached by the
+nightly job / `mcl_run.sh --force`.
+
+### Convergence
+
+Iteration 1: findings above → all manifest gaps closed except the three retracted/N-A rows.
+Iteration 2 (re-audit after writes): `npm run lint`, `npm test`, `npm run docs:check-indexes`
+green; no medium+ manifest finding remains. Stopped at 2 of 3 allowed iterations.
+
+# Copilot Instructions
+Source: https://github.com/mithudso/stickysites/blob/HEAD/.github/copilot-instructions.md
+
+## Copilot Instructions
+
+### Default Execution Strategy
+
+**Always apply these rules to every task without being asked:**
+
+1. **Read before editing.** Open every file you are about to change, plus `manifest.json`
+   (content-script load order) and the module it depends on. Never edit `panel.js`,
+   `outline.js`, or `sticky-inject.js` from memory of an older version.
+2. **Run the checks after every change.** `npm run lint && npm test` (syntax gate + 101 unit
+   tests). Then reload the unpacked extension at `chrome://extensions` and exercise the
+   changed surface on a real page — the UI layer has no unit tests.
+3. **Never invent commands, paths, permissions, or storage keys.** Everything runnable is in
+   `package.json` → `scripts`; every storage key is listed in `CLAUDE.md`. If something is
+   unknown, write `# TODO:` with where to find the answer.
+4. **Follow the workflow log rule.** Append the request to `prompts.md`, update `memory.md`,
+   and bump the patch version in **both** `manifest.json` and `package.json` (CI fails if
+   they disagree).
+5. **Parallelism first:** split independent doc/code subtasks across parallel agents; only
+   serialize where a later step needs an earlier result.
+6. **No truncation, no "continue?" pauses.** Batch files over ~300 lines and keep going.
+7. **Completion summary:** finish with a table of every file produced, its line count, and status.
+
+### Orientation
+
+Read in this order: `README.md` → `CLAUDE.md` → `docs/ARCHITECTURE.md` →
+`docs/COMPONENTS.md` → `docs/DEVELOPMENT.md`. Anything touching encryption or the
+native-messaging to-do sync: `docs/SECURITY.md` and `docs/external-calls.md` first.
+
+### Build, Test, and Validation Commands
+
+There is no build step. Chrome loads the repo root unpacked.
+
+| Command | What it does |
+|---|---|
+| `npm install` | Dev deps only (vitest, canvas) |
+| `npm test` | `vitest run` — 4 files, 101 unit tests (node env, mocked `chrome`) |
+| `npm run test:watch` | Vitest watch mode |
+| `npx vitest run tests/outline-ops.test.js` | Single test file |
+| `npm run lint` | `node --check` every `.js`/`.mjs` + manifest↔package version agreement |
+| `npm run docs:check-indexes` | Path-validate `docs/high_signal_file_index.json` and `llms.txt` links (`-- --prune` drops dead entries) |
+| `npm run logs:rotate` | Rotate `memory.md` / `prompts.md` sections into `docs/archive/` once past ~200 KB |
+| `npm run icons` | Regenerate `icons/*.png` (needs `canvas`) |
+| `npm run verify:live` | Puppeteer harness against Chrome for Testing (`npm i --no-save puppeteer-core`; set `SS_CHROME`) |
+| Load extension | `chrome://extensions` → Developer mode → Load unpacked → repo root; click ↻ after edits |
+
+CI (`.github/workflows/ci.yml`) runs lint → test → index check → manifest validation on every push and PR to `main`.
+
+### High-level Architecture
+
+- **Content scripts** (`src/content/*.js`, 10 classic scripts in manifest order) run on
+  `<all_urls>` at `document_idle`. They share state through `window.StickySites.*`
+  (Crypto, noteTypes, Prefs, Cluster, Todo, OutlineOps, Outline, Mentions, Panel);
+  `sticky-inject.js` is the orchestrator. No ES `import` is possible here.
+- **Service worker** (`src/background/service-worker.js`, ES module): context menus,
+  `Alt+S` command, popout window creation, and the optional to-do sync
+  (`chrome.runtime.sendNativeMessage` → host `com.mitch.todo_bridge`, every 2 min via
+  `chrome.alarms` and 3 s after a to-do edit).
+- **Popup** (`popup.html/js/css`) and **popout** (`popout.html/js/css`) are extension pages
+  loading the same namespace scripts with plain `<script>` tags.
+- **Shared ES modules** (`src/shared/`) are consumed by the service worker
+  (`todo-bridge.js`) and by vitest (`crypto.js`, `notes-storage.js`, `todo-bridge.js`).
+- **Storage**: everything lives in `chrome.storage.local` under versioned keys
+  (`stickysites_*_v1`); the cached AES key is `stickysites_cached_key`. No network calls.
+- **Messages**: `STICKYSITES_TOGGLE` / `STICKYSITES_OPEN` / `STICKYSITES_CLIP` (SW or popup →
+  content) and `STICKYSITES_POPOUT` (content or popup → SW).
+
+### Key Conventions
+
+1. Vanilla JS only — no frameworks, transpilers, bundlers, or npm runtime dependencies.
+2. Content scripts are classic scripts; add new ones to `manifest.json` **after** the
+   modules they depend on and also to `popout.html` if the popout needs them.
+3. Every injected DOM id/class starts with `stickysites-`; z-index stays near INT32_MAX.
+4. Storage keys are versioned (`_v1`); map records store `key` + `label` and readers fall
+   back to legacy `siteKey`/`pageKey`/`dateKey`, `siteLabel`/`pageLabel`.
+5. Auto-save is debounced at 500 ms; always `flushPendingSave()` before switching note,
+   closing, popping out, or re-keying on SPA navigation.
+6. The panel snapshots `_activeKey`/`_activeLabel` at `open()` and never re-derives them
+   mid-session — this is what stops a save landing under another page's key.
+7. Never write plaintext to a note key while the vault is locked (`Crypto.getCachedKey()`
+   is null and encryption is enabled). Readers must treat `{ iv, data }` as an envelope.
+8. `src/content/crypto-content.js` and `src/shared/crypto.js` implement the same
+   algorithm in two packagings — change both together.
+9. No bare-key hotkeys. Only `Alt+S` (browser command) and `Ctrl/Cmd+F1…F6`; bare digits
+   and `a` broke page typing and `Cmd+A` in the past.
+10. Bump `manifest.json` and `package.json` versions together on every change.
+
+# AGENTS.md
+Source: https://github.com/mithudso/stickysites/blob/HEAD/AGENTS.md
+
+## AGENTS.md
+
+Catalog of repo-local agents.
+
+This repository defines **no repo-local agents** — there is no `.claude/agents/` or
+`.github/agents/` directory. Global/user-level agents (code review, security review, doc
+critique, repo-health-auditor) apply as usual; nothing here overrides them.
+
+Guidance for any coding agent working in this repo lives in:
+
+| Agent | File | Notes |
+|---|---|---|
+| Claude Code | `CLAUDE.md` | Canonical rule set: repository shape, commands, conventions, workflow log rule |
+| GitHub Copilot | `.github/copilot-instructions.md` | Mirrors `CLAUDE.md`; starts with `## Default Execution Strategy` |
+| Gemini CLI | `GEMINI.md` | Points at `CLAUDE.md`; lists Gemini-only mappings |
+
+External dependencies an agent may need to know about:
+
+- **Native-messaging host** `com.mitch.todo_bridge` — installed outside this repo by
+  `python3 ~/.claude/skills/todo/scripts/todo.py install-native-host`. Optional; the
+  extension works without it. See `docs/external-calls.md`.
+- **MCP** — no MCP server is shipped here; the developer's `global_ai_hub` server indexes
+  this repo for semantic search. See `docs/MCP.md`.
+
+No agent in this repo requires environment variables or external auth.
+
+# GEMINI.md
+Source: https://github.com/mithudso/stickysites/blob/HEAD/GEMINI.md
+
+## GEMINI.md
+
+Gemini CLI instructions for this repo. Canonical conventions live in `CLAUDE.md` —
+follow its **Conventions**, **Commands**, and **Workflow log rule** sections verbatim.
+
+Quick facts:
+
+- Chrome Extension, Manifest V3, vanilla JavaScript, **no build step**. Load the repo root
+  unpacked at `chrome://extensions`.
+- Content scripts (`src/content/`) are classic scripts sharing `window.StickySites.*`;
+  only the service worker is an ES module. Load order in `manifest.json` matters.
+- Checks: `npm run lint && npm test` (syntax gate + 101 vitest unit tests). CI mirrors this.
+- Storage: `chrome.storage.local` only, keys `stickysites_*_v1` + `stickysites_cached_key`.
+  Encryption invariants (never write plaintext while locked, `{ iv, data }` envelopes)
+  must not be weakened — see `docs/SECURITY.md`.
+- Bump `manifest.json` **and** `package.json` versions together; CI fails on drift.
+
+Gemini-only tool mappings: none. There are no repo-local skills to `activate_skill`; use
+the shell for the npm scripts above.

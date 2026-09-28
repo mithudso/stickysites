@@ -1,42 +1,80 @@
-<!-- Generated 2026-09-25 [gen: p/1.1.0]; verified-as-of 2026-09-25 -->
+<!-- Generated 2026-09-27 [gen: repo-bootstrapper/1.0]; verified-as-of 2026-09-27 -->
 
 # StickySites
 
-> Sticky notes for every website: a Manifest V3 Chrome extension in vanilla JavaScript with six note types, a floating icon cluster, a rich-text workspace panel and opt-in AES-256-GCM encryption.
+> Sticky notes for every website: a Manifest V3 Chrome extension in vanilla JavaScript with six note types, a floating icon cluster, a rich-text workspace panel, a to-do list that can sync with a local TODO.md over native messaging, a global outliner library, and opt-in AES-256-GCM encryption. No build step, no network calls.
+
+Version 1.11.1 · tests: `npm run lint && npm test` (101 vitest tests) · load unpacked from the repo root.
 
 
 ## Docs
 
 - [README.md](README.md): Sticky notes for every website.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into every web page.
-- [docs/COMPONENTS.md](docs/COMPONENTS.md): Background script running as an ES module.
-- [docs/SECURITY.md](docs/SECURITY.md): StickySites runs as a Chrome Extension on every web page.
-- [docs/INSTALLATION.md](docs/INSTALLATION.md): 1.
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): 1.
-- [docs/TESTING.md](docs/TESTING.md): [Vitest](https://vitest.dev/) v4.1+ — fast, ESM-native test runner.
-- [docs/known-issues.md](docs/known-issues.md): **Impact**: Low–Medium **Status**: Open
-- [docs/requirements.md](docs/requirements.md): Project document
-- [docs/onboarding.md](docs/onboarding.md): New to StickySites?
-- [docs/external-calls.md](docs/external-calls.md): StickySites makes no external network calls.
-- [docs/integrations-and-assumptions.md](docs/integrations-and-assumptions.md): StickySites makes no external network calls — there are no third-party service integrations.
-- [docs/codebase-overview.md](docs/codebase-overview.md): Content scripts loaded in order by the manifest.
+- [docs/COMPONENTS.md](docs/COMPONENTS.md): Per-module API reference for every content script, shared module, page, and tool.
+- [docs/codebase-overview.md](docs/codebase-overview.md): Every tracked file grouped by directory with line counts.
+- [docs/SECURITY.md](docs/SECURITY.md): Threat model, permissions audit, encryption algorithm and key lifecycle.
+- [docs/external-calls.md](docs/external-calls.md): The single out-of-browser call (native-messaging to-do sync) and its five-standard audit.
+- [docs/integrations-and-assumptions.md](docs/integrations-and-assumptions.md): Chrome APIs, the native-messaging host, dev tools, hardcoded assumptions, context differences.
+- [docs/INSTALLATION.md](docs/INSTALLATION.md): Developer install from source, updating, uninstall, optional to-do host.
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): Setup, commands, module system, conventions, debugging, packaging.
+- [docs/TESTING.md](docs/TESTING.md): Vitest suites (95 tests), coverage target, CI gates, live puppeteer harness.
+- [docs/logging.md](docs/logging.md): Console-only diagnostics, silent-failure inventory, sensitive-data rules.
+- [docs/caching-and-optimization.md](docs/caching-and-optimization.md): There is no HTTP cache, CDN, or database — all data is `chrome.storage.local`.
+- [docs/MCP.md](docs/MCP.md): The hub server is the developer's machine-wide tool, not part of the extension.
+- [docs/requirements.md](docs/requirements.md): Requirements
+- [docs/known-issues.md](docs/known-issues.md): Format: symptom → cause → workaround → files.
+- [docs/onboarding.md](docs/onboarding.md): Zero to a merged change in ten minutes.
+- [docs/repo-bootstrap-audit-2026-09-27.md](docs/repo-bootstrap-audit-2026-09-27.md): Standards audit ledger: findings, fixes, retractions, deferrals.
 
+## Runbooks
+
+- [docs/runbooks/load-and-reload-extension.md](docs/runbooks/load-and-reload-extension.md): Runbook: load, reload, and verify the unpacked extension
+- [docs/runbooks/release-packaging.md](docs/runbooks/release-packaging.md): Unpacked installs: `git checkout <previous tag>` and click ↻.
+- [docs/runbooks/todo-sync-troubleshooting.md](docs/runbooks/todo-sync-troubleshooting.md): The global to-do list optionally syncs with a local `TODO.md` through the native-messaging host `com.mitch.todo_bridge` (`src/shared/todo-bridge.js`, driven by `src/background/service-worker.js`).
+- [docs/runbooks/encryption-lock-and-recovery.md](docs/runbooks/encryption-lock-and-recovery.md): Vault design: `docs/SECURITY.md`.
 
 ## Agent guidance
 
-- [CLAUDE.md](CLAUDE.md): This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+- [CLAUDE.md](CLAUDE.md): Canonical agent guide: shape, commands, runtime architecture, storage keys, conventions, workflow log rule.
+- [.github/copilot-instructions.md](.github/copilot-instructions.md): Read in this order: `README.md` → `CLAUDE.md` → `docs/ARCHITECTURE.md` → `docs/COMPONENTS.md` → `docs/DEVELOPMENT.md`.
+- [AGENTS.md](AGENTS.md): Catalog of repo-local agents.
+- [GEMINI.md](GEMINI.md): Gemini CLI instructions for this repo.
 
 
 ## Source
 
-- [manifest.json](manifest.json): MV3 manifest: permissions, content scripts, service worker
-- [package.json](package.json): Dev tooling only (vitest)
-- [tests/crypto.test.js](tests/crypto.test.js): Unit tests for AES-GCM crypto
-- [tests/notes-storage.test.js](tests/notes-storage.test.js): Unit tests for note storage
-- [tests/outline-ops.test.js](tests/outline-ops.test.js): Unit tests for outline tree operations
+- [manifest.json](manifest.json): MV3 manifest: 5 permissions, Alt+S command, 10 content scripts in load order, module service worker
+- [package.json](package.json): Dev tooling (vitest, canvas) and npm scripts: test, lint, docs:check-indexes, logs:rotate, icons, verify:live
+- [src/background/service-worker.js](src/background/service-worker.js): Context menus, Alt+S, popout window, native-messaging to-do sync scheduler
+- [src/content/crypto-content.js](src/content/crypto-content.js): StickySites.Crypto: PBKDF2 + AES-256-GCM, cached key in chrome.storage.local
+- [src/content/note-types.js](src/content/note-types.js): Six note-type descriptors with storage keys and identity icons
+- [src/content/prefs.js](src/content/prefs.js): stickysites_prefs_v1 read/write
+- [src/content/cluster.js](src/content/cluster.js): Floating icon cluster: drag, reorder, layout
+- [src/content/todo.js](src/content/todo.js): To-do item normalisation and drag controller
+- [src/content/outline-ops.js](src/content/outline-ops.js): Pure outline tree operations (unit-tested)
+- [src/content/outline.js](src/content/outline.js): Outliner UI over a global library of named docs
+- [src/content/mentions.js](src/content/mentions.js): @-mention autocomplete
+- [src/content/panel.js](src/content/panel.js): Workspace panel: rich text, find & replace, to-do UI, auto-save, cross-tab sync, popout
+- [src/content/sticky-inject.js](src/content/sticky-inject.js): Orchestrator: lock overlay, clip, Ctrl/Cmd+F1-F6, SPA watcher, message routing
+- [src/shared/todo-bridge.js](src/shared/todo-bridge.js): Native-messaging to-do sync: request, merge, syncTodosWithHost
+- [src/shared/crypto.js](src/shared/crypto.js): ES twin of the crypto primitives
+- [src/shared/notes-storage.js](src/shared/notes-storage.js): Reference plaintext CRUD for all note types and prefs (tests)
+- [popup.js](popup.js): Popup: lock screen, settings, search/sort/filter, export, Quick-Open
+- [popout.js](popout.js): Popout: opens the Panel full-window for one note
+- [tests/notes-storage.test.js](tests/notes-storage.test.js): 50 storage tests
+- [tests/todo-bridge.test.js](tests/todo-bridge.test.js): 23 sync-merge tests
+- [tests/outline-ops.test.js](tests/outline-ops.test.js): 21 outline tests
+- [tests/crypto.test.js](tests/crypto.test.js): crypto primitive tests
+- [scripts/check-syntax.mjs](scripts/check-syntax.mjs): npm run lint
+- [scripts/check-doc-indexes.mjs](scripts/check-doc-indexes.mjs): npm run docs:check-indexes
+- [scripts/rotate-workflow-logs.mjs](scripts/rotate-workflow-logs.mjs): npm run logs:rotate
+- [scripts/verify-live.mjs](scripts/verify-live.mjs): npm run verify:live (puppeteer harness)
+- [docs/high_signal_file_index.json](docs/high_signal_file_index.json): Machine-readable per-file index
+- [.github/workflows/ci.yml](.github/workflows/ci.yml): CI: lint, test, index check, manifest validation
 
 ## Optional
 
-- [llms-full.txt](llms-full.txt): Concatenated key documents
-- [llms-small.txt](llms-small.txt): Condensed summary
-- [llms-facts.txt](llms-facts.txt): Sourced one-line facts
+- [llms-full.txt](llms-full.txt): Every document above, concatenated
+- [llms-small.txt](llms-small.txt): One-paragraph abstract per document
+- [llms-facts.txt](llms-facts.txt): Sourced one-line project facts

@@ -2,9 +2,6 @@ import { syncTodosWithHost, TODOS_KEY } from '../shared/todo-bridge.js';
 
 // Create context menus on install
 chrome.runtime.onInstalled.addListener(() => {
-  // Allow content scripts to access session storage for encryption key caching
-  chrome.storage.session.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' });
-
   chrome.contextMenus.create({
     id: 'stickysites-parent',
     title: 'StickySites',
@@ -49,8 +46,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       noteTypeId: noteTypeId,
       text: info.selectionText
     });
-  } catch {
+  } catch (err) {
     // Content script not injected on this page
+    console.warn('[stickysites] clip', { tabId: tab.id, noteTypeId, error: err?.message });
   }
 });
 
@@ -61,8 +59,9 @@ chrome.commands.onCommand.addListener(async (command) => {
     if (tab?.id) {
       try {
         await chrome.tabs.sendMessage(tab.id, { type: 'STICKYSITES_TOGGLE' });
-      } catch {
+      } catch (err) {
         // Content script not injected on this page
+        console.warn('[stickysites] toggle', { tabId: tab.id, error: err?.message });
       }
     }
   }
@@ -81,6 +80,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       type: 'popup',
       width: 1400,
       height: 1100
+    }).catch((err) => {
+      console.warn('[stickysites] popout', { noteTypeId: msg.noteTypeId, error: err?.message });
     });
     sendResponse({ ok: true });
     return true;
@@ -97,13 +98,17 @@ async function runTodoSync() {
   if (todoSyncRunning) return;
   todoSyncRunning = true;
   try {
-    await syncTodosWithHost({
+    const result = await syncTodosWithHost({
       storage: chrome.storage.local,
       extId: chrome.runtime.id,
       sendNativeMessage: (host, msg) => chrome.runtime.sendNativeMessage(host, msg)
     });
-  } catch {
+    if (result?.error) {
+      console.warn('[stickysites] todo-sync', { error: result.error });
+    }
+  } catch (err) {
     // Host not installed or failed: keep working offline.
+    console.warn('[stickysites] todo-sync', { error: err?.message });
   } finally {
     todoSyncRunning = false;
   }

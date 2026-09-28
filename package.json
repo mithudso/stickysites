@@ -1,14 +1,19 @@
 {
   "name": "stickysites",
   "private": true,
-  "version": "1.11.0",
-  "description": "Sticky notes for every website — global, site, page, daily, todo, and outline notes with rich text, encryption, and sync",
+  "version": "1.11.1",
+  "description": "Sticky notes for every website \u2014 global, site, page, daily, todo, and outline notes with rich text, encryption, and sync",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "node scripts/check-syntax.mjs",
+    "docs:check-indexes": "node scripts/check-doc-indexes.mjs",
+    "logs:rotate": "node scripts/rotate-workflow-logs.mjs",
+    "icons": "node scripts/generate-icons.js",
+    "verify:live": "node scripts/verify-live.mjs"
   },
   "devDependencies": {
     "canvas": "^3.2.3",

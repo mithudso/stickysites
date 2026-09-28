@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
   "name": "StickySites",
-  "version": "1.11.0",
+  "version": "1.11.1",
   "description": "Sticky notes for every website. Global notes, per-site notes, and per-page notes in a floating workspace.",
-  "permissions": ["storage", "activeTab", "contextMenus", "alarms", "nativeMessaging"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "contextMenus",
+    "alarms",
+    "nativeMessaging"
+  ],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -16,13 +22,17 @@
   },
   "commands": {
     "toggle-cluster": {
-      "suggested_key": { "default": "Alt+S" },
+      "suggested_key": {
+        "default": "Alt+S"
+      },
       "description": "Toggle StickySites cluster visibility"
     }
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "<all_urls>"
+      ],
       "js": [
         "src/content/crypto-content.js",
         "src/content/note-types.js",
@@ -35,7 +45,9 @@
         "src/content/panel.js",
         "src/content/sticky-inject.js"
       ],
-      "css": ["src/content/sticky-inject.css"],
+      "css": [
+        "src/content/sticky-inject.css"
+      ],
       "run_at": "document_idle"
     }
   ],

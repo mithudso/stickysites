@@ -2,101 +2,99 @@
 
 ## Prerequisites
 
-- Node.js 22+ (for running tests and icon generation)
-- Chrome or Chromium browser (for loading the extension)
-- No build step required — source files are loaded directly by Chrome
+- Node.js ≥ 22 (`.nvmrc`) for tests and tooling — the extension itself needs no Node
+- Chrome or a Chromium-based browser (Edge, Brave, Arc, Chrome Beta)
+- No build step: Chrome loads the repo root directly
 
 ## Setup
 
 ```bash
-git clone <repo-url> && cd stickysites
-npm install          # installs vitest + canvas (dev dependencies only)
+git clone https://github.com/mithudso/stickysites.git && cd stickysites
+npm install          # vitest + canvas (dev dependencies only)
+npm run lint && npm test
 ```
 
 ## Loading the extension
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (toggle in top-right)
-3. Click **Load unpacked** and select this repo root
-4. The StickySites notepad icon appears in the toolbar
+1. `chrome://extensions` → enable **Developer mode**
+2. **Load unpacked** → select the repo root
+3. After code changes click ↻ on the StickySites card
+4. If `manifest.json` changed (script, permission, command): reload the extension **and**
+   close/reopen the tabs you test in — Chrome does not re-inject into existing tabs
+5. CSS changes in `src/content/sticky-inject.css` need a page reload on the target site
 
-After making code changes, click the reload icon on the extension card at
-`chrome://extensions` to pick up changes. CSS changes in content scripts require
-a full page reload on the target site.
-
-**Important:** If you change `manifest.json` (e.g., adding a content script file
-or permission), you must reload the extension AND close/reopen all tabs.
+Runbook with verification steps: `runbooks/load-and-reload-extension.md`.
 
 ## Commands
 
 | Command | What it does |
-|---------|-------------|
-| `npm test` | Run 42 unit tests once (vitest) |
-| `npm run test:watch` | Run tests in watch mode |
-| `node scripts/generate-icons.js` | Regenerate toolbar icon PNGs |
+|---|---|
+| `npm run lint` | `node --check` every `.js`/`.mjs`; fails if `manifest.json` and `package.json` versions differ |
+| `npm test` | 101 unit tests (vitest, node env, mocked `chrome`) |
+| `npm run test:watch` | Watch mode |
+| `npx vitest run tests/<file>` | One test file |
+| `npm run docs:check-indexes` | Validate `docs/high_signal_file_index.json` paths and `llms.txt` links; `-- --prune` drops dead entries |
+| `npm run logs:rotate` | Archive old `memory.md` / `prompts.md` sections once past ~200 KB |
+| `npm run icons` | Regenerate `icons/*.png` |
+| `npm run verify:live` | Puppeteer end-to-end harness (`npm i --no-save puppeteer-core`; Chrome for Testing via `SS_CHROME`) |
+
+CI runs lint → test → index check → manifest validation (`.github/workflows/ci.yml`).
 
 ## Project structure
 
+See `codebase-overview.md` for every file. The short version:
+
 ```
-src/
-  background/
-    service-worker.js       — Context menus, keyboard commands (225 lines)
-  content/
-    crypto-content.js       — AES-GCM encryption namespace (198 lines)
-    note-types.js           — Icon registry: 5 note types (74 lines)
-    prefs.js                — Cluster position + panel mode (25 lines)
-    cluster.js              — Floating draggable pill + badges (130 lines)
-    panel.js                — Rich text editor, todo, outliner renderers (793 lines)
-    sticky-inject.js        — Orchestrator: wiring, clip, chord keys, toast, lock (259 lines)
-    sticky-inject.css       — All injected styles (471 lines)
-  shared/
-    notes-storage.js        — Chrome Storage CRUD for all types (304 lines)
-    crypto.js               — AES-GCM (ES module for tests) (71 lines)
-popup.html / popup.js / popup.css  — Browser action popup (all-notes view)
-tests/                              — Vitest unit tests (42 tests)
-scripts/                            — Icon generation
+src/background/service-worker.js   ES module: menus, Alt+S, popout, to-do sync
+src/content/*.js                   10 classic scripts in manifest order → window.StickySites.*
+src/content/sticky-inject.css      all injected styles
+src/shared/*.js                    ES modules: todo-bridge (SW + tests), crypto, notes-storage (tests)
+popup.* / popout.*                 extension pages
+tests/                             vitest
+scripts/                           lint, index check, log rotation, icons, live harness
+docs/                              this documentation + runbooks + indexes
 ```
 
 ## Module system
 
-Content scripts cannot use ES `import`. They share state via a namespace:
+Content scripts cannot `import`; each attaches to `window.StickySites`:
 
-- `window.StickySites.Crypto` — encryption (loaded first)
-- `window.StickySites.noteTypes` — icon registry array
-- `window.StickySites.Prefs` — preferences read/write
-- `window.StickySites.Cluster` — floating pill manager
-- `window.StickySites.Panel` — workspace panel renderer
+`Crypto` → `noteTypes` → `Prefs` → `Cluster` → `Todo` → `OutlineOps` → `Outline` → `Mentions`
+→ `Panel` → orchestrator (`sticky-inject.js`). Adding a script means adding it to
+`manifest.json` **after** its dependencies and to `popout.html` if the popout needs it.
 
-The `src/shared/` ES modules are used by the service worker (`import`) and
-Vitest tests. `crypto-content.js` is the namespace duplicate of `crypto.js`.
+`src/shared/` are ES modules: `todo-bridge.js` is imported by the service worker;
+`crypto.js` (twin of `crypto-content.js`) and `notes-storage.js` (reference CRUD) are used by
+tests. Keep the two crypto files in lock-step.
 
 ## Conventions
 
-- **No frameworks** — vanilla JS, vanilla CSS. No build, no transpile, no bundle.
-- **Prefix everything** — DOM elements use `stickysites-` prefix.
-- **Versioned storage keys** — all keys include `_v1`.
-- **500ms debounce** — auto-save fires 500ms after the last keystroke.
-- **Tailwind Slate palette** — color tokens follow Tailwind's Slate scale.
-- **`var` in content scripts** — content scripts use `var` (not `let`/`const`)
-  for consistency with the namespace IIFE pattern.
+- **No frameworks, no build** — vanilla JS and CSS.
+- **Prefix everything** injected with `stickysites-`; z-index near INT32_MAX.
+- **Versioned storage keys** (`_v1`); adapt legacy shapes at read time, never bulk-migrate.
+- **500 ms debounce** on auto-save; `flushPendingSave()` before close / switch / popout / re-key.
+- **Snapshot the key at `open()`** — never re-derive `_activeKey` mid-session.
+- **Locked vault ⇒ no plaintext writes.** Check `Crypto.getCachedKey()` before writing a note key.
+- **Logging**: `console.warn('[stickysites] <subsystem>', {...})` on integration failure paths
+  only; never note content or key material (`logging.md`).
+- **Versions**: bump `manifest.json` and `package.json` together; log the change in
+  `prompts.md` / `memory.md` (see `CLAUDE.md` → Workflow log rule).
+- 2-space indent, LF, final newline (`.editorconfig`); content scripts use `var` inside the
+  namespace IIFEs.
 
 ## Debugging
 
-- **Content script**: DevTools on any page → Console. Look for `#stickysites-cluster`.
-- **Service worker**: `chrome://extensions` → click "Service worker" link.
-- **Popup**: Right-click the popup → Inspect.
-- **Storage**: In any extension context console:
-  ```js
-  chrome.storage.local.get(null, console.log)     // all local data
-  chrome.storage.session.get(null, console.log)    // session key (if encrypted)
-  ```
-- **Encrypted storage**: If encryption is enabled, storage values show `{iv, data}`
-  instead of plaintext objects.
+| Context | How |
+|---|---|
+| Content script | DevTools on the page → Console / Elements; look for `#stickysites-cluster`, `#stickysites-panel` |
+| Service worker | `chrome://extensions` → StickySites → **Service worker**; `[stickysites]` warnings show sync/tab failures |
+| Popup / popout | Right-click the page → Inspect |
+| Storage | any extension console: `chrome.storage.local.get(null, console.log)` |
+| Encryption state | `chrome.storage.local.get(['stickysites_crypto_v1','stickysites_cached_key'], console.log)` — a JWK under `stickysites_cached_key` means unlocked |
+| To-do sync | `runbooks/todo-sync-troubleshooting.md` |
 
-## Packaging for distribution
+Encrypted storage values appear as `{ iv, data }` envelopes instead of records.
 
-```bash
-# Create a .zip for Chrome Web Store upload (exclude dev files)
-zip -r stickysites.zip manifest.json icons/ src/ popup.* \
-  -x "*.DS_Store" -x "node_modules/*" -x "tests/*" -x "scripts/*"
-```
+## Packaging
+
+`runbooks/release-packaging.md` — version bump, tag, store zip, rollback.

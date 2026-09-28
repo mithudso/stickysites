@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint, test, and index check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Syntax gate for every content script / module + manifest↔package version agreement.
+      - run: npm run lint
+      - run: npm test
+      # Retrieval indexes (docs/high_signal_file_index.json, llms.txt) must not point at dead files.
+      - run: npm run docs:check-indexes
+      # The unpacked extension is the repo root — make sure the manifest still parses.
+      - name: Validate manifest.json
+        run: node -e "const m=require('./manifest.json'); if(m.manifest_version!==3) throw new Error('manifest_version must be 3'); console.log('manifest ok', m.name, m.version)"

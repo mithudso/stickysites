@@ -4,44 +4,52 @@
 
 ### Prerequisites
 
-- Chrome or Chromium-based browser (Edge, Brave, Arc)
-- Node.js 22+ (only needed if running tests)
+- Chrome or a Chromium-based browser (Edge, Brave, Arc, Chrome Beta) with Manifest V3 support
 - Git
+- Node.js ≥ 22 — only for running tests and tooling
 
 ### Steps
 
-1. Clone the repository:
+1. Clone:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/mithudso/stickysites.git
    cd stickysites
    ```
+2. (Optional, tests/tooling) `npm install && npm run lint && npm test`
+3. Load: `chrome://extensions` → **Developer mode** on → **Load unpacked** → select the
+   `stickysites/` directory (the one containing `manifest.json`)
+4. Verify: the StickySites icon appears in the toolbar; on any `http(s)` page a floating
+   cluster of colored icons appears (default top-right). Click one, or press `Ctrl/Cmd+F1`,
+   to open a note. `Alt+S` hides/shows the cluster.
 
-2. Install dev dependencies (optional, for tests only):
-   ```bash
-   npm install
-   ```
+### Optional: to-do sync with a local `TODO.md`
 
-3. Load the extension in Chrome:
-   - Navigate to `chrome://extensions`
-   - Enable **Developer mode** (toggle in top-right corner)
-   - Click **Load unpacked**
-   - Select the `stickysites/` directory (the repo root)
+The global to-do list can mirror into a Markdown file through a native-messaging host that
+lives outside this repo (`~/.claude/skills/todo/`). Install it for every browser profile:
 
-4. Verify: the StickySites icon appears in the toolbar, and yellow + green
-   buttons appear on the right edge of any webpage.
+```bash
+python3 ~/.claude/skills/todo/scripts/todo.py install-native-host
+```
+
+Then reload the extension. Without the host the extension works normally and the list stays
+in the browser. Troubleshooting: `runbooks/todo-sync-troubleshooting.md`.
 
 ### Updating
 
-After pulling new changes:
-1. Go to `chrome://extensions`
-2. Click the reload icon on the StickySites card
+```bash
+git pull
+```
+then `chrome://extensions` → ↻ on the StickySites card. If `manifest.json` changed, also
+close and reopen the tabs you use.
 
 ### Uninstall
 
-- `chrome://extensions` → click **Remove** on the StickySites card
-- Delete the local repo directory
+- `chrome://extensions` → **Remove** on the StickySites card (this deletes the extension's
+  `chrome.storage.local`, i.e. all notes — export first from the popup if you want them)
+- Delete the cloned directory
+- If installed, remove the native host manifest
+  `~/Library/Application Support/<Browser>/NativeMessagingHosts/com.mitch.todo_bridge.json`
 
-## Chrome Web Store install
+## Chrome Web Store
 
-Not yet published. See [docs/DEVELOPMENT.md](DEVELOPMENT.md) for packaging
-instructions.
+Not yet published. Packaging steps: `runbooks/release-packaging.md`.

@@ -5,7 +5,16 @@ const PREFS_KEY = 'stickysites_prefs_v1';
 const TODOS_KEY = 'stickysites_todos_v1';
 const OUTLINES_KEY = 'stickysites_outlines_v1';
 const DAILY_KEY = 'stickysites_daily_v1';
-const DEFAULT_PREFS = { clusterPosition: { x: null, y: null }, panelMode: 'fixed' };
+// Must match DEFAULT_PREFS in src/content/prefs.js (the content-script namespace copy).
+const DEFAULT_PREFS = {
+  clusterPosition: { x: null, y: null },
+  panelMode: 'fixed',
+  clusterLayout: 'vertical',
+  iconOrder: null,
+  enabledTypes: { global: true, site: true, page: true, todo: true, outline: true, daily: true },
+  panelSize: null,
+  panelPosition: null
+};
 
 export function getSiteKey(url) {
   try {
@@ -264,13 +273,15 @@ export async function readTodo() {
     if (!record) return null;
     return {
       items: Array.isArray(record.items) ? record.items : [],
+      sections: Array.isArray(record.sections) ? record.sections : [],
+      tagColors: (record.tagColors && typeof record.tagColors === 'object') ? record.tagColors : {},
       createdAt: String(record.createdAt || ''),
       updatedAt: String(record.updatedAt || '')
     };
   } catch { return null; }
 }
 
-export async function writeTodo({ items = [] } = {}) {
+export async function writeTodo({ items = [], sections, tagColors } = {}) {
   try {
     const stored = await chrome.storage.local.get(TODOS_KEY);
     const map = stored?.[TODOS_KEY] || {};
@@ -278,6 +289,8 @@ export async function writeTodo({ items = [] } = {}) {
     const record = {
       key: '__global__',
       items: Array.isArray(items) ? items : [],
+      sections: Array.isArray(sections) ? sections : (existing?.sections || []),
+      tagColors: (tagColors && typeof tagColors === 'object') ? tagColors : (existing?.tagColors || {}),
       createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

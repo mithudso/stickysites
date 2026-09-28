@@ -2,76 +2,83 @@
 
 ## Threat model
 
-StickySites runs as a Chrome Extension on every web page. It injects DOM elements into
-untrusted host pages and stores user-created notes locally with optional encryption.
+StickySites runs as a Chrome Extension on every web page. It injects DOM into untrusted host
+pages, stores user notes locally with optional encryption, and (optionally) exchanges the
+to-do list with a local native-messaging host. There is no network surface.
 
 ### Attack surface
 
 | Vector | Risk | Mitigation |
 |--------|------|------------|
-| Host page reads note content | Medium — page JS can query the note panel DOM | Notes contain user-authored text. Opt-in encryption (AES-GCM) protects notes at rest; in-memory plaintext is exposed while the panel is open. Future improvement: Shadow DOM encapsulation. |
-| Host page spoofs StickySites UI | Low — a malicious page could create `#stickysites-cluster` to suppress injection | Extension checks element existence before injecting. Impact is denial of the extension UI, not data theft. |
-| XSS via note content | Low — notes are rendered as user-authored rich HTML in a `contenteditable` div | No untrusted third-party HTML is ever rendered. All note bodies are written by the user in the same trust context. |
-| Storage tampering | Low — `chrome.storage.local` is isolated per extension | Other extensions cannot read or write StickySites storage. |
-| Context menu selection text | Low — the service worker receives `selectionText` from the host page | Text is appended verbatim to a note. It is HTML-entity-escaped before being inserted into rich-text bodies, preventing injection. |
-| Encryption passphrase brute-force | Low — PBKDF2 600 K iterations makes offline attacks expensive | The derived key is never persisted to disk; only the JWK is stored in `chrome.storage.session` (cleared on browser close). |
-| Content script on sensitive pages | N/A — Chrome blocks content scripts on `chrome://`, `chrome-extension://`, and the Chrome Web Store | Built-in Chrome protection. |
+| Host page reads note content from the injected DOM | Medium — page JS can query `#stickysites-panel` while it is open | Encryption protects data at rest only; in-memory plaintext is exposed while a panel is open on that page. Future: Shadow DOM (`known-issues.md`). |
+| Host page spoofs `#stickysites-cluster` to suppress injection | Low | Denial of the UI only; no data exposure. |
+| XSS via note content | Low — notes are user-authored rich HTML rendered in a `contenteditable` | No third-party HTML is ever rendered; clipped selection text is HTML-escaped before insertion. `<mark>` find-highlights are stripped before save. |
+| Storage tampering by another extension | Low | `chrome.storage.local` is isolated per extension. |
+| Cached key on disk | Medium while unlocked | `stickysites_cached_key` (JWK) sits in the Chrome profile until **Lock Now**. Anyone with the profile directory and the extension id can read it. Lock when leaving the machine; see the encryption runbook. |
+| Passphrase brute force against the stored `verify` envelope | Low | PBKDF2 600,000 iterations, SHA-256, random 16-byte salt. |
+| Native host impersonation | Low | Chrome only launches the host registered in the browser's `NativeMessagingHosts` manifest whose `allowed_origins` contains this extension id; the host runs as the local user. |
+| Plaintext to-dos reaching `TODO.md` | By design when encryption is off | Sync is skipped entirely while `stickysites_todos_v1` is an encrypted envelope. |
+| Content script on sensitive pages | N/A | Chrome blocks content scripts on `chrome://`, `chrome-extension://`, the Web Store. |
 
 ### Permissions audit
 
-| Permission | Justification | Least-privilege? |
-|------------|--------------|-----------------|
-| `storage` | Note persistence in `chrome.storage.local`; session key in `chrome.storage.session` | Yes |
-| `activeTab` | Send messages to the currently active tab | Yes — does not grant broad host access |
-| `contextMenus` | Register the "StickySites" right-click submenu | Yes |
-| `alarms` | Run the optional to-do sync every 2 minutes | Yes |
-| `nativeMessaging` | Optional to-do sync with a local TODO.md through the host `com.mitch.todo_bridge`; only a host registered on this machine for this extension id can answer | Yes — local IPC only, no network |
+| Permission | Justification | Least privilege? |
+|------------|--------------|------------------|
+| `storage` | Notes, prefs, crypto config, cached key in `chrome.storage.local` | Yes |
+| `activeTab` | Message the active tab from the SW and popup | Yes — no broad host access |
+| `contextMenus` | The "StickySites" clip submenu | Yes |
+| `alarms` | 2-minute to-do sync schedule | Yes |
+| `nativeMessaging` | Local IPC with `com.mitch.todo_bridge`; only a host manifest naming this extension id can answer | Yes — no network |
 
-The to-do sync sends the global to-do list in plaintext to the local host process and is skipped entirely while notes are encrypted. Without the host installed, `sendNativeMessage` fails and the list stays local.
-
-No `tabs`, `webRequest`, `cookies`, `history`, `identity`, or broad host permissions are requested.
+No `tabs`, `webRequest`, `cookies`, `history`, `identity`, `scripting`, or extra host permissions.
 
 ### Data handling
 
-- All notes are stored in `chrome.storage.local` on the user's device.
-- No data is transmitted over the network. The extension makes no external calls and uses
-  no OAuth or identity APIs.
-- No analytics, telemetry, or crash reporting of any kind.
-- No third-party scripts, CDN resources, or external iframes.
+- All notes stay in `chrome.storage.local` on the device. No network transmission, telemetry,
+  crash reporting, third-party scripts, or remote resources.
+- The only data that leaves the browser is the to-do list (items, sections, notes) sent to the
+  local host process when the optional sync is installed and encryption is off.
 
 ## Encryption at rest
 
-Encryption is opt-in and requires the user to set a passphrase.
+Opt-in; enabled from the popup Settings panel with a passphrase.
 
 ### Algorithm
 
-- **Cipher**: AES-256-GCM (authenticated encryption, provides confidentiality and integrity)
-- **Key derivation**: PBKDF2 with 600,000 iterations, SHA-256, a random 16-byte salt
-- **IV**: 12 random bytes per encryption operation (never reused)
-- **Envelope format**: `{ iv: base64, data: base64 }`
+- **Cipher**: AES-256-GCM (confidentiality + integrity), 12-byte random IV per operation.
+- **KDF**: PBKDF2, 600,000 iterations, SHA-256, random 16-byte salt.
+- **Envelope**: `{ iv: base64, data: base64 }`. `isEncrypted()` accepts only that shape and
+  rejects objects with `body`, `items`, or `siteKey` so a plain record is never mistaken for
+  an envelope.
 
 ### Key lifecycle
 
-1. On `enable(passphrase)`, a random salt is generated and the key is derived.
-2. A verification blob is encrypted and stored in `stickysites_crypto_v1` alongside the
-   salt. The actual passphrase is never stored.
-3. The derived CryptoKey is exported as JWK and stored in `chrome.storage.session`
-   (accessible to content scripts because the service worker sets
-   `setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })`).
-4. All existing note values are re-encrypted in place.
-5. On subsequent browser sessions, the user enters their passphrase once. The key is
-   re-derived from the stored salt, verified against the stored blob, then re-cached in
-   `chrome.storage.session` for the remainder of the session.
-6. Closing the browser clears `chrome.storage.session`, requiring re-entry of the
-   passphrase on next session.
-7. On `disable()`, all notes are decrypted in place, the config key is removed, and
-   the session key is cleared.
+1. `enable(passphrase)`: generate salt → derive key → encrypt a verify string → store
+   `{ enabled: true, salt, verify }` in `stickysites_crypto_v1` → cache the key (JWK) in
+   `stickysites_cached_key` → re-encrypt all six note keys in place. The passphrase is never stored.
+2. Reads: `decryptValue()` uses the cached key; if none, the value stays an envelope and the UI
+   shows the lock overlay (or the outliner's lock notice).
+3. **Lock Now** (popup) / `clearCachedKey()`: removes `stickysites_cached_key` and the
+   in-memory key. The cached key otherwise **persists across browser restarts**.
+4. `unlock(passphrase)`: re-derive from the stored salt, decrypt `verify`, compare; on success
+   cache the key again.
+5. `disable()`: decrypt all notes in place, remove the config key and cached key.
+
+### Invariants the code enforces
+
+- Never write plaintext to a note key while enabled and no cached key: the outliner shows a
+  lock notice instead of auto-creating; the to-do sync skips; `syncFromStorage` skips.
+- `src/content/crypto-content.js` and `src/shared/crypto.js` implement the same primitives
+  and must change together.
 
 ### Caveats
 
-- Encryption covers only the six note storage keys. Prefs are not encrypted.
-- PBKDF2 at 600 K iterations can take 1–3 seconds on low-end devices.
+- Encryption covers the six note keys only; prefs and the crypto config are plaintext.
+- There is no passphrase recovery; losing it means losing the notes
+  (`runbooks/encryption-lock-and-recovery.md`).
+- PBKDF2 at 600 K iterations takes 1–4 s on slow hardware with no spinner.
 
 ## Reporting vulnerabilities
 
-Open an issue on this repository or email the maintainer directly.
+See [`.github/SECURITY.md`](../.github/SECURITY.md): private advisory or maintainer email,
+acknowledgement within 3 business days, fix or plan within 14 days.

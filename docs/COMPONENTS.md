@@ -1,222 +1,200 @@
 # Components
 
-## Service Worker (`src/background/service-worker.js`) — 225 lines
+Line counts as of v1.11.1. "Namespace" = the `window.StickySites.*` object a classic content
+script attaches; "Exports" = ES module exports.
 
-Background script running as an ES module. Handles two responsibilities:
+## Service worker — `src/background/service-worker.js` (122 lines, ES module)
 
-**Context menus**: On `onInstalled`, creates a "StickySites" parent menu item (shown on
-text selection) with six children: Add to Global note, Site note, Page note, To-do list,
-Outline, Daily note. On click, sends `STICKYSITES_CLIP` to the active tab.
+Imports `syncTodosWithHost`, `TODOS_KEY` from `src/shared/todo-bridge.js`.
 
-**Keyboard commands**: Listens for the `toggle-cluster` command (`Alt+S`) and sends
-`STICKYSITES_TOGGLE` to the active tab.
-
-On install, calls `chrome.storage.session.setAccessLevel` to allow content scripts to
-read `chrome.storage.session` (needed for session key caching).
+| Responsibility | Detail |
+|---|---|
+| Context menus | `onInstalled`: parent `stickysites-parent` (selection context) + children `clip-global/site/page/todo/outline/daily`; `onClicked` → `tabs.sendMessage(STICKYSITES_CLIP)` |
+| Command | `toggle-cluster` (`Alt+S`) → `STICKYSITES_TOGGLE` to the active tab |
+| Popout | `onMessage(STICKYSITES_POPOUT)` → `windows.create(popout.html?type&key&label, popup, 1400×1100)` |
+| To-do sync | `runTodoSync()` with a `todoSyncRunning` guard; alarm `stickysites-todo-sync` every 2 min; `onStartup`, `onInstalled`; 3 s after `storage.onChanged` touches `stickysites_todos_v1` |
+| Failure paths | `console.warn('[stickysites] …')` when a tab has no content script or the native host fails |
 
 ---
 
-## `src/content/crypto-content.js` — 198 lines
-
-Attaches `window.StickySites.Crypto`. Implements AES-256-GCM encryption and decryption
-for note storage values. Mirrors the pure ES module in `src/shared/crypto.js` but also
-includes higher-level helpers for enabling/disabling encryption and caching the derived key.
-
-### Key methods
+## `src/content/crypto-content.js` (197) — `StickySites.Crypto`
 
 | Method | Purpose |
-|--------|---------|
-| `generateSalt()` | Returns 16 random bytes |
-| `deriveKey(passphrase, salt)` | PBKDF2 (600 K iterations, SHA-256) → AES-GCM-256 CryptoKey |
-| `encrypt(key, plaintext)` | Returns `{ iv: base64, data: base64 }` |
-| `decrypt(key, envelope)` | Decrypts `{ iv, data }` → plaintext string |
-| `isEncrypted(value)` | Detects `{ iv, data }` envelope shape |
-| `isEnabled()` | Reads `stickysites_crypto_v1` from local storage |
-| `enable(passphrase)` | Derives key, stores config, encrypts all existing notes |
-| `unlock(passphrase)` | Derives key, verifies against stored verify blob, caches key |
-| `disable()` | Decrypts all notes, removes crypto config and session key |
-| `cacheKey(key)` / `getCachedKey()` | Stores/retrieves the CryptoKey as JWK in `chrome.storage.session` |
-| `encryptValue(value)` / `decryptValue(value)` | Convenience wrappers for note read/write |
+|---|---|
+| `generateSalt()` | 16 random bytes |
+| `deriveKey(passphrase, salt)` | PBKDF2-SHA256 × 600,000 → AES-GCM-256 `CryptoKey` (extractable, so it can be cached as JWK) |
+| `encrypt(key, text)` / `decrypt(key, envelope)` | 12-byte IV; `{ iv, data }` base64 envelope |
+| `isEncrypted(v)` | string `iv` + `data`, and no `body` / `items` / `siteKey` |
+| `isEnabled()` / `getConfig()` | Read `stickysites_crypto_v1` |
+| `cacheKey(key)` / `getCachedKey()` / `clearCachedKey()` | JWK in `chrome.storage.local["stickysites_cached_key"]` + in-memory `_cachedKey` |
+| `enable(passphrase)` | Salt, verify token, config write, cache key, `_encryptAllNotes` |
+| `unlock(passphrase)` | Derive, check against `verify`, cache; returns boolean |
+| `disable()` | `_decryptAllNotes`, remove config, clear key |
+| `encryptValue(v)` / `decryptValue(v)` | Pass-through when no cached key |
 
----
+Storage: `stickysites_crypto_v1`, `stickysites_cached_key`, the six note keys.
 
-## `src/content/note-types.js` — 74 lines
+## `src/content/note-types.js` (114) — `StickySites.noteTypes` (array of 6)
 
-Attaches `window.StickySites.noteTypes` — an array of 6 note type descriptor objects.
-Each descriptor defines the type's identity, color, storage key, storage pattern, and
-key/label/placeholder accessor functions.
+Each descriptor: `id, color, tint, tintText, label, emoji, cssClass, storageKey,
+storagePattern, getKey(location), getLabel(location), getPlaceholder()`; site/page/daily add
+`getIconContent()` / `getIconTitle()` (first 4 domain chars · last path segment (3 chars + …) ·
+day of month).
 
-| id | color | storageKey | storagePattern |
-|----|-------|------------|----------------|
-| `global` | amber | `stickysites_global_v1` | `single` |
-| `site` | green | `stickysites_sites_v1` | `map` |
-| `page` | blue | `stickysites_pages_v1` | `map` |
-| `todo` | purple | `stickysites_todos_v1` | `structured` |
-| `outline` | orange | `stickysites_outlines_v1` | `structured` |
-| `daily` | red | `stickysites_daily_v1` | `map` |
+| id | storageKey | pattern | getKey |
+|---|---|---|---|
+| global | `stickysites_global_v1` | single | `'__global__'` |
+| site | `stickysites_sites_v1` | map | hostname without `www.` |
+| page | `stickysites_pages_v1` | map | origin + pathname |
+| todo | `stickysites_todos_v1` | structured | `'__global__'` |
+| outline | `stickysites_outlines_v1` | structured | `''` (renderer resolves the doc) |
+| daily | `stickysites_daily_v1` | map | `YYYY-MM-DD` |
 
-**storagePattern values**:
-- `single` — storage value is one record (`{ body, updatedAt }`)
-- `map` — storage value is a keyed object of records
-- `structured` — storage value is a keyed object of item-list records
+## `src/content/prefs.js` (25) — `StickySites.Prefs`
 
----
+`read()` → defaults merged with `stickysites_prefs_v1`; `write(updates)` → shallow merge, returns
+merged prefs or `null`. Defaults: `clusterPosition {x:null,y:null}`, `panelMode 'fixed'`
+(unused), `clusterLayout 'vertical'`, `iconOrder null`, `enabledTypes` (all six true),
+`panelSize null`, `panelPosition null`. `activeOutlineId` is written by `outline.js` /
+`sticky-inject.js` without a default.
 
-## `src/content/prefs.js` — 25 lines
-
-Attaches `window.StickySites.Prefs`. Reads and writes `stickysites_prefs_v1` in local
-storage. Default prefs: `{ clusterPosition: { x: null, y: null }, panelMode: 'fixed' }`.
+## `src/content/cluster.js` (271) — `StickySites.Cluster`
 
 | Method | Purpose |
-|--------|---------|
-| `read()` | Returns merged defaults + stored prefs |
-| `write(updates)` | Merges updates into current prefs and saves |
+|---|---|
+| `init(noteTypes, onIconClick)` | Build icons in `iconOrder`, apply `clusterLayout`, `clusterPosition`, `enabledTypes`; wire drag + long-press (400 ms) reorder |
+| `setActive(typeId)` | Toggle `is-active` |
+| `refreshIcons()` | Recompute identity icon text/titles (called on SPA navigation) |
+| `getVisibleIcons()` / `getVisibleTypeIds()` | Icons not `display:none` |
+| `toggle()` | Hide/show; on hide deactivates and calls `onIconClick(null)` |
+| `applyLayout(layout)` | Toggle `is-horizontal` live (popup settings) |
+
+Writes prefs `iconOrder`, `clusterPosition`. DOM: `#stickysites-cluster`, `.stickysites-cluster-icon`.
+
+## `src/content/todo.js` (198) — `StickySites.Todo`
+
+`COLORS` (8 swatches), `PRIORITY_COLORS` (1–5), `genId()`, `normalizeItem(item)` →
+`{ id, text, done, indent 0–3, priority 0–5, color, tags, note, section, completedAt }`,
+`normalizeData(note)` → `{ items, sections, tagColors }`,
+`DragController.init(listEl, getItems, getSections, onReorder)` — grip drag with a drop
+indicator; the dropped item adopts the target's section.
+
+## `src/content/outline-ops.js` (275) — `StickySites.OutlineOps` (pure; unit-tested)
+
+`genId`, `normalizeNode/normalizeItems`, `findParent(id, arr)` → `{ parent, array, index }`,
+`findNode`, `getPathTo`, `insertSiblingAfter`, `indentNode`, `outdentNode`, `moveNode(items, id, ±1)`,
+`removeNode` (promotes children), `extractTags`, `filterTree(items, q)` (matches + ancestors,
+`null` when empty), `autoGroup` (by first tag → shared keyword → "Other"), `toMarkdown`
+(`~~done~~`), `toOPML(items, name)` (OPML 2.0 with `_note`, `_complete`).
+
+## `src/content/outline.js` (800) — `StickySites.Outline`
+
+| Member | Purpose |
+|---|---|
+| `readLibrary()` | Decrypt `stickysites_outlines_v1` → `{ map, docs }` sorted by `updatedAt` desc; legacy hostname keys adapt |
+| `writeDoc(key, name, items)` | Upsert; returns `null` (refuses) while locked |
+| `newDocKey()` | `ol_<id>` |
+| `render(panel, noteType, explicitKey)` | Resolve doc (explicit key → `getKey` → `activeOutlineId` → first doc → create "My outline"); build switcher, toolbar, ⋯ menu (New / Rename / Duplicate / Delete / Auto-group + 10 s Undo / Export Markdown / Export OPML), breadcrumb, list, filter |
+
+Keyboard on a node input: Enter (sibling), Ctrl/Cmd+Enter (done), Tab / Shift+Tab (indent /
+outdent, never above the zoom root), Alt+↑/↓ (move), ↑/↓ (focus), Backspace on empty (delete),
+Esc (blur). Prefs: reads/writes `activeOutlineId`. Shows `.stickysites-outline-locked` while locked.
+
+## `src/content/mentions.js` (262) — `StickySites.Mentions`
+
+`attach(editorEl)` watches for `@`, `show()` / `hide()`. Categories Link (paste URL, current
+page URL), Date (today, tomorrow, this week, pick), Contact (name, email), File. Dropdown
+`#stickysites-mentions` positioned at the caret; ↑/↓, Enter/Tab select, Esc; inserts
+`.stickysites-mention-chip`. Uses `prompt()` for free-text input.
+
+## `src/content/panel.js` (1874) — `StickySites.Panel`
+
+| Method | Purpose |
+|---|---|
+| `init(onClose)` | Create `#stickysites-panel`; drag (header) and 8-grip resize (`_initResize` pins to absolute left/top); drag-off-page popout hint within 28 px of an edge |
+| `open(noteType)` | Flush pending save → snapshot `_activeKey` / `_activeLabel` → `_readNote` (decrypt) → `_render` / `_renderTodo` / `Outline.render` → apply `panelSize` / `panelPosition` |
+| `close()` | Flush, tear down |
+| `flushPendingSave()` | Run an armed debounce immediately |
+| `syncFromStorage(changes)` | Rich-text types only; self-echo, focus, encryption guards |
+| `_popoutActiveNote()` | Flush → `runtime.sendMessage(STICKYSITES_POPOUT)` |
+| `_buildToolbar()` | 19 controls: 16 buttons + font family (5) + font size (4) + color |
+| `_readNote` / `_writeNote` / `_writeStructured` | Storage with encryption; `_writeStructured` preserves items another writer added (`_loadedIds`) |
+| `_toggleExpand()` | 900 px wide; min size 350×250 |
+
+Find & Replace: `Cmd/Ctrl+F` / `Cmd/Ctrl+H` toggle the bar; Enter / Shift+Enter next / prev;
+Esc closes; `<mark>` highlights stripped by `getCleanHtml()` before save. To-do input keys:
+Enter (new), Tab / Shift+Tab (indent 0–3), Backspace on empty (delete), Esc (blur); tag input
+Enter adds a tag. Opening the to-do panel focuses the first empty task (creating one if needed).
+Prefs written: `panelPosition`, `panelSize`.
+
+## `src/content/sticky-inject.js` (295) — orchestrator IIFE
+
+Exits if `#stickysites-cluster` exists. Functions: `findNoteType`, `checkUnlocked`,
+`showLockOverlay` (`#stickysites-lock`, Enter unlocks), `handleIconClick`, `showToast`
+(`#stickysites-toast`), `clipToNote`, `onUrlChange` (`popstate`, `hashchange`, 1 s poll →
+`Cluster.refreshIcons()` + re-open site/page note under the new key).
+Messages handled: `STICKYSITES_TOGGLE`, `STICKYSITES_OPEN { noteTypeId, key? }`,
+`STICKYSITES_CLIP { noteTypeId, text }`. Keyboard: `Ctrl/Cmd+F1…F6` toggle types 0–5
+(respecting `enabledTypes`, through the lock check). Forwards `storage.onChanged` to
+`Panel.syncFromStorage`.
+
+## `src/content/sticky-inject.css` (1156)
+
+All injected styles: cluster, panel, toolbar, find bar, to-do list, outliner, mentions,
+lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout.html`.
 
 ---
 
-## `src/content/cluster.js` — 130 lines
+## `src/shared/todo-bridge.js` (137, ES exports) — used by the SW; unit-tested
 
-Attaches `window.StickySites.Cluster`. Manages the floating pill (`#stickysites-cluster`)
-that contains one button per note type.
+| Export | Purpose |
+|---|---|
+| `TODO_HOST` | `'com.mitch.todo_bridge'` |
+| `TODOS_KEY` | `'stickysites_todos_v1'` |
+| `buildRequest(record, extId)` | `{ cmd:'sync', ext, items[{id,text,done,note,section}], sections[{id,name}] }` |
+| `applyHostResult(record, hostItems)` | Merge host items with local-only fields (indent, priority, color, tags, completedAt); section names ↔ ids; prune empty host-origin sections; `{ items, sections, changed }` via canonical JSON compare |
+| `isEncryptedValue(v)` | Same test as `Crypto.isEncrypted` |
+| `syncTodosWithHost({ storage, sendNativeMessage, extId })` | Skip if encrypted; round-trip; write only when `changed`; returns `{ changed, count }`, `{ skipped }`, or `{ error }` |
 
-**Init**: Creates a `div#stickysites-cluster`, appends one `button` per note type, reads
-saved cluster position from prefs, then starts the drag handler.
+## `src/shared/crypto.js` (71, ES exports) — tests
 
-**Drag**: On `mousedown` of the cluster background, tracks mouse delta and updates
-`left`/`top` CSS. On `mouseup`, persists the new position to prefs via `Prefs.write()`.
-Drag is distinguished from click by a 3-pixel movement threshold.
+`generateSalt`, `deriveKey` (same PBKDF2/AES-GCM parameters as the namespace version),
+`encrypt`, `decrypt`, `isEncrypted`. Kept in lock-step with `crypto-content.js`.
 
-**Active state**: `setActive(typeId)` adds/removes `is-active` on buttons. Clicking the
-currently active button deactivates it and closes the panel.
+## `src/shared/notes-storage.js` (363, ES exports) — reference CRUD; tests only
 
-**Toggle**: `toggle()` adds/removes `is-hidden` on the cluster element and closes the panel.
-
----
-
-## `src/content/mentions.js`
-
-Attaches `window.StickySites.Mentions`. Provides @-mention autocomplete for the rich text
-editor. Typing `@` in a `contenteditable` note body opens a dropdown with categorized
-mention items: Link (paste URL, current page URL), Date (today, tomorrow, this week, pick
-date), Contact (name, email), and File (file reference). Selecting an item inserts formatted
-text at the cursor position.
+`getSiteKey`, `getPageKey`, `getDailyKey`; read/write/delete/readAll for global, site, page,
+daily, todo, outline; `parseTags`; `createDebouncedSaver(fn, 500)`; `readPrefs` / `writePrefs`.
+Plaintext only (no encryption). The extension runtime does not import it — `panel.js`,
+`outline.js`, `sticky-inject.js`, and `popup.js` talk to `chrome.storage.local` directly — so
+it documents the record shapes and backs `tests/notes-storage.test.js`.
 
 ---
 
-## `src/content/panel.js` — 793 lines
+## Popup — `popup.html` (48) / `popup.js` (869) / `popup.css` (447)
 
-Attaches `window.StickySites.Panel`. The largest module. Manages the slide-in note panel
-(`#stickysites-panel`).
+Loads `crypto-content.js` + `popup.js` with `<script>` tags. Lock screen
+(`checkAndShowLock`), Settings (Enable / Disable / Lock Now, note-type checkboxes →
+`enabledTypes`, layout → `clusterLayout`, written directly to `stickysites_prefs_v1`),
+`loadAllNotes()` (decrypts all six keys), search / sort / type tabs / tag filter, Markdown
+export (one or all), Quick-Open row → `STICKYSITES_OPEN` to the active tab or
+`STICKYSITES_POPOUT` fallback on `chrome://` pages (`computePopoutTarget`).
 
-**init(onClose)**: Creates the panel DOM and registers its close callback.
+## Popout — `popout.html` (20) / `popout.js` (41) / `popout.css` (34)
 
-**open(noteType)**: Reads the note from storage (decrypting if needed), then renders the
-appropriate editor for the note type:
-- `global`, `site`, `page`: rich text editor (`contenteditable` div) with a toolbar
-  (bold, italic, underline, ordered/unordered list, link insertion).
-- `todo`: custom item-list renderer with checkboxes. Items can be added, toggled, and deleted.
-- `outline`: global named library of outline documents; panel shows a doc switcher. Renderer backed by `outline.js` + `outline-ops.js`.
-
-**Auto-save**: All editor changes debounce 500 ms then write back to `chrome.storage.local`,
-encrypting if needed.
-
-**syncFromStorage(changes)**: Called by `sticky-inject.js` when `chrome.storage.onChanged`
-fires. Updates the open panel's content if the changed key matches the current note type
-and the value has actually changed.
-
-**close()**: Slides the panel out and clears its state.
+Loads crypto-content, note-types, prefs, todo, outline-ops, outline, mentions, panel, then
+`popout.js`: reads `type`, `key`, `label` from the query string, clones the note type with
+overridden `getKey` / `getLabel`, `Panel.init(window.close)`, `Panel.open`, removes the resize
+grips. `popout.css` makes the panel fill the window and hides expand/popout buttons.
 
 ---
 
-## `src/content/sticky-inject.js` — 259 lines
+## Tooling — `scripts/`
 
-The orchestrator content script. Runs as an async IIFE at `document_idle`. Exits early
-if `#stickysites-cluster` already exists.
-
-**Responsibilities**:
-- Initializes `SS.Panel` and `SS.Cluster`, passing the `handleIconClick` callback.
-- **Encryption gate**: Before opening any panel, checks whether encryption is enabled and
-  whether the session key is cached. If locked, shows the `#stickysites-lock` overlay with
-  a passphrase input instead of opening the panel.
-- **Lock overlay**: DOM-built passphrase dialog. On successful unlock, proceeds to open the
-  pending note type panel.
-- **Toast notifications**: Lightweight `#stickysites-toast` element for clip confirmations.
-- **Clip handler** (`clipToNote`): Receives `STICKYSITES_CLIP` messages, appends the
-  selected text to the target note type (respecting encryption), and shows a toast.
-- **Number badges** (`showBadges`): Shows 1–6 number badges on cluster icons for 3 seconds
-  when the cluster becomes visible.
-- **Chord hotkeys**: Digit keys `1`–`6` open the corresponding note type. Key `a` cycles
-  through note types sequentially. Hotkeys are suppressed when focus is in an input field.
-- **Message listener**: Handles `STICKYSITES_TOGGLE`, `STICKYSITES_OPEN`, `STICKYSITES_CLIP`.
-- **Storage change listener**: Forwards `chrome.storage.onChanged` events to `SS.Panel.syncFromStorage`.
-
----
-
-## `src/shared/notes-storage.js` — 304 lines
-
-ES module exporting all Chrome Storage CRUD operations for every note type plus prefs.
-Used by the service worker, popup, and unit tests.
-
-### Exports
-
-| Function | Signature | Returns |
-|----------|-----------|---------|
-| `getSiteKey` | `(url: string)` | `string` — hostname without `www.` |
-| `getPageKey` | `(url: string)` | `string` — `origin + pathname` |
-| `readGlobalNote` | `()` | `{ body, updatedAt }` |
-| `writeGlobalNote` | `(body: string)` | `{ body, updatedAt }` |
-| `readSiteNote` | `(key: string)` | `SiteNote \| null` |
-| `writeSiteNote` | `(key, { siteLabel, body, tags })` | `SiteNote \| null` |
-| `deleteSiteNote` | `(key: string)` | `void` |
-| `readAllSiteNotes` | `()` | `SiteNote[]` |
-| `readPageNote` | `(key: string)` | `PageNote \| null` |
-| `writePageNote` | `(key, { pageLabel, body, tags })` | `PageNote \| null` |
-| `deletePageNote` | `(key: string)` | `void` |
-| `readAllPageNotes` | `()` | `PageNote[]` |
-| `readTodo` | `()` | `TodoRecord \| null` |
-| `writeTodo` | `({ items })` | `TodoRecord \| null` |
-| `deleteTodo` | `()` | `void` |
-| `readAllTodos` | `()` | `TodoRecord[]` |
-| `readOutline` | `(outlineKey: string)` | `OutlineRecord \| null` |
-| `writeOutline` | `(outlineKey, { name, items })` | `OutlineRecord \| null` |
-| `deleteOutline` | `(outlineKey: string)` | `void` |
-| `readAllOutlines` | `()` | `OutlineRecord[]` |
-| `readPrefs` | `()` | `Prefs` |
-| `writePrefs` | `(updates: Partial<Prefs>)` | `Prefs \| null` |
-| `parseTags` | `(input: string)` | `string[]` — normalized, deduped, `#`-prefixed |
-| `createDebouncedSaver` | `(fn, ms?)` | debounced function |
-
----
-
-## `src/shared/crypto.js` — 71 lines
-
-Pure ES module with the cryptographic primitives. Used directly by unit tests. The
-content script counterpart (`crypto-content.js`) replicates these functions plus adds
-higher-level enable/unlock/disable logic and session key caching.
-
-### Exports
-
-| Function | Purpose |
-|----------|---------|
-| `generateSalt()` | 16 random bytes (Uint8Array) |
-| `deriveKey(passphrase, salt)` | PBKDF2 (600 K iterations) → AES-GCM-256 CryptoKey |
-| `encrypt(key, plaintext)` | Returns `{ iv: base64, data: base64 }` |
-| `decrypt(key, envelope)` | Returns plaintext string |
-| `isEncrypted(value)` | Returns `true` if value is an `{ iv, data }` envelope |
-
----
-
-## Popup (`popup.html` / `popup.js` / `popup.css`) — 45 / 733 / 366 lines
-
-A separate extension page (not injected into host pages). Opened via the toolbar icon
-`default_popup`.
-
-**All-notes view**: Shows every note across all 6 types in a unified list. Supports:
-- Text search across note bodies
-- Sort by updated date (newest/oldest) or by site key alphabetically
-- Filter by note type
-- Export all notes as JSON
-
-**Settings panel**: Toggle encryption on/off (prompts for passphrase).
-
-**Dependencies**: Reads notes directly from `chrome.storage.local`.
+| File | Lines | Purpose |
+|---|---|---|
+| `check-syntax.mjs` | ~60 | `npm run lint`: `node --check` every `.js`/`.mjs`; manifest ↔ package version agreement |
+| `check-doc-indexes.mjs` | ~110 | `npm run docs:check-indexes`: path-validate `docs/high_signal_file_index.json` and `llms.txt` links; `--prune` |
+| `rotate-workflow-logs.mjs` | ~170 | `npm run logs:rotate`: move oldest `## ` sections of `memory.md` / `prompts.md` to `docs/archive/` past ~200 KB; refuses while an editor swap file is live |
+| `generate-icons.js` | 44 | `npm run icons`: draw `icons/icon{16,48,128}.png` with `canvas` (CommonJS) |
+| `verify-live.mjs` | 464 | `npm run verify:live`: puppeteer-core harness — identity icons, caret stability, per-page identity, SPA re-key, cross-tab sync, outliner (a–k), popup labels/storage, encryption enable/lock/unlock. Needs Chrome for Testing (`SS_CHROME`) |

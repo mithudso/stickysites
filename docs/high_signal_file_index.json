@@ -1,0 +1,830 @@
+[
+  {
+    "path": "manifest.json",
+    "purpose": "MV3 manifest: 5 permissions, Alt+S command, 10 content scripts in load order, module service worker, popup action; canonical version",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "load-order"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "package.json",
+    "purpose": "Dev tooling (vitest, canvas) and npm scripts: test, lint, docs:check-indexes, logs:rotate, icons, verify:live",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "vitest.config.mjs",
+    "purpose": "Vitest config: node environment, globals",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "src/background/service-worker.js",
+    "purpose": "ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync scheduled by chrome.alarms",
+    "layer": "backend",
+    "exports": [],
+    "depends_on": [
+      "src/shared/todo-bridge.js"
+    ],
+    "patterns": [
+      "event-listeners",
+      "debounce",
+      "re-entrancy-guard",
+      "alarm-schedule"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "src/content/crypto-content.js",
+    "purpose": "window.StickySites.Crypto: PBKDF2 + AES-256-GCM, envelope detection, enable/unlock/disable, cached key in chrome.storage.local",
+    "layer": "frontend",
+    "exports": [
+      "Crypto.generateSalt",
+      "Crypto.deriveKey",
+      "Crypto.encrypt",
+      "Crypto.decrypt",
+      "Crypto.isEncrypted",
+      "Crypto.enable",
+      "Crypto.unlock",
+      "Crypto.disable",
+      "Crypto.cacheKey",
+      "Crypto.getCachedKey",
+      "Crypto.clearCachedKey",
+      "Crypto.encryptValue",
+      "Crypto.decryptValue"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "namespace-iife",
+      "envelope"
+    ],
+    "last_updated": "2026-05-26"
+  },
+  {
+    "path": "src/content/note-types.js",
+    "purpose": "window.StickySites.noteTypes: six note-type descriptors with storage keys, key/label/placeholder and identity-icon functions",
+    "layer": "frontend",
+    "exports": [
+      "noteTypes"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "registry",
+      "descriptor"
+    ],
+    "last_updated": "2026-06-04"
+  },
+  {
+    "path": "src/content/prefs.js",
+    "purpose": "window.StickySites.Prefs: read/write stickysites_prefs_v1 with defaults",
+    "layer": "frontend",
+    "exports": [
+      "Prefs.read",
+      "Prefs.write"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "namespace-iife",
+      "defaults-merge"
+    ],
+    "last_updated": "2026-05-26"
+  },
+  {
+    "path": "src/content/cluster.js",
+    "purpose": "window.StickySites.Cluster: floating pill with identity icons, drag, long-press reorder, layout toggle, visibility",
+    "layer": "frontend",
+    "exports": [
+      "Cluster.init",
+      "Cluster.setActive",
+      "Cluster.refreshIcons",
+      "Cluster.toggle",
+      "Cluster.applyLayout",
+      "Cluster.getVisibleTypeIds"
+    ],
+    "depends_on": [
+      "src/content/prefs.js",
+      "src/content/note-types.js"
+    ],
+    "patterns": [
+      "drag-threshold",
+      "long-press"
+    ],
+    "last_updated": "2026-06-05"
+  },
+  {
+    "path": "src/content/todo.js",
+    "purpose": "window.StickySites.Todo: to-do item/section normalisation, color palettes, grip drag-reorder controller",
+    "layer": "frontend",
+    "exports": [
+      "Todo.COLORS",
+      "Todo.PRIORITY_COLORS",
+      "Todo.genId",
+      "Todo.normalizeItem",
+      "Todo.normalizeData",
+      "Todo.DragController"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "normalize",
+      "drag-controller"
+    ],
+    "last_updated": "2026-05-26"
+  },
+  {
+    "path": "src/content/outline-ops.js",
+    "purpose": "window.StickySites.OutlineOps: pure outline tree operations, filter, auto-group, Markdown/OPML export (unit-tested)",
+    "layer": "shared",
+    "exports": [
+      "OutlineOps.findParent",
+      "OutlineOps.findNode",
+      "OutlineOps.insertSiblingAfter",
+      "OutlineOps.indentNode",
+      "OutlineOps.outdentNode",
+      "OutlineOps.moveNode",
+      "OutlineOps.removeNode",
+      "OutlineOps.filterTree",
+      "OutlineOps.autoGroup",
+      "OutlineOps.toMarkdown",
+      "OutlineOps.toOPML"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "pure-functions",
+      "tree-recursion"
+    ],
+    "last_updated": "2026-06-04"
+  },
+  {
+    "path": "src/content/outline.js",
+    "purpose": "window.StickySites.Outline: outliner UI over a global library of named docs; switcher, menu, keyboard nav, zoom, filter, lock notice",
+    "layer": "frontend",
+    "exports": [
+      "Outline.readLibrary",
+      "Outline.writeDoc",
+      "Outline.newDocKey",
+      "Outline.render"
+    ],
+    "depends_on": [
+      "src/content/outline-ops.js",
+      "src/content/crypto-content.js",
+      "src/content/prefs.js"
+    ],
+    "patterns": [
+      "read-time-migration",
+      "locked-vault-guard",
+      "undo-bar"
+    ],
+    "last_updated": "2026-06-05"
+  },
+  {
+    "path": "src/content/mentions.js",
+    "purpose": "window.StickySites.Mentions: @-mention autocomplete dropdown (link, date, contact, file) inserting chips at the caret",
+    "layer": "frontend",
+    "exports": [
+      "Mentions.attach",
+      "Mentions.show",
+      "Mentions.hide"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "caret-positioning"
+    ],
+    "last_updated": "2026-05-26"
+  },
+  {
+    "path": "src/content/panel.js",
+    "purpose": "window.StickySites.Panel: moveable/resizable note panel, 19-tool rich-text toolbar, find & replace, to-do UI, debounced encrypted save, cross-tab sync, popout",
+    "layer": "frontend",
+    "exports": [
+      "Panel.init",
+      "Panel.open",
+      "Panel.close",
+      "Panel.flushPendingSave",
+      "Panel.syncFromStorage",
+      "Panel._popoutActiveNote"
+    ],
+    "depends_on": [
+      "src/content/crypto-content.js",
+      "src/content/prefs.js",
+      "src/content/todo.js",
+      "src/content/outline.js",
+      "src/content/mentions.js"
+    ],
+    "patterns": [
+      "debounce",
+      "key-snapshot",
+      "self-echo-guard",
+      "focus-guard",
+      "execCommand"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "src/content/sticky-inject.js",
+    "purpose": "Orchestrator content script: init, lock overlay, toast, clip handler, Ctrl/Cmd+F1-F6, SPA URL watcher, message and storage listeners",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [
+      "src/content/panel.js",
+      "src/content/cluster.js",
+      "src/content/crypto-content.js",
+      "src/content/note-types.js",
+      "src/content/prefs.js"
+    ],
+    "patterns": [
+      "iife-guard",
+      "message-router",
+      "url-poll"
+    ],
+    "last_updated": "2026-06-06"
+  },
+  {
+    "path": "src/content/sticky-inject.css",
+    "purpose": "All injected styles for cluster, panel, toolbar, to-do, outliner, mentions, lock overlay, toast (also used by popout.html)",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "prefixed-selectors",
+      "max-z-index"
+    ],
+    "last_updated": "2026-06-06"
+  },
+  {
+    "path": "src/shared/todo-bridge.js",
+    "purpose": "Native-messaging to-do sync: request builder, host-result merge preserving local-only fields, syncTodosWithHost orchestration",
+    "layer": "shared",
+    "exports": [
+      "TODO_HOST",
+      "TODOS_KEY",
+      "buildRequest",
+      "applyHostResult",
+      "isEncryptedValue",
+      "syncTodosWithHost"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "dependency-injection",
+      "canonical-json-compare",
+      "encrypted-skip"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "src/shared/crypto.js",
+    "purpose": "ES-module twin of the crypto primitives (salt, PBKDF2, AES-GCM, envelope check) for vitest",
+    "layer": "shared",
+    "exports": [
+      "generateSalt",
+      "deriveKey",
+      "encrypt",
+      "decrypt",
+      "isEncrypted"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "envelope"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "src/shared/notes-storage.js",
+    "purpose": "Reference plaintext CRUD for all six note types and prefs, parseTags, createDebouncedSaver (imported by tests only)",
+    "layer": "shared",
+    "exports": [
+      "getSiteKey",
+      "getPageKey",
+      "getDailyKey",
+      "readGlobalNote",
+      "writeGlobalNote",
+      "readSiteNote",
+      "writeSiteNote",
+      "deleteSiteNote",
+      "readAllSiteNotes",
+      "readPageNote",
+      "writePageNote",
+      "deletePageNote",
+      "readAllPageNotes",
+      "readDailyNote",
+      "writeDailyNote",
+      "deleteDailyNote",
+      "readAllDailyNotes",
+      "readTodo",
+      "writeTodo",
+      "deleteTodo",
+      "readAllTodos",
+      "readOutline",
+      "writeOutline",
+      "deleteOutline",
+      "readAllOutlines",
+      "readPrefs",
+      "writePrefs",
+      "parseTags",
+      "createDebouncedSaver"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "crud",
+      "legacy-field-fallback",
+      "debounce"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "popup.html",
+    "purpose": "Browser-action popup shell; loads crypto-content.js and popup.js",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [
+      "src/content/crypto-content.js",
+      "popup.js"
+    ],
+    "patterns": [],
+    "last_updated": "2026-06-05"
+  },
+  {
+    "path": "popup.js",
+    "purpose": "Popup logic: lock screen, settings (encryption, note-type visibility, layout), all-notes search/sort/filter, Markdown export, Quick-Open",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [
+      "src/content/crypto-content.js"
+    ],
+    "patterns": [
+      "iife",
+      "direct-storage-writes"
+    ],
+    "last_updated": "2026-06-05"
+  },
+  {
+    "path": "popup.css",
+    "purpose": "Popup styles",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-06-05"
+  },
+  {
+    "path": "popout.html",
+    "purpose": "Standalone popout window shell; loads the namespace scripts and popout.js",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [
+      "src/content/panel.js",
+      "popout.js"
+    ],
+    "patterns": [],
+    "last_updated": "2026-06-04"
+  },
+  {
+    "path": "popout.js",
+    "purpose": "Reads type/key/label from the URL, overrides getKey/getLabel, opens the Panel full-window",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [
+      "src/content/panel.js",
+      "src/content/note-types.js"
+    ],
+    "patterns": [
+      "url-params"
+    ],
+    "last_updated": "2026-06-05"
+  },
+  {
+    "path": "popout.css",
+    "purpose": "Popout overrides: panel fills the window, expand/popout buttons hidden",
+    "layer": "frontend",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-05-29"
+  },
+  {
+    "path": "tests/notes-storage.test.js",
+    "purpose": "50 tests: storage keys, parseTags, CRUD for all six types, prefs (mocked chrome.storage.local)",
+    "layer": "test",
+    "exports": [],
+    "depends_on": [
+      "src/shared/notes-storage.js"
+    ],
+    "patterns": [
+      "in-memory-mock"
+    ],
+    "last_updated": "2026-06-04"
+  },
+  {
+    "path": "tests/todo-bridge.test.js",
+    "purpose": "23 tests: request shape, host merge, encrypted skip, error paths",
+    "layer": "test",
+    "exports": [],
+    "depends_on": [
+      "src/shared/todo-bridge.js"
+    ],
+    "patterns": [
+      "dependency-injection"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "tests/outline-ops.test.js",
+    "purpose": "21 tests: tree ops, filter, auto-group, exports (stubbed window)",
+    "layer": "test",
+    "exports": [],
+    "depends_on": [
+      "src/content/outline-ops.js"
+    ],
+    "patterns": [
+      "window-stub"
+    ],
+    "last_updated": "2026-06-04"
+  },
+  {
+    "path": "tests/crypto.test.js",
+    "purpose": "7 tests: salt, derive (extractable), round-trip, wrong key, isEncrypted incl. siteKey guard",
+    "layer": "test",
+    "exports": [],
+    "depends_on": [
+      "src/shared/crypto.js"
+    ],
+    "patterns": [],
+    "last_updated": "2026-05-26"
+  },
+  {
+    "path": "scripts/check-syntax.mjs",
+    "purpose": "npm run lint: node --check every .js/.mjs and manifest/package version agreement",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "cli"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "scripts/check-doc-indexes.mjs",
+    "purpose": "npm run docs:check-indexes: validates docs/high_signal_file_index.json paths and llms.txt links; --prune",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [
+      "docs/high_signal_file_index.json",
+      "llms.txt"
+    ],
+    "patterns": [
+      "cli",
+      "index-validation"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "scripts/rotate-workflow-logs.mjs",
+    "purpose": "npm run logs:rotate: archives oldest memory.md/prompts.md sections into docs/archive/ past ~200 KB; refuses on live swap files",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [
+      "memory.md",
+      "prompts.md"
+    ],
+    "patterns": [
+      "cli",
+      "log-rotation"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "scripts/generate-icons.js",
+    "purpose": "npm run icons: draws icons/icon{16,48,128}.png with canvas",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "cli"
+    ],
+    "last_updated": "2026-05-26"
+  },
+  {
+    "path": "scripts/verify-live.mjs",
+    "purpose": "npm run verify:live: puppeteer-core harness driving Chrome for Testing through identity, editor, SPA, sync, outliner, popup and encryption checks",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "e2e-harness"
+    ],
+    "last_updated": "2026-06-04"
+  },
+  {
+    "path": ".github/workflows/ci.yml",
+    "purpose": "CI: npm ci, lint, test, docs:check-indexes, manifest validation on push/PR to main",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": ".github/copilot-instructions.md",
+    "purpose": "Copilot rules mirroring CLAUDE.md; starts with Default Execution Strategy",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "CLAUDE.md",
+    "purpose": "Canonical agent guide: shape, commands, runtime architecture, storage keys, conventions, message types, workflow log rule",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "AGENTS.md",
+    "purpose": "Agent catalog (no repo-local agents) and pointers to the per-agent guides",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "GEMINI.md",
+    "purpose": "Gemini CLI pointer to CLAUDE.md with quick facts",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "memory.md",
+    "purpose": "Versioned operator log (newest first)",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "prompts.md",
+    "purpose": "Versioned request log",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "README.md",
+    "purpose": "Project overview, features, quick start, docs table",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/ARCHITECTURE.md",
+    "purpose": "Contexts, data flows, load order, storage schema, permissions, ADRs",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/COMPONENTS.md",
+    "purpose": "Per-module API reference",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/DEVELOPMENT.md",
+    "purpose": "Setup, commands, conventions, debugging",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/TESTING.md",
+    "purpose": "Suites, coverage target, CI gates, live harness",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/SECURITY.md",
+    "purpose": "Threat model, permissions audit, encryption lifecycle",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/INSTALLATION.md",
+    "purpose": "Install, update, uninstall, optional to-do host",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/requirements.md",
+    "purpose": "Functional and non-functional requirements",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/MCP.md",
+    "purpose": "No shipped MCP server; global_ai_hub developer server",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/logging.md",
+    "purpose": "Console-only diagnostics, silent-failure inventory, sensitive-data rules",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/caching-and-optimization.md",
+    "purpose": "Cache layers, debounce patterns, bottlenecks, profiling",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/external-calls.md",
+    "purpose": "Native-messaging call inventory and five-standard audit",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/integrations-and-assumptions.md",
+    "purpose": "Chrome APIs, external tools, hardcoded assumptions, context differences",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/known-issues.md",
+    "purpose": "Open limitations and gotchas",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/onboarding.md",
+    "purpose": "Zero-to-contributing walkthrough",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/codebase-overview.md",
+    "purpose": "Every file grouped by directory",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/repo-bootstrap-audit-2026-09-27.md",
+    "purpose": "Standards audit ledger: findings, retractions, deferrals",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/runbooks/load-and-reload-extension.md",
+    "purpose": "Runbook: load and reload extension",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/runbooks/release-packaging.md",
+    "purpose": "Runbook: release packaging",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/runbooks/todo-sync-troubleshooting.md",
+    "purpose": "Runbook: todo sync troubleshooting",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "docs/runbooks/encryption-lock-and-recovery.md",
+    "purpose": "Runbook: encryption lock and recovery",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "llms.txt",
+    "purpose": "LLM context index linking every doc and key source file",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "llms-full.txt",
+    "purpose": "Concatenated docs for LLM ingestion",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "llms-small.txt",
+    "purpose": "One-paragraph abstracts per doc",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "llms-facts.txt",
+    "purpose": "Sourced one-line project facts",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ],
+    "last_updated": "2026-09-27"
+  }
+]

@@ -43,4 +43,14 @@ describe('crypto', () => {
     expect(isEncrypted(null)).toBe(false);
     expect(isEncrypted('string')).toBe(false);
   });
+
+  it('isEncrypted rejects an envelope-shaped value that also carries siteKey', () => {
+    expect(isEncrypted({ iv: 'abc', data: 'def', siteKey: 'example.com' })).toBe(false);
+  });
+
+  it('deriveKey produces an extractable key (matches crypto-content.js)', async () => {
+    var salt = generateSalt();
+    var key = await deriveKey('test-passphrase', salt);
+    expect(key.extractable).toBe(true);
+  });
 });

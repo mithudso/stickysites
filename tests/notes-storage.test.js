@@ -177,6 +177,15 @@ describe('preferences', () => {
     expect(prefs.panelMode).toBe('fixed');
   });
 
+  it('defaults match src/content/prefs.js', async () => {
+    const prefs = await readPrefs();
+    expect(prefs.clusterLayout).toBe('vertical');
+    expect(prefs.iconOrder).toBeNull();
+    expect(prefs.enabledTypes).toEqual({ global: true, site: true, page: true, todo: true, outline: true, daily: true });
+    expect(prefs.panelSize).toBeNull();
+    expect(prefs.panelPosition).toBeNull();
+  });
+
   it('writes and reads back', async () => {
     await writePrefs({ panelMode: 'modal' });
     const prefs = await readPrefs();
@@ -225,6 +234,32 @@ describe('todo', () => {
     await writeTodo({ items: [{ id: '1', text: 'x', done: false }] });
     const all = await readAllTodos();
     expect(all).toHaveLength(1);
+  });
+
+  it('writes and reads back sections and tagColors', async () => {
+    const sections = [{ id: 's1', name: 'Groceries', collapsed: false }];
+    const tagColors = { '#work': '#f00' };
+    await writeTodo({ items: [], sections, tagColors });
+    const todo = await readTodo();
+    expect(todo.sections).toEqual(sections);
+    expect(todo.tagColors).toEqual(tagColors);
+  });
+
+  it('preserves sections and tagColors when a later write omits them', async () => {
+    const sections = [{ id: 's1', name: 'Groceries', collapsed: false }];
+    const tagColors = { '#work': '#f00' };
+    await writeTodo({ items: [], sections, tagColors });
+    await writeTodo({ items: [{ id: '1', text: 'x', done: false }] });
+    const todo = await readTodo();
+    expect(todo.sections).toEqual(sections);
+    expect(todo.tagColors).toEqual(tagColors);
+  });
+
+  it('defaults sections to [] and tagColors to {} when never set', async () => {
+    await writeTodo({ items: [] });
+    const todo = await readTodo();
+    expect(todo.sections).toEqual([]);
+    expect(todo.tagColors).toEqual({});
   });
 });
 

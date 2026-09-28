@@ -1,101 +1,114 @@
 # StickySites
 
-Sticky notes for every website. A Chrome Extension (v1.8.0) with six note types, a floating
-draggable icon cluster, a rich-text workspace panel with @-mention autocomplete, and
-AES-256-GCM encryption at rest.
+[![CI](https://github.com/mithudso/stickysites/actions/workflows/ci.yml/badge.svg)](https://github.com/mithudso/stickysites/actions/workflows/ci.yml)
+
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.1) with six note
+types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and
+@-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global
+outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
 
 ## Note types
 
-| Color      | Type        | Scope                     |
-|------------|-------------|---------------------------|
-| Yellow     | Global      | One shared note, visible on every site |
-| Green      | Site        | One note per domain |
-| Blue       | Page        | One note per exact URL path |
-| Purple     | To-do list  | Checkbox task list per site |
-| Orange     | Outliner    | Hierarchical bullet outline per site |
-| Red        | Daily       | One note per calendar date (YYYY-MM-DD) |
+| Color  | Type        | Scope |
+|--------|-------------|-------|
+| Yellow | Global      | One shared note, visible on every site |
+| Green  | Site        | One note per domain |
+| Blue   | Page        | One note per exact URL path |
+| Purple | To-do list  | One global checklist with sections, priorities, tags, colors |
+| Orange | Outliner    | Global library of named hierarchical outlines |
+| Red    | Daily       | One note per calendar date (YYYY-MM-DD) |
 
 ## Features
 
 ### Floating icon cluster
-- Draggable pill with one icon per note type, anchored to a saved position
-- Drag-to-reorder icons within the cluster
-- Toggle between horizontal and vertical layout
-- **Alt+S** toggles visibility; keys **1**--**5** open note types; **A** cycles through all six
-- Number badges appear on icons for 3 seconds after the cluster appears
+- Draggable pill with one identity-bearing icon per note type (🌐, domain fragment, path
+  segment, day of month); long-press to reorder; horizontal or vertical layout
+- **Alt+S** shows/hides the cluster; **Ctrl/Cmd+F1…F6** open Global, Site, Page, To-do,
+  Outline, Daily (toggle: same key closes, another key switches)
+- Icons and open site/page notes follow SPA navigation automatically
 
 ### Workspace panel
-- Moveable (drag header) and resizable (drag bottom-right handle)
-- Expand/shrink toggle and popout button
-- Rich text editor with a 19-tool formatting toolbar across two rows:
-  - **Row 1:** Bold, Italic, Underline, Strikethrough, H1, H2, H3, Unordered list,
-    Ordered list, Checkbox, Align left, Align center, Align right, HR, Indent, Outdent
-  - **Row 2:** Font family (5 options), Font size (4 sizes), Text color picker
-- Inline `#tags` for organizing notes
-- Auto-save after 500 ms of inactivity
+- Move by the header; resize from any edge or corner; expand/shrink toggle
+- **Pop out** to a standalone window with the ⧉ button — or drag the panel off the page
+- Rich text editor with a 19-tool toolbar (bold, italic, underline, strikethrough, H1–H3,
+  lists, checkbox, alignment, rule, indent/outdent, font family, font size, color)
+- **Find & Replace** (`Cmd/Ctrl+F` / `Cmd/Ctrl+H`) with match counter and Replace All
+- `@` mentions: links, dates, contacts, files; inline `#tags`; auto-save after 500 ms
+- Live cross-tab sync — edits in one tab appear in every other open panel
 
-### @-mention autocomplete
-- Type `@` in the editor to trigger an autocomplete dropdown
-- Four categories: Link (paste URL, current page URL), Date (today, tomorrow, this week,
-  pick date), Contact (name, email), File (file reference)
-- Dropdown filters as you type and positions itself near the caret
+### To-do list
+- Nested items (Tab/Shift+Tab), sections, priority 0–5, color swatches, tags, per-item notes,
+  drag-to-reorder, completed timestamps
+- Optional two-way sync with a local `TODO.md` through a native-messaging host
+  (`docs/external-calls.md`); works fully offline without it
 
-### Context menus
-- Right-click selected text to clip it into any of the six note types via the
-  **StickySites** context menu
+### Outliner
+- Library of named outline documents with a switcher; New / Rename / Duplicate / Delete
+- Keyboard-first: Enter, Tab/Shift+Tab, Alt+↑/↓, Ctrl/Cmd+Enter to complete
+- Zoom into any node (breadcrumb back), collapse, per-node notes, `#tag` chips, filter,
+  heuristic Auto-group with Undo, export to Markdown or OPML
 
-### Popup dashboard
-- Browser action popup with full-text search across all notes
-- Sort by Recent, Oldest, or A--Z
-- Filter by note type or by active tag
-- Export a single note or all notes as markdown
-- Settings panel for encryption
+### Context menu
+- Right-click selected text → **StickySites** → clip into any of the six note types
+
+### Popup
+- Quick-Open row (one button per note type), full-text search, sort (Recent / Oldest / A–Z),
+  type and tag filters, Markdown export
+- Settings: encryption Enable / Disable / **Lock Now**, note-type visibility, cluster layout
 
 ### Encryption at rest
-- Opt-in AES-256-GCM encryption enabled from the popup Settings panel
-- Passphrase-derived key via PBKDF2 (600,000 iterations, SHA-256)
-- Derived key cached in `chrome.storage.session` for the browser session
-- Lock overlay appears in-page when notes are locked
+- Opt-in AES-256-GCM; key derived from your passphrase with PBKDF2 (600,000 iterations, SHA-256)
+- The derived key is cached locally until you click **Lock Now**; an in-page lock overlay
+  asks for the passphrase when locked. There is no passphrase recovery — see
+  `docs/runbooks/encryption-lock-and-recovery.md`
 
 ## Quick start
 
 1. Clone this repository
-2. Open `chrome://extensions` and enable **Developer mode**
-3. Click **Load unpacked** and select the repo root
-4. Click the StickySites toolbar icon or press **Alt+S** on any page
+2. Open `chrome://extensions`, enable **Developer mode**
+3. **Load unpacked** → select the repo root
+4. Visit any page: click a cluster icon, or press **Ctrl/Cmd+F1**
 
-See [docs/INSTALLATION.md](docs/INSTALLATION.md) for full setup details.
+Full details: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 
 ## Development
 
 ```bash
-npm install          # install dev dependencies (vitest)
-npm test             # run unit tests (single pass)
-npm run test:watch   # run tests in watch mode
+npm install                 # vitest + canvas (dev only)
+npm run lint                # syntax gate for every script + version agreement
+npm test                    # 101 unit tests (vitest, node env, chrome mocked)
+npm run docs:check-indexes  # retrieval indexes point at real files
 ```
 
-Tests run in a Node environment and mock Chrome APIs where needed. Requires Node >= 22.
+No build step — Chrome loads the repo root directly. Requires Node ≥ 22 for the tooling.
+See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTING.md).
 
 ## Tech stack
 
-- Chrome Extension Manifest V3
-- Vanilla JavaScript -- no frameworks, no transpilers, no build step
-- Web Crypto API (AES-256-GCM) for encryption
-- Vitest for unit testing
+- Chrome Extension Manifest V3 (content scripts + module service worker)
+- Vanilla JavaScript and CSS — no frameworks, transpilers, or bundlers
+- Web Crypto API (PBKDF2, AES-256-GCM)
+- Vitest for unit tests; puppeteer-core harness for live verification
 
 ## Documentation
 
 | Document | Contents |
 |----------|----------|
-| [Architecture](docs/ARCHITECTURE.md) | System context, data flow, storage schema, design decisions |
-| [Codebase overview](docs/codebase-overview.md) | File-by-file module map |
+| [CLAUDE.md](CLAUDE.md) | Agent guide: shape, commands, conventions, storage keys, workflow log rule |
+| [Architecture](docs/ARCHITECTURE.md) | Runtime contexts, data flows, storage schema, design decisions |
 | [Components](docs/COMPONENTS.md) | Module-by-module API reference |
+| [Codebase overview](docs/codebase-overview.md) | Every file, grouped by directory |
 | [Development](docs/DEVELOPMENT.md) | Setup, commands, conventions, debugging |
-| [Installation](docs/INSTALLATION.md) | Install, update, and uninstall |
-| [Security](docs/SECURITY.md) | Threat model, permissions audit, encryption details |
-| [Testing](docs/TESTING.md) | Test framework, mocking, coverage priorities |
-| [Known issues](docs/known-issues.md) | Bugs and limitations |
+| [Testing](docs/TESTING.md) | Suites, coverage targets, CI gates, live harness |
+| [Installation](docs/INSTALLATION.md) | Install, update, uninstall, optional to-do host |
+| [Security](docs/SECURITY.md) | Threat model, permissions audit, encryption design |
+| [External calls](docs/external-calls.md) | The one out-of-browser call and its standards audit |
+| [Integrations & assumptions](docs/integrations-and-assumptions.md) | Chrome APIs relied on, hardcoded assumptions |
+| [Logging](docs/logging.md) · [Caching](docs/caching-and-optimization.md) | Diagnostics and performance notes |
+| [Runbooks](docs/runbooks/) | Load/reload, release, to-do sync troubleshooting, encryption recovery |
+| [Known issues](docs/known-issues.md) · [Requirements](docs/requirements.md) · [Onboarding](docs/onboarding.md) | |
+| [llms.txt](llms.txt) | LLM context index (`llms-full.txt`, `llms-small.txt`, `llms-facts.txt`) |
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

@@ -1,77 +1,119 @@
 # Codebase overview
 
+Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = generated,
+**T** = test-only, **C** = config/meta.
+
 ## Root
 
-| File | Purpose |
-|------|---------|
-| `manifest.json` | Chrome Extension MV3 manifest — permissions, content script load order, service worker, popup, commands |
-| `package.json` | NPM config — Vitest dev dependency, test scripts |
-| `popup.html` | Extension popup page shell — loaded when user clicks the toolbar icon |
-| `popup.js` | Popup logic — all-notes view (search, sort, filter, export) + settings (encryption) |
-| `popup.css` | Popup styles |
-| `CLAUDE.md` | Claude Code project guide |
-| `README.md` | User-facing project overview and install instructions |
+| File | Lines | Purpose |
+|---|---|---|
+| `manifest.json` | 45 | MV3 manifest: 5 permissions, `Alt+S` command, 10 content scripts in load order, module service worker, popup action **C** |
+| `package.json` / `package-lock.json` | — | Dev deps (vitest, canvas) and npm scripts (`test`, `lint`, `docs:check-indexes`, `logs:rotate`, `icons`, `verify:live`) **C** |
+| `vitest.config.mjs` | 8 | Vitest: node environment, globals **C** |
+| `popup.html` / `popup.js` / `popup.css` | 48 / 869 / 447 | Browser-action popup: lock screen, settings, Quick-Open, search/sort/filter, export |
+| `popout.html` / `popout.js` / `popout.css` | 20 / 41 / 34 | Standalone window hosting the Panel for one note |
+| `README.md` | — | Overview, features, quick start, docs table |
+| `CLAUDE.md` | — | Canonical agent guide (shape, commands, conventions, storage keys, workflow log rule) |
+| `AGENTS.md` / `GEMINI.md` | — | Agent catalog (none repo-local) / Gemini pointer to `CLAUDE.md` |
+| `memory.md` / `prompts.md` | — | Versioned operator log / request log (rotate with `npm run logs:rotate`) |
+| `CONTRIBUTING.md` / `CODE_OF_CONDUCT.md` / `LICENSE` | — | Community files (MIT) |
+| `llms.txt` / `llms-full.txt` / `llms-small.txt` / `llms-facts.txt` | — | LLM context suite: index, concatenated docs, abstracts, sourced facts **G** |
+| `.editorconfig` / `.gitattributes` / `.gitignore` / `.nvmrc` (22) | — | Editor + VCS hygiene **C** |
+| `.env.example` | — | Documents `SS_CHROME` (harness only; no runtime env vars) **C** |
+| `.mcp.json` | — | `global_ai_hub` MCP server for Claude Code (developer tooling, not the extension) **C** |
 
 ## `src/background/`
 
 | File | Lines | Purpose |
-|------|-------|---------|
-| `service-worker.js` | 225 | ES module. Context menus (6 note types), `toggle-cluster` command |
+|---|---|---|
+| `service-worker.js` | 122 | ES module. Context menus (6 clips), `Alt+S` command, popout `windows.create`, to-do sync scheduler (`chrome.alarms` 2 min + 3 s debounce) calling `runtime.sendNativeMessage` |
 
-## `src/content/`
+## `src/content/` — classic scripts, manifest load order
 
-Content scripts loaded in order by the manifest. Each attaches to `window.StickySites`
-because MV3 content scripts cannot use ES module imports.
+| # | File | Lines | Namespace / purpose |
+|---|---|---|---|
+| 1 | `crypto-content.js` | 197 | `Crypto`: PBKDF2 + AES-GCM, `isEncrypted`, enable/unlock/disable, cached key in `stickysites_cached_key` |
+| 2 | `note-types.js` | 114 | `noteTypes`: 6 descriptors with storage keys, key/label/icon functions |
+| 3 | `prefs.js` | 25 | `Prefs`: read/write `stickysites_prefs_v1` |
+| 4 | `cluster.js` | 271 | `Cluster`: floating pill, drag, long-press reorder, layout, identity icons |
+| 5 | `todo.js` | 198 | `Todo`: item/section normalisation, colors, drag controller |
+| 6 | `outline-ops.js` | 275 | `OutlineOps`: pure tree operations, filter, auto-group, Markdown/OPML export |
+| 7 | `outline.js` | 800 | `Outline`: named-doc library, switcher, ⋯ menu, keyboard nav, zoom, lock notice |
+| 8 | `mentions.js` | 262 | `Mentions`: `@` autocomplete (link, date, contact, file) |
+| 9 | `panel.js` | 1874 | `Panel`: moveable/resizable panel, rich-text toolbar, find & replace, to-do UI, auto-save, cross-tab sync, popout |
+| 10 | `sticky-inject.js` | 295 | Orchestrator: init, lock overlay, toast, clip, `Ctrl/Cmd+F1…F6`, SPA watcher, message + storage listeners |
+| — | `sticky-inject.css` | 1156 | All injected styles (also linked by `popout.html`) |
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `crypto-content.js` | 198 | AES-256-GCM encrypt/decrypt, PBKDF2 key derivation, session key caching, enable/unlock/disable flows |
-| `note-types.js` | 94 | 6 note type descriptors: global, site, page, todo, outline, daily |
-| `prefs.js` | 25 | Read/write cluster position and panel mode preferences |
-| `cluster.js` | 130 | Floating pill UI — 6 icon buttons, drag-to-reposition, active state, toggle visibility |
-| `todo.js` | — | To-do list renderer |
-| `outline-ops.js` | — | Pure outline tree operations (unit-tested via outline-ops.test.js) |
-| `outline.js` | — | Outliner UI — global named library, doc switcher, keyboard nav, zoom/hoist, export |
-| `mentions.js` | — | @-mention autocomplete: links, dates, contacts, files — dropdown triggered by `@` in the editor |
-| `panel.js` | — | Moveable, resizable note panel — rich text editor (toolbar), todo renderer, outline renderer, auto-save, cross-tab sync |
-| `sticky-inject.js` | — | Orchestrator — init, encryption gate, lock overlay, toast, clip handler, chord hotkeys, SPA nav watcher, message listener |
-| `sticky-inject.css` | 471 | All injected UI styles — cluster, panel, lock overlay, toast, dark theme, animations |
-
-## `src/shared/`
-
-ES modules used by the service worker, popup, and unit tests. Not loadable as content
-scripts directly.
+## `src/shared/` — ES modules
 
 | File | Lines | Purpose |
-|------|-------|---------|
-| `notes-storage.js` | — | CRUD for all 6 note types + prefs: getSiteKey, getPageKey, read/write/delete/readAll for global/site/page/todo/outline/daily, parseTags, createDebouncedSaver; canonical key+label schema with legacy fallbacks |
-| `crypto.js` | 71 | Pure crypto primitives: generateSalt, deriveKey (PBKDF2), encrypt, decrypt, isEncrypted |
+|---|---|---|
+| `todo-bridge.js` | 137 | Native-messaging to-do sync: `buildRequest`, `applyHostResult`, `syncTodosWithHost` (SW + tests) |
+| `crypto.js` | 71 | ES twin of `crypto-content.js` primitives (tests) |
+| `notes-storage.js` | 363 | Reference plaintext CRUD for all six note types + prefs, `parseTags`, `createDebouncedSaver` (tests only; runtime talks to storage directly) |
 
-## `tests/`
+## `tests/` — vitest, node environment **T**
 
-| File | Lines | Tests | Purpose |
-|------|-------|-------|---------|
-| `notes-storage.test.js` | — | — | Full CRUD coverage for all note types + prefs + parseTags/getSiteKey/getPageKey |
-| `crypto.test.js` | — | 5 | generateSalt, deriveKey, encrypt/decrypt round-trip, wrong-key failure, isEncrypted |
-| `outline-ops.test.js` | — | — | Pure outline tree operation tests |
+| File | Lines | Tests | Covers |
+|---|---|---|---|
+| `notes-storage.test.js` | 377 | 50 | Keys (`getSiteKey`, `getPageKey`, `getDailyKey`), `parseTags`, CRUD for all six types, prefs |
+| `todo-bridge.test.js` | 190 | 23 | Request shape, host-result merge (sections, local-only fields, `completedAt`), encrypted skip, error paths |
+| `outline-ops.test.js` | 184 | 21 | Tree ops, filter, auto-group, Markdown/OPML |
+| `crypto.test.js` | 56 | 7 | Salt, key derivation, round-trip, wrong key, `isEncrypted` |
 
-## `icons/`
+## `scripts/`
 
-| File | Purpose |
-|------|---------|
-| `icon16.png` | Favicon-size extension icon |
-| `icon48.png` | Toolbar and management page icon |
-| `icon128.png` | Chrome Web Store and install dialog icon |
+| File | Lines | Purpose |
+|---|---|---|
+| `check-syntax.mjs` | ~60 | `npm run lint` — `node --check` all scripts + version agreement |
+| `check-doc-indexes.mjs` | ~110 | `npm run docs:check-indexes` — validate `docs/high_signal_file_index.json`, `llms.txt` links; `--prune` |
+| `rotate-workflow-logs.mjs` | ~170 | `npm run logs:rotate` — archive old `memory.md` / `prompts.md` sections |
+| `generate-icons.js` | 44 | `npm run icons` — icon PNGs via `canvas` |
+| `verify-live.mjs` | 464 | `npm run verify:live` — puppeteer-core end-to-end harness (Chrome for Testing) |
 
 ## `docs/`
 
 | File | Purpose |
-|------|---------|
-| `ARCHITECTURE.md` | System context, data flow, storage schema, content script load order, design decisions |
-| `COMPONENTS.md` | Module-by-module reference — responsibilities, key functions, exports |
-| `DEVELOPMENT.md` | Setup, commands, conventions, debugging, packaging |
-| `INSTALLATION.md` | Install and uninstall instructions |
-| `SECURITY.md` | Threat model, encryption details, permissions audit, data handling |
-| `TESTING.md` | Test framework, test inventory, mocking strategy, coverage gaps |
-| `known-issues.md` | Known bugs, limitations, and workarounds |
-| `codebase-overview.md` | This file — file-by-file inventory with line counts |
+|---|---|
+| `ARCHITECTURE.md` | Contexts, data flows, load order, storage schema, permissions, ADRs |
+| `COMPONENTS.md` | Per-module API reference |
+| `DEVELOPMENT.md` | Setup, commands, conventions, debugging |
+| `TESTING.md` | Suites, coverage target, CI gates, live harness |
+| `SECURITY.md` | Threat model, permissions audit, encryption lifecycle |
+| `INSTALLATION.md` | Install / update / uninstall, optional to-do host |
+| `requirements.md` | Functional / non-functional requirements, dependencies |
+| `MCP.md` | No shipped server; `global_ai_hub` developer server |
+| `logging.md` | Console-only diagnostics, silent-failure inventory, sensitive-data rules |
+| `caching-and-optimization.md` | Cache layers, debounce/detection patterns, bottlenecks, profiling |
+| `external-calls.md` | The native-messaging call and its five-standard audit |
+| `integrations-and-assumptions.md` | Chrome APIs, external tools, hardcoded assumptions, context differences |
+| `known-issues.md` | Open limitations and gotchas |
+| `onboarding.md` | Zero-to-contributing walkthrough |
+| `codebase-overview.md` | This file |
+| `high_signal_file_index.json` | Machine-readable per-file index (validated by `npm run docs:check-indexes`) **G** |
+| `repo-bootstrap-audit-2026-09-27.md` | Standards audit ledger (findings, retractions, deferrals) |
+| `runbooks/load-and-reload-extension.md` · `release-packaging.md` · `todo-sync-troubleshooting.md` · `encryption-lock-and-recovery.md` | Operational procedures |
+| `archive/` | Rotated workflow-log sections |
+| `superpowers/specs/*.md` · `superpowers/plans/*.md` | Historical design specs and implementation plans (phases 1–5, to-do overhaul, note identity + outliner) |
+
+## `.github/`
+
+| File | Purpose |
+|---|---|
+| `workflows/ci.yml` | lint → test → index check → manifest validation on push/PR to `main` |
+| `copilot-instructions.md` | Copilot rules (mirrors `CLAUDE.md`) |
+| `dependabot.yml` | Weekly npm updates |
+| `CODEOWNERS` | `@mithudso` |
+| `PULL_REQUEST_TEMPLATE.md` | What / Why / Tests / Risk / Rollback |
+| `ISSUE_TEMPLATE/bug_report.md` · `feature_request.md` | Issue templates |
+| `SECURITY.md` | Reporting channel and response SLA |
+
+## `.vscode/`
+
+`settings.json` (format on save, 2 spaces, 100-col ruler), `extensions.json` (prettier,
+editorconfig, vitest), `launch.json` (vitest current file / all, live harness), `mcp.json`
+(`global_ai_hub`).
+
+## `icons/`
+
+`icon16.png`, `icon48.png`, `icon128.png` — regenerated by `npm run icons` **G**.

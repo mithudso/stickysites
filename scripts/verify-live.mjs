@@ -1,4 +1,4 @@
-// Live verification harness for StickySites v1.10 (untracked; not part of the extension).
+// Live verification harness for StickySites v1.11 (tracked; not part of the extension bundle).
 // Drives system Chrome with the unpacked extension via puppeteer-core.
 import puppeteer from 'puppeteer-core';
 import http from 'node:http';
@@ -10,7 +10,7 @@ const REPO = process.cwd();
 // Branded Chrome 137+ ignores --load-extension; use Chrome for Testing / Chromium.
 // Override with SS_CHROME=/path/to/binary. Requires: npm i --no-save puppeteer-core
 const CHROME = process.env.SS_CHROME ||
-  '/Users/mitch/.cache/puppeteer/chrome/mac_arm-149.0.7827.22/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+  '/Users/mitch/.cache/puppeteer/chrome/mac_arm-152.0.7977.54/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const SHOT_DIR = '/tmp/stickysites-verify';
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 const DOWNLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ss-dl-'));
