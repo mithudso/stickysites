@@ -324,7 +324,7 @@
       var r = state.lastResult || {};
       var when = state.lastSync ? new Date(state.lastSync).toLocaleTimeString() : '';
       var peers = (r.peers || []).filter(function (p) { return p.state !== 'self-or-unknown'; });
-      var names = peers.map(function (p) { return p.name + (p.state && p.state !== 'ok' && p.state !== 'compatible' && p.state !== 'remote-off' ? ' (' + p.state + ')' : ''); }).join(', ');
+      var names = peers.map(function (p) { return p.name + (p.via === 'folder' ? ' (via folder)' : '') + (p.state && p.state !== 'ok' && p.state !== 'compatible' && p.state !== 'remote-off' ? ' (' + p.state + ')' : ''); }).join(', ');
       switch (r.status) {
         case 'ok': return { text: 'In sync with ' + (names || 'peers') + (when ? ' · ' + when : '') + (r.stats && r.stats.applied ? ' · applied ' + r.stats.applied : ''), color: '#34d399' };
         case 'no-peers': return { text: 'Helper running, no other laptop seen yet' + (when ? ' · ' + when : ''), color: '#94a3b8' };
@@ -395,6 +395,14 @@
     ipsHint.textContent = 'The other laptops\u2019 LAN addresses, comma-separated. IP only \u2014 port 47833 is assumed (or IP:port). Only needed when the network blocks automatic discovery.';
     var ipsInput = document.createElement('input');
     ipsInput.type = 'text'; ipsInput.className = 'settings-input'; ipsInput.placeholder = 'e.g. 192.168.1.20, 192.168.1.21'; ipsInput.spellcheck = false; ipsInput.autocomplete = 'off';
+    var dirLabel = document.createElement('div');
+    dirLabel.className = 'settings-label';
+    dirLabel.textContent = 'Sync folder (optional)';
+    var dirHint = document.createElement('div');
+    dirHint.className = 'settings-info';
+    dirHint.textContent = 'A folder every laptop can see (Google Drive, iCloud Drive, an SMB share). Each laptop drops its signed notes file there and reads the others\u2019 \u2014 works even when the network blocks direct connections. Use the same folder on each machine.';
+    var dirInput = document.createElement('input');
+    dirInput.type = 'text'; dirInput.className = 'settings-input'; dirInput.placeholder = 'e.g. /Users/you/Library/CloudStorage/GoogleDrive-you@gmail.com/My Drive/StickySites'; dirInput.spellcheck = false; dirInput.autocomplete = 'off';
     var saveRow = document.createElement('div');
     saveRow.className = 'settings-input-row';
     var peerName = document.createElement('span');
@@ -411,10 +419,10 @@
     function renderTestResults(data) {
       testOut.textContent = '';
       var results = (data && data.results) || [];
-      if (!results.length) {
+      if (!results.length && !(data && data.folder && data.folder.configured)) {
         var none = document.createElement('div');
         none.className = 'settings-test-line is-warn';
-        none.textContent = 'Nothing to test: no Peer IPs saved and no laptop heard on the network yet.';
+        none.textContent = 'Nothing to test: no Peer IPs or Sync folder saved, and no laptop heard on the network yet.';
         testOut.appendChild(none);
         return;
       }
@@ -430,6 +438,23 @@
         }
         testOut.appendChild(line);
       });
+      var folder = data && data.folder;
+      if (folder && folder.configured) {
+        var fl = document.createElement('div');
+        if (!folder.exists) { fl.className = 'settings-test-line is-fail'; fl.textContent = '\u274c Sync folder not found: ' + folder.dir; }
+        else if (!folder.writable) { fl.className = 'settings-test-line is-fail'; fl.textContent = '\u274c Sync folder is not writable: ' + folder.dir; }
+        else {
+          var fp = folder.peers || [];
+          var okPeers = fp.filter(function (p) { return p.ok; });
+          var badPeers = fp.filter(function (p) { return !p.ok; });
+          fl.className = 'settings-test-line ' + (okPeers.length ? 'is-ok' : 'is-warn');
+          fl.textContent = (okPeers.length ? '\u2705' : '\u26a0\ufe0f') + ' Sync folder OK: ' + folder.dir +
+            (folder.ownFileAge != null ? ' \u2014 our file written ' + folder.ownFileAge + ' s ago' : ' \u2014 our file not written yet (open a note or click Sync now)') +
+            (okPeers.length ? '; peers via folder: ' + okPeers.map(function (p) { return p.name + ' (file ' + p.age + ' s old, key OK)'; }).join(', ') : '; no other laptop\u2019s file yet \u2014 set the same folder there') +
+            (badPeers.length ? '; ignored: ' + badPeers.map(function (p) { return p.name + ' (' + p.error + ')'; }).join(', ') : '');
+        }
+        testOut.appendChild(fl);
+      }
       var heard = (data && data.heard) || [];
       var h = document.createElement('div');
       h.className = 'settings-test-line is-info';
@@ -456,7 +481,7 @@
     cfgStatus.className = 'settings-status';
     var cfgLoaded = null;
 
-    function setCfgInputsEnabled(on) { keyInput.disabled = !on; ipsInput.disabled = !on; saveBtn.disabled = !on; keyCopy.disabled = !on; testBtn.disabled = !on; }
+    function setCfgInputsEnabled(on) { keyInput.disabled = !on; ipsInput.disabled = !on; dirInput.disabled = !on; saveBtn.disabled = !on; keyCopy.disabled = !on; testBtn.disabled = !on; }
 
     async function loadPeerConfig() {
       try {
@@ -465,6 +490,7 @@
         cfgLoaded = await r.json();
         keyInput.value = cfgLoaded.pairKey || '';
         ipsInput.value = (cfgLoaded.staticPeers || []).join(', ');
+        dirInput.value = cfgLoaded.syncDir || '';
         var addrs = (cfgLoaded.addrs || []).filter(function (a) { return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(a); });
         peerName.textContent = 'This laptop: ' + (cfgLoaded.name || '') + (addrs.length ? ' \u00b7 ' + addrs[0] + ' \u2014 type this on the other laptop' : '');
         ipsHint.textContent = 'The other laptops\u2019 LAN addresses, comma-separated. IP only \u2014 port ' + (cfgLoaded.discoveryPort || 47833) + ' is assumed (or IP:port). Only needed when the network blocks automatic discovery.';
@@ -485,7 +511,7 @@
     });
 
     saveBtn.addEventListener('click', async function () {
-      var body = { pairKey: keyInput.value.trim(), staticPeers: ipsInput.value };
+      var body = { pairKey: keyInput.value.trim(), staticPeers: ipsInput.value, syncDir: dirInput.value.trim() };
       if (body.pairKey.length < 8) { cfgStatus.textContent = 'Pairing key must be at least 8 characters.'; cfgStatus.style.color = '#f87171'; return; }
       saveBtn.disabled = true; cfgStatus.textContent = 'Saving…'; cfgStatus.style.color = '#94a3b8';
       try {
@@ -494,6 +520,7 @@
         if (!r.ok) throw new Error(res.error || ('HTTP ' + r.status));
         cfgLoaded = res.config;
         ipsInput.value = (res.config.staticPeers || []).join(', ');
+        dirInput.value = res.config.syncDir || '';
         cfgStatus.textContent = res.changed.length ? 'Saved (' + res.changed.join(', ') + '). Applied live — no restart needed.' : 'No changes.';
         cfgStatus.style.color = '#34d399';
         if (res.changed.length) chrome.runtime.sendMessage({ type: 'STICKYSITES_PEER_SYNC_NOW' }, function () { renderPeerState(); });
@@ -503,7 +530,7 @@
       } finally { saveBtn.disabled = false; }
     });
 
-    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus, keyLabel, keyHint, keyRow, ipsLabel, ipsHint, ipsInput, saveRow, cfgStatus, testOut);
+    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus, keyLabel, keyHint, keyRow, ipsLabel, ipsHint, ipsInput, dirLabel, dirHint, dirInput, saveRow, cfgStatus, testOut);
     loadPeerConfig();
     renderPeerState();
 

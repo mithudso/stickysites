@@ -1,4 +1,4 @@
-# Chrome Web Store listing copy — StickySites 1.12.4
+# Chrome Web Store listing copy — StickySites 1.13.0
 
 Paste-ready text for every field in the Developer Dashboard. Character limits are the
 store's; counts are given where they matter.
@@ -54,7 +54,8 @@ settings (encryption, which note types are shown, cluster layout).
 OPTIONAL: KEEP YOUR OWN LAPTOPS IN SYNC — WITHOUT THE CLOUD
 Install the small open-source peer helper on two or more of your computers with the same
 pairing key and they keep each other's notes converged over your local network only: multicast
-discovery, pinned TLS, record-level merge. No account, nothing leaves your LAN.
+discovery, pinned TLS, record-level merge. No account, nothing leaves your LAN — or, if you
+prefer, point them at a shared folder of your own (Google Drive, iCloud, SMB) instead.
 
 OPTIONAL: SYNC YOUR TO-DO LIST WITH A LOCAL FILE
 Power users can install a small companion program on their own computer so the to-do list
@@ -126,7 +127,7 @@ https://github.com/mithudso/stickysites/blob/main/PRIVACY.md
 
 ## Package tab
 
-Upload `dist/stickysites-1.12.4.zip` (built by `npm run build:store`). Version comes from
+Upload `dist/stickysites-1.13.0.zip` (built by `npm run build:store`). Version comes from
 `manifest.json`; every later upload must have a higher version.
 
 ## Reviewer notes (optional "Notes for reviewer" field — recommended)

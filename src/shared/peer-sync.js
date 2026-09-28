@@ -157,7 +157,7 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
   const unreachable = peers.filter((p) => p.error);
   if (peers.length && unreachable.length === peers.length) {
     result.status = 'unreachable';
-    result.peers = unreachable.map((p) => ({ id: p.id, name: p.name, state: 'unreachable', error: p.error }));
+    result.peers = unreachable.map((p) => ({ id: p.id, name: p.name, state: 'unreachable', error: p.error, ...(p.via ? { via: p.via } : {}) }));
     await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
     return result;
   }
@@ -179,6 +179,7 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
   for (const p of peers) {
     const snap = p.snapshot;
     const info = { id: p.id, name: p.name, state: 'ok' };
+    if (p.via) info.via = p.via;
     if (p.error) { info.state = 'unreachable'; info.error = p.error; result.peers.push(info); continue; }
     if (!snap || snap.version !== SNAPSHOT_VERSION || snap.deviceId === deviceId) { info.state = snap ? 'self-or-unknown' : 'no-snapshot'; result.peers.push(info); continue; }
     const compat = cryptoCompatibility(localCrypto, snap.crypto);

@@ -1,6 +1,6 @@
 # StickySites Privacy Policy
 
-_Last updated: 2026-09-28_
+_Last updated: 2026-09-28 (sync folder added)_
 
 StickySites is a Chrome extension that lets you keep notes attached to websites, pages, and
 dates, plus a to-do list and an outliner. This policy explains what the extension does with
@@ -48,6 +48,12 @@ discovery, HTTPS with pinned certificates, authenticated with the pairing key). 
 the internet, to us, or to any third party, and computers without your pairing key are ignored.
 With encryption on, the exchanged data is already encrypted. Without the helper installed the
 feature is inactive; it can also be switched off in Settings.
+
+You may also choose a **sync folder** — for example a Google Drive, iCloud Drive or Dropbox
+folder on your own account, or a network share. If you do, each computer writes a file
+containing its notes into that folder and your chosen cloud service stores and transfers it
+under your own account and its terms; we never see it. With encryption on, that file contains
+encrypted data only. Delete the file or clear the folder setting to stop.
 
 ## Encryption
 

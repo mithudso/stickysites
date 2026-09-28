@@ -67,6 +67,8 @@ The launchd job must not run under Homebrew's python3: macOS attributes its LAN 
 Python.app, which never gets the Local Network prompt from a background job, so they fail with
 `No route to host` while `nc`/`curl` work. `install` therefore prefers Apple's `/usr/bin/python3`
 (Command Line Tools; `--python PATH` overrides) and the log's `interpreter …` line shows which one runs.
+list; **Test connection** in the popup names this case — or use the Sync folder transport,
+which needs no network path at all.
 
 ## To-do sync requires a per-browser host manifest
 **Impact**: Low · **Status**: By design

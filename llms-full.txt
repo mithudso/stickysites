@@ -146,7 +146,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ### Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.12.4** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.13.0** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -361,6 +361,10 @@ stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer
   plus **Pairing key** (Copy), this laptop's LAN address, and **Peer IPs** (`ip[:port]`,
   comma-separated; discovery port 47833 assumed) fields read from / written to the
   daemon's loopback `GET/PUT /config`; the daemon hot-applies and persists to `~/.stickysites/peer.json`.
+- **Sync folder** transport (`sync_dir` in `peer.json`, popup field, `folder` CLI): the daemon
+  writes `stickysites-peer-<id>.json` (pairing-key-signed) to a shared/cloud folder on every
+  snapshot change and reads every other laptop's file as a peer (`via: 'folder'`); LAN peers with
+  the same id win. No ports or discovery needed.
 - Outline doc deletion writes a tombstone; other note types have no delete path in the UI.
 
 #### Popout window
@@ -810,11 +814,12 @@ lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout
 
 | Piece | Purpose |
 |---|---|
-| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`, `GET /config` (pairing key, static peers `host[:port]`, name, this host's `addrs`, `discoveryPort`) / `PUT /config` (validated, hot-applied, persisted; a key change drops known peers), `GET /test[?peer=…]` (TCP → TLS → pairing per target with cause hints, plus announcements heard); CORS for `chrome-extension://` origins only |
+| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`, `GET /config` (pairing key, static peers `host[:port]`, name, this host's `addrs`, `discoveryPort`) / `PUT /config` (validated, hot-applied, persisted; a key change drops known peers), `GET /test[?peer=…]` (TCP → TLS → pairing per target with cause hints, plus announcements heard and sync-folder health) |
+| Sync folder (`sync_dir`) | Writes `stickysites-peer-<id>.json` `{ v, id, name, ts, sig, snapshot }` (HMAC over id/name/ts/sha256(snapshot)) atomically on every snapshot change; `folder_peers()` reads the others' files (mtime/size cache), verifies the signature, and merges them into `/peers/snapshots` as `via: 'folder'`; `folder` CLI sets it live via `PUT /config`; CORS for `chrome-extension://` origins only |
 | LAN HTTPS `0.0.0.0:47832` | `GET /snapshot` (ETag / 304 / 204), `GET /hello`; `Authorization: Bearer HMAC(pairKey,'auth')`; self-signed cert from `openssl` |
 | UDP `:47833` — multicast `239.255.77.31`, subnet broadcast, optional unicast (`static_peers`) | Announce every 5 s `{ id, name, port, fp, ts, addrs, sig }`, HMAC-signed with the pairing key, on every non-tunnel interface (table rescanned every 60 s; LAN addresses advertised first, tunnels last); listener joins the group per interface and also receives broadcasts; drops unsigned/stale/self; peers expire after 20 s |
 | `fetch_peer` | Tries each announced address (recv addr first), pins the cert SHA-256 from the announcement, bearer auth, `If-None-Match` |
-| CLI | `install [--pair-key] [--name] [--peer IP]` (config + cert + ad-hoc-signed `~/Applications/StickySites Peer.app` wrapper + launchd agent `com.stickysites.peer`; launches the app once so macOS can show its Local Network prompt), `uninstall`, `run`, `status`, `pair [KEY]`, `probe` (one signed announcement + bound-socket diagnostics), `init` (tests) |
+| CLI | `install [--pair-key] [--name] [--peer IP]` (config + cert + ad-hoc-signed `~/Applications/StickySites Peer.app` wrapper + launchd agent `com.stickysites.peer`; launches the app once so macOS can show its Local Network prompt), `uninstall`, `run`, `status`, `pair [KEY]`, `probe` (one signed announcement + bound-socket diagnostics), `folder [DIR|--clear]`, `init` (tests) |
 
 `peer/test_peer.py` boots two daemons on ephemeral ports and checks CORS, bad-snapshot rejection, LAN auth, and the discovery + snapshot round-trip.
 
@@ -1811,6 +1816,12 @@ the broadcast path still delivers, so that log line (printed once) is noise. Fil
 A VPN that tunnels every app (e.g. Surfshark with Bypasser on) also blocks the helper's LAN
 unicast and TCP entirely until **StickySites Peer** (`~/Applications`) is added to its bypass
 list; **Test connection** in the popup names this case.
+The launchd job must not run under Homebrew's python3: macOS attributes its LAN sends to
+Python.app, which never gets the Local Network prompt from a background job, so they fail with
+`No route to host` while `nc`/`curl` work. `install` therefore prefers Apple's `/usr/bin/python3`
+(Command Line Tools; `--python PATH` overrides) and the log's `interpreter …` line shows which one runs.
+list; **Test connection** in the popup names this case — or use the Sync folder transport,
+which needs no network path at all.
 
 ### To-do sync requires a per-browser host manifest
 **Impact**: Low · **Status**: By design
@@ -1935,22 +1946,22 @@ version (`npm run lint` enforces this); `memory.md` / `prompts.md` updated.
 
 1. Bump the version in **both** files (patch for fixes, minor for features):
    ```bash
-   # example: 1.12.4
-   sed -i '' 's/"version": "[0-9.]*"/"version": "1.12.4"/' manifest.json package.json
+   # example: 1.13.0
+   sed -i '' 's/"version": "[0-9.]*"/"version": "1.13.0"/' manifest.json package.json
    npm run lint
    ```
 2. Commit, push, merge via PR (CI must pass).
-3. Tag: `git tag v1.12.4 && git push origin v1.12.4`.
+3. Tag: `git tag v1.13.0 && git push origin v1.13.0`.
 4. Build the store zip (runtime files only; the script refuses on version drift):
    ```bash
-   npm run build:store        # → dist/stickysites-1.12.4.zip + printed file listing
+   npm run build:store        # → dist/stickysites-1.13.0.zip + printed file listing
    ```
 5. Upload on the item's **Package** tab in the Chrome Web Store developer dashboard and
    submit for review. Full walkthrough and listing copy: `store/README.md`.
 
 ### Verification
 
-- `unzip -l stickysites-1.12.4.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
+- `unzip -l stickysites-1.13.0.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
   or `.remember/` entries.
 - Load the unzipped folder unpacked in a fresh profile and run the checks in
   `load-and-reload-extension.md`.

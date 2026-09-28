@@ -7,7 +7,7 @@ One declarative fact per line, each with a `[src:]` tag.
 ## 2026-09-27 [gen: repo-bootstrapper/1.0]
 
 - StickySites is a Chrome Extension on Manifest V3 written in vanilla JavaScript with no build step [src: CLAUDE.md]
-- manifest.json is the canonical version file (1.12.4) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
+- manifest.json is the canonical version file (1.13.0) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
 - There are six note types: Global (yellow), Site (green), Page (blue), To-do list (purple), Outliner (orange), Daily (red) [src: src/content/note-types.js]
 - Site notes are keyed by hostname without www, Page notes by origin plus pathname, Daily notes by YYYY-MM-DD [src: src/content/note-types.js]
 - The outliner is a global library of named documents keyed ol_<id>; the active doc is the activeOutlineId pref [src: src/content/outline.js]
@@ -45,3 +45,4 @@ One declarative fact per line, each with a `[src:]` tag.
 - The popup Settings can set the peer pairing key and a comma-separated list of static peer IPs; the daemon hot-applies them through GET/PUT /config on loopback and writes them to ~/.stickysites/peer.json [src: popup.js]
 - The popup Test connection button calls the daemon GET /test, which connects to each peer (TCP, TLS fingerprint, GET /hello with the bearer token) and reports the first failing step with a cause hint; a No route to host at the tcp step means a VPN or the macOS Local Network gate is blocking the helper [src: peer/stickysites-peer.py]
 - install wraps the daemon in an ad-hoc-signed ~/Applications/StickySites Peer.app so a VPN bypass list or the macOS Local Network permission can name it [src: peer/stickysites-peer.py]
+- The peer daemon can also sync through a shared folder: with sync_dir set (popup Sync folder field or the folder CLI) it writes a pairing-key-signed stickysites-peer-<id>.json on every snapshot change and reads every other laptop's file as a peer, so Google Drive or an SMB share can carry the sync without any network path [src: peer/stickysites-peer.py]

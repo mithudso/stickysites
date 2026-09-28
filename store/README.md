@@ -1,7 +1,7 @@
 # Chrome Web Store submission kit — StickySites
 
 Everything needed to publish StickySites on the Chrome Web Store, what is already done, and
-the handful of steps only the account owner can do. Version in this kit: **1.12.4**.
+the handful of steps only the account owner can do. Version in this kit: **1.13.0**.
 
 > **Account note.** A Google Play developer account does **not** cover the Chrome Web Store.
 > The store has its own one-time **US$5** developer registration on the same Google account.
@@ -11,7 +11,7 @@ the handful of steps only the account owner can do. Version in this kit: **1.12.
 
 | # | Asset | Path | Spec | Status |
 |---|---|---|---|---|
-| 1 | Upload package | `dist/stickysites-1.12.4.zip` (rebuild: `npm run build:store`) | zip with `manifest.json` at root; 30 files, ~67 KB; no dev files | ✅ built, contents verified by the script |
+| 1 | Upload package | `dist/stickysites-1.13.0.zip` (rebuild: `npm run build:store`) | zip with `manifest.json` at root; 30 files, ~67 KB; no dev files | ✅ built, contents verified by the script |
 | 2 | Store icon | `store/promo/icon-128.png` (copy of `icons/icon128.png`) | 128×128 PNG | ✅ |
 | 3 | Screenshot 1 | `store/screenshots/01-page-note.png` | 1280×800 PNG | ✅ generated from a live build |
 | 4 | Screenshot 2 | `store/screenshots/02-todo.png` | 1280×800 PNG | ✅ |
@@ -24,7 +24,7 @@ the handful of steps only the account owner can do. Version in this kit: **1.12.
 | 11 | Single-purpose statement + data-usage answers | `store/listing.md` → Privacy tab | — | ✅ |
 | 12 | Permission justifications (5 permissions + host permission + remote code) | `store/permissions-justifications.md` | one box each | ✅ paste-ready |
 | 13 | Privacy policy (public URL) | `PRIVACY.md` → https://github.com/mithudso/stickysites/blob/main/PRIVACY.md | public HTTPS URL | ✅ live once this branch is merged to `main` |
-| 14 | Manifest fields | `manifest.json`: `name`, `description`, `version 1.12.4`, `icons` 16/48/128, `homepage_url`, `minimum_chrome_version 116` | store requirements | ✅ |
+| 14 | Manifest fields | `manifest.json`: `name`, `description`, `version 1.13.0`, `icons` 16/48/128, `homepage_url`, `minimum_chrome_version 116` | store requirements | ✅ |
 | 15 | Regenerate screenshots after UI changes | `npm run store:screenshots` (needs `npm i --no-save puppeteer-core` + Chrome for Testing) | — | ✅ script |
 | 16 | Regenerate promo tiles | `npm run store:promo` | — | ✅ script |
 | 17 | Developer account registration ($5) | https://chrome.google.com/webstore/devconsole | — | ⬜ **you** |
@@ -47,11 +47,11 @@ the handful of steps only the account owner can do. Version in this kit: **1.12.
 cd /Users/mitch/dev/stickysites
 npm run lint && npm test && npm run build:store
 ```
-→ `dist/stickysites-1.12.4.zip`. The script refuses to package if `manifest.json` and
+→ `dist/stickysites-1.13.0.zip`. The script refuses to package if `manifest.json` and
 `package.json` versions differ or if any dev file sneaks in.
 
 ### 3. Create the item
-1. Dashboard → **Items** → **New item** → upload `dist/stickysites-1.12.4.zip`.
+1. Dashboard → **Items** → **New item** → upload `dist/stickysites-1.13.0.zip`.
 2. **Store listing** tab — paste from `store/listing.md`:
    - Description (the long text block)
    - Category: **Workflow & Planning** (or Tools)

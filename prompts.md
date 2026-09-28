@@ -1,5 +1,9 @@
 # StickySites Prompts Log
 
+## Prompt v1.13.0 - 2026-09-28T02:20:00-04:00
+- User request:
+  - I can connect via smb but not via that port, let's do this. Add a sync folder and I'll just point the sync folder to a shared folder that both can access like '/Users/mitch/Library/CloudStorage/GoogleDrive-mitchphudson@gmail.com/My Drive/StickySites/'
+
 ## Prompt v1.12.4 - 2026-09-28T02:02:00-04:00
 - User request:
   - They're not finding each other, and there needs to be a test button which definitively tells you whether or not it succeeded in connecting to the other system. (screenshot)

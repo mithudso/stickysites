@@ -108,6 +108,46 @@ class TwoDaemons(unittest.TestCase):
         _, _, body = http('GET', 'http://127.0.0.1:57831/test')
         self.assertTrue(any(r['ok'] for r in json.loads(body)['results']))
 
+    def test_sync_folder_transport(self):
+        # both daemons point at one shared folder; peer1 sees peer0's snapshot through it even with
+        # LAN discovery ignored (peer ids differ, so no dedupe against live peers matters here)
+        shared = tempfile.mkdtemp(prefix='ss-shared-')
+        try:
+            for port in (57831, 57841):
+                _, _, body = http('PUT', 'http://127.0.0.1:%d/config' % port, json.dumps({'syncDir': shared}).encode())
+                self.assertEqual(json.loads(body)['changed'], ['syncDir'])
+            snap = {'version': 1, 'deviceId': 'dev_folder', 'ts': 'T', 'notes': {'stickysites_daily_v1': {'2026-01-01': {'key': '2026-01-01', 'body': 'via folder', 'updatedAt': '2026-01-01T00:00:00Z'}}}, 'tombstones': {}, 'crypto': None}
+            http('PUT', 'http://127.0.0.1:57831/snapshot', json.dumps(snap).encode())
+            files = [f for f in os.listdir(shared) if f.startswith('stickysites-peer-') and f.endswith('.json')]
+            self.assertEqual(len(files), 1)
+            doc = json.load(open(os.path.join(shared, files[0])))
+            self.assertEqual(doc['name'], 'peer0'); self.assertIn('sig', doc); self.assertEqual(doc['snapshot']['deviceId'], 'dev_folder')
+            _, _, body = http('GET', 'http://127.0.0.1:57841/peers/snapshots')
+            peers = json.loads(body)['peers']
+            # peer0 is also a live LAN peer here, so the entry is reported once: via LAN with alsoVia=folder,
+            # or via folder if the LAN fetch failed — either way the folder content is what we wrote
+            p0 = [p for p in peers if p['name'] == 'peer0']
+            self.assertEqual(len(p0), 1)
+            self.assertIn(p0[0].get('via') or p0[0].get('alsoVia'), ('folder',))
+            self.assertEqual(p0[0]['snapshot']['notes']['stickysites_daily_v1']['2026-01-01']['body'], 'via folder')
+            # a file signed with a different key is reported, not trusted
+            bad = dict(doc); bad['id'] = 'peer_evil'; bad['sig'] = '0' * 64
+            json.dump(bad, open(os.path.join(shared, 'stickysites-peer-peer_evil.json'), 'w'))
+            _, _, body = http('GET', 'http://127.0.0.1:57841/peers/snapshots')
+            evil = [p for p in json.loads(body)['peers'] if p['id'] == 'peer_evil']
+            self.assertEqual(len(evil), 1); self.assertIn('signature mismatch', evil[0]['error']); self.assertNotIn('snapshot', evil[0])
+            # status/test expose folder health
+            st = json.loads(http('GET', 'http://127.0.0.1:57841/status')[2])['folder']
+            self.assertTrue(st['configured'] and st['exists'] and st['writable'])
+            self.assertTrue(any(p['ok'] for p in st['peers']), st)
+            # missing folder is rejected on PUT
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                http('PUT', 'http://127.0.0.1:57841/config', b'{"syncDir": "/nonexistent/ss-folder"}')
+            self.assertEqual(cm.exception.code, 400); cm.exception.close()
+        finally:
+            for port in (57831, 57841): http('PUT', 'http://127.0.0.1:%d/config' % port, b'{"syncDir": ""}')
+            shutil.rmtree(shared, ignore_errors=True)
+
     def test_lan_endpoint_requires_bearer(self):
         import ssl, http.client
         ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE

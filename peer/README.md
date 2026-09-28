@@ -75,6 +75,23 @@ Restart=always
 WantedBy=default.target
 ```
 
+## Sync folder (no network needed)
+
+If direct LAN connections are blocked (VPN, client isolation, different subnets), point every
+laptop at **one shared folder** — Google Drive, iCloud Drive, Dropbox, an SMB share:
+
+```bash
+python3 peer/stickysites-peer.py folder "/Users/you/Library/CloudStorage/GoogleDrive-you@gmail.com/My Drive/StickySites"
+```
+
+or popup → Settings → Local Peer Sync → **Sync folder** → Save. Each laptop writes its
+snapshot there as `stickysites-peer-<id>.json` (signed with the pairing key) whenever its
+notes change, and reads every other laptop's file as a peer on each sync. Files signed with a
+different pairing key are ignored and reported. The cloud service does the transport; nothing
+else is needed — no ports, no discovery. With the vault on, the file holds encrypted
+envelopes; with it off, the file holds your notes in plaintext inside that cloud account.
+Latency = your cloud client's sync delay plus up to one minute.
+
 ## How syncing works
 
 - Every minute (and 4 s after you edit a note) the extension's service worker pushes a
