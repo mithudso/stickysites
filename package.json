@@ -1,7 +1,7 @@
 {
   "name": "stickysites",
   "private": true,
-  "version": "1.12.4",
+  "version": "1.13.0",
   "description": "Sticky notes for every website \u2014 global, site, page, daily, todo, and outline notes with rich text, encryption, and sync",
   "engines": {
     "node": ">=22"

@@ -15,6 +15,8 @@ State lives in ~/.stickysites/ (config, self-signed cert, latest snapshot).
   stickysites-peer.py status                                    ask the running daemon for peers
   stickysites-peer.py pair [KEY]                                show or set the pairing key
   stickysites-peer.py init                                      config+cert only (no launchd; used by tests)
+  stickysites-peer.py folder [DIR|--clear]                      show or set the sync folder (a shared/cloud folder;
+                                                                each laptop drops its signed snapshot file there)
 
 The pairing key and static peer list can also be set from the extension popup (Settings →
 Local Peer Sync); the daemon applies them live and writes them back to peer.json.
@@ -22,7 +24,7 @@ Local Peer Sync); the daemon applies them live and writes them back to peer.json
 import argparse, errno, hashlib, hmac, http.client, json, os, secrets, socket, ssl, subprocess, sys, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 HOME = os.path.expanduser(os.environ.get('STICKYSITES_HOME', '~/.stickysites'))
 CONFIG = os.path.join(HOME, 'peer.json')
 CERT = os.path.join(HOME, 'peer-cert.pem')
@@ -65,6 +67,7 @@ def ensure_config(pair_key=None, name=None, loop_port=None, lan_port=None, mcast
     if lan_port: cfg['lan_port'] = int(lan_port)
     if mcast_port: cfg['mcast_port'] = int(mcast_port)
     if peers is not None: cfg['static_peers'] = [p for p in peers if p]
+    cfg.setdefault('sync_dir', '')
     save_config(cfg)
     return cfg
 
@@ -187,6 +190,7 @@ class Daemon:
     def __init__(self, cfg):
         self.cfg = cfg; self.store = SnapshotStore(); self.peers = Peers(); self.fp = cert_fingerprint()
         self.cache = {}  # peer id → {'etag','snapshot'}
+        self.folder_cache = {}  # sync-folder file name → {'key': (mtime, size), 'doc'}
         self.stop = threading.Event()
 
     # discovery
@@ -295,13 +299,102 @@ class Daemon:
         self.cache[p['id']] = {'etag': r.getheader('ETag', ''), 'snapshot': snap}
         return snap
 
+    # ── sync-folder transport ─────────────────────────────────────────────────
+    # A folder both laptops can see (Google Drive, iCloud, SMB share). We write our snapshot there as
+    # stickysites-peer-<id>.json, signed with the pairing key; every other such file is a peer.
+    FOLDER_PREFIX = 'stickysites-peer-'
+
+    def sync_dir(self):
+        d = str(self.cfg.get('sync_dir') or '').strip()
+        return os.path.expanduser(d) if d else ''
+
+    def own_folder_file(self):
+        return os.path.join(self.sync_dir(), '%s%s.json' % (self.FOLDER_PREFIX, self.cfg['id']))
+
+    @staticmethod
+    def canon(obj):
+        """Canonical bytes of a snapshot object — the same on write and read regardless of how the
+        extension formatted its JSON."""
+        return json.dumps(obj, separators=(',', ':'), sort_keys=True, ensure_ascii=False).encode()
+
+    def folder_sig(self, pid, name, ts, snapshot_obj):
+        return sign(self.cfg['pair_key'], 'folder', pid, name, ts, hashlib.sha256(self.canon(snapshot_obj)).hexdigest())
+
+    def write_folder_snapshot(self):
+        d = self.sync_dir()
+        if not d: return None
+        body, etag = self.store.get()
+        if not body: return None
+        if getattr(self, '_folder_written_etag', None) == etag and os.path.exists(self.own_folder_file()): return 'unchanged'
+        if not os.path.isdir(d): raise RuntimeError('sync folder does not exist: %s' % d)
+        ts = int(time.time()); snap = json.loads(body.decode())
+        doc = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'ts': ts, 'daemon': VERSION,
+               'sig': self.folder_sig(self.cfg['id'], self.cfg['name'], ts, snap), 'snapshot': snap}
+        tmp = self.own_folder_file() + '.tmp'
+        with open(tmp, 'w') as f: json.dump(doc, f, separators=(',', ':'))
+        os.replace(tmp, self.own_folder_file())
+        self._folder_written_etag = etag
+        return 'written'
+
+    def folder_peers(self):
+        """[{id, name, snapshot|error, via:'folder', age}] for every other laptop's file in the sync folder."""
+        d = self.sync_dir(); out = []
+        if not d: return out
+        if not os.path.isdir(d): return [{'id': 'folder', 'name': 'sync folder', 'error': 'sync folder does not exist: %s' % d, 'via': 'folder'}]
+        own = os.path.basename(self.own_folder_file())
+        for fn in sorted(os.listdir(d)):
+            if not fn.startswith(self.FOLDER_PREFIX) or not fn.endswith('.json') or fn == own: continue
+            path = os.path.join(d, fn)
+            try:
+                st = os.stat(path); key = (st.st_mtime, st.st_size)
+                cached = self.folder_cache.get(fn)
+                if cached and cached['key'] == key: doc = cached['doc']
+                else:
+                    with open(path) as f: doc = json.load(f)
+                    self.folder_cache[fn] = {'key': key, 'doc': doc}
+                pid, name, ts = str(doc.get('id')), str(doc.get('name', ''))[:64], doc.get('ts')
+                expected = self.folder_sig(pid, name, ts, doc.get('snapshot'))
+                age = int(time.time() - st.st_mtime)
+                if not hmac.compare_digest(expected, str(doc.get('sig', ''))):
+                    out.append({'id': pid, 'name': name or fn, 'error': 'signature mismatch — that laptop uses a different pairing key', 'via': 'folder', 'age': age}); continue
+                if pid == self.cfg['id']: continue
+                out.append({'id': pid, 'name': name or pid, 'snapshot': doc.get('snapshot'), 'via': 'folder', 'age': age})
+            except (OSError, ValueError) as e:
+                out.append({'id': fn, 'name': fn, 'error': 'unreadable: %s' % e, 'via': 'folder'})
+        return out
+
+    def folder_status(self):
+        d = self.sync_dir()
+        if not d: return {'dir': '', 'configured': False}
+        info = {'dir': d, 'configured': True, 'exists': os.path.isdir(d), 'writable': os.access(d, os.W_OK) if os.path.isdir(d) else False}
+        try:
+            st = os.stat(self.own_folder_file()); info['ownFileAge'] = int(time.time() - st.st_mtime)
+        except OSError: info['ownFileAge'] = None
+        info['peers'] = [{'id': p['id'], 'name': p['name'], 'age': p.get('age'), 'ok': 'snapshot' in p, 'error': p.get('error')} for p in self.folder_peers()]
+        return info
+
     def peers_snapshots(self):
+        try:
+            self.write_folder_snapshot()
+        except Exception as e:
+            log('sync folder write failed: %s' % e)
+        folder = {f['id']: f for f in self.folder_peers()}
         out = []
         for p in self.peers.live().values():
-            try: snap = self.fetch_peer(p)
+            try:
+                snap = self.fetch_peer(p)
+                entry = {'id': p['id'], 'name': p['name'], 'snapshot': snap}
             except Exception as e:
-                log('fetch from %s failed: %s' % (p['name'], e)); out.append({'id': p['id'], 'name': p['name'], 'error': str(e)}); continue
-            out.append({'id': p['id'], 'name': p['name'], 'snapshot': snap})
+                log('fetch from %s failed: %s' % (p['name'], e))
+                entry = {'id': p['id'], 'name': p['name'], 'error': str(e)}
+            # same laptop also present in the sync folder: LAN result wins only if it actually fetched
+            ff = folder.pop(p['id'], None)
+            if ff is not None:
+                if 'snapshot' not in ff: entry['folderError'] = ff.get('error')
+                elif 'snapshot' in entry: entry['alsoVia'] = 'folder'
+                else: entry = dict(ff, lanError=entry.get('error'))
+            out.append(entry)
+        out.extend(folder.values())  # folder-only peers (and signature/unreadable reports)
         return out
 
     # Loopback-only config view/update (popup Settings). Mutates self.cfg in place so the announce,
@@ -309,7 +402,7 @@ class Daemon:
     def get_config(self):
         return {'id': self.cfg['id'], 'name': self.cfg['name'], 'pairKey': self.cfg['pair_key'],
                 'staticPeers': list(self.cfg.get('static_peers', [])), 'lanPort': self.cfg['lan_port'],
-                'discoveryPort': self.cfg['mcast_port'], 'addrs': local_ipv4s()}
+                'discoveryPort': self.cfg['mcast_port'], 'addrs': local_ipv4s(), 'syncDir': str(self.cfg.get('sync_dir') or '')}
 
     def update_config(self, body):
         changed = []
@@ -337,6 +430,12 @@ class Daemon:
         if 'name' in body:
             name = str(body['name']).strip()[:64]
             if name and name != self.cfg['name']: self.cfg['name'] = name; changed.append('name')
+        if 'syncDir' in body:
+            d = str(body['syncDir']).strip()
+            if len(d) > 1024: raise ValueError('syncDir too long')
+            if d and not os.path.isdir(os.path.expanduser(d)): raise ValueError('sync folder does not exist: %s' % d)
+            if d != str(self.cfg.get('sync_dir') or ''):
+                self.cfg['sync_dir'] = d; self._folder_written_etag = None; self.folder_cache.clear(); changed.append('syncDir')
         if changed:
             save_config(self.cfg)
             if 'pairKey' in changed:
@@ -392,6 +491,7 @@ class Daemon:
     def status(self):
         return {'version': VERSION, 'id': self.cfg['id'], 'name': self.cfg['name'], 'lanPort': self.cfg['lan_port'],
                 'staticPeers': list(self.cfg.get('static_peers', [])),
+                'folder': self.folder_status(),
                 'hasSnapshot': bool(self.store.get()[0]),
                 'peers': [{'id': p['id'], 'name': p['name'], 'addr': p['addr'], 'port': p['port'], 'lastSeen': int(time.time() - p['lastSeen'])} for p in self.peers.live().values()]}
 
@@ -424,7 +524,10 @@ def make_handlers(d):
                 for t in targets:
                     if t in seen: continue
                     seen.append(t); results.append(d.test_peer(t))
-                return self._json(200, {'results': results, 'heard': [{'name': p['name'], 'addr': p['addr'], 'lastSeen': int(time.time() - p['lastSeen'])} for p in d.peers.live().values()]})
+                try: d.write_folder_snapshot()
+                except Exception as e: log('sync folder write failed: %s' % e)
+                return self._json(200, {'results': results, 'folder': d.folder_status(),
+                                        'heard': [{'name': p['name'], 'addr': p['addr'], 'lastSeen': int(time.time() - p['lastSeen'])} for p in d.peers.live().values()]})
             if self.path == '/peers/snapshots': return self._json(200, {'peers': d.peers_snapshots()})
             self._json(404, {'error': 'not found'})
         def do_PUT(self):
@@ -446,6 +549,8 @@ def make_handlers(d):
                 if not isinstance(snap, dict) or snap.get('version') != 1 or 'notes' not in snap: raise ValueError('bad snapshot')
             except ValueError as e: return self._json(400, {'error': str(e)})
             d.store.put(body)
+            try: d.write_folder_snapshot()
+            except Exception as e: log('sync folder write failed: %s' % e)
             self._json(200, {'ok': True, 'etag': d.store.get()[1]})
 
     class LanHandler(BaseHTTPRequestHandler):
@@ -594,6 +699,18 @@ def cmd_probe(a):
     log('probe: ' + '; '.join(results))
     print('\n'.join(results))
 
+def cmd_folder(a):
+    cfg = load_config() if os.path.exists(CONFIG) else ensure_config()
+    if a.clear or a.dir is not None:
+        d = '' if a.clear else os.path.abspath(os.path.expanduser(a.dir))
+        if d and not os.path.isdir(d): print('not a directory: %s' % d); sys.exit(1)
+        try:
+            req = urllib.request.Request('http://127.0.0.1:%d/config' % cfg['loop_port'], data=json.dumps({'syncDir': d}).encode(), method='PUT', headers={'Content-Type': 'application/json', 'Origin': 'chrome-extension://cli'})
+            with urllib.request.urlopen(req, timeout=5) as r: print(json.dumps(json.load(r), indent=2)); return
+        except Exception:
+            cfg['sync_dir'] = d; save_config(cfg); print('daemon not running; saved to %s (takes effect on start)' % CONFIG); return
+    print(cfg.get('sync_dir') or '(no sync folder set)')
+
 def cmd_uninstall(a):
     plist = os.path.expanduser('~/Library/LaunchAgents/%s.plist' % LAUNCHD_LABEL)
     if os.path.exists(plist):
@@ -624,6 +741,7 @@ def main(argv=None):
     sub.add_parser('run').set_defaults(fn=lambda a: run(load_config() if os.path.exists(CONFIG) else ensure_config()))
     sub.add_parser('status').set_defaults(fn=cmd_status)
     sub.add_parser('probe').set_defaults(fn=cmd_probe)
+    p = sub.add_parser('folder'); p.add_argument('dir', nargs='?'); p.add_argument('--clear', action='store_true'); p.set_defaults(fn=cmd_folder)
     p = sub.add_parser('pair'); p.add_argument('key', nargs='?'); p.set_defaults(fn=cmd_pair)
     a = ap.parse_args(argv); a.fn(a)
 

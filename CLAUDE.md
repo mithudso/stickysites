@@ -12,7 +12,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.12.4** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.13.0** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -227,6 +227,10 @@ stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer
   plus **Pairing key** (Copy), this laptop's LAN address, and **Peer IPs** (`ip[:port]`,
   comma-separated; discovery port 47833 assumed) fields read from / written to the
   daemon's loopback `GET/PUT /config`; the daemon hot-applies and persists to `~/.stickysites/peer.json`.
+- **Sync folder** transport (`sync_dir` in `peer.json`, popup field, `folder` CLI): the daemon
+  writes `stickysites-peer-<id>.json` (pairing-key-signed) to a shared/cloud folder on every
+  snapshot change and reads every other laptop's file as a peer (`via: 'folder'`); LAN peers with
+  the same id win. No ports or discovery needed.
 - Outline doc deletion writes a tombstone; other note types have no delete path in the UI.
 
 ### Popout window

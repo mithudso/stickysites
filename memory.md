@@ -1,5 +1,19 @@
 # StickySites Memory Log
 
+## v1.13.0 - 2026-09-28
+- User request:
+  - Direct port unreachable (VPN) but SMB works: add a sync folder pointed at a shared folder both
+    laptops can access (Google Drive path)
+- Completed:
+  - Daemon sync-folder transport: `sync_dir` config (popup field, `PUT /config {syncDir}`, `folder`
+    CLI); writes signed `stickysites-peer-<id>.json` on snapshot change; reads other laptops' files
+    as peers (`via: folder`, signature verified, mtime cache); folder health in `/status` and `/test`;
+    two-daemon test; popup Sync folder field + Test lines; PRIVACY.md + store listing updated
+- In progress:
+  - None
+- Next steps:
+  - Set the same folder on M-GN90147X97; Test connection should show "peers via folder"
+
 ## v1.12.4 - 2026-09-28
 - User request:
   - Laptops not finding each other; add a Test button that definitively says whether it connected

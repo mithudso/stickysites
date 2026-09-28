@@ -34,6 +34,14 @@ block both — configure `--peer IP` on each side, see `peer/README.md`).
 - Edit a site note on one laptop; within ~5 s (4 s debounce + push) plus the other side's
   next minute tick it appears there. Force it with **Sync now**.
 
+## Shared folder instead of the network
+
+When Test connection keeps failing at `tcp` (VPN you cannot bypass, client isolation,
+different subnets): on each laptop set the **same** shared folder — popup → Settings → Local
+Peer Sync → Sync folder → Save, or `python3 peer/stickysites-peer.py folder "<path>"`.
+Test connection then shows "Sync folder OK … peers via folder: <name> (file N s old, key OK)".
+The pairing key must still match; nothing else is required.
+
 ## Encryption
 
 Enable encryption on **one** laptop only. The other adopts that vault on its next sync, shows

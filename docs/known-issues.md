@@ -62,7 +62,8 @@ the broadcast path still delivers, so that log line (printed once) is noise. Fil
 `peer/stickysites-peer.py`, `docs/runbooks/peer-sync.md`.
 A VPN that tunnels every app (e.g. Surfshark with Bypasser on) also blocks the helper's LAN
 unicast and TCP entirely until **StickySites Peer** (`~/Applications`) is added to its bypass
-list; **Test connection** in the popup names this case.
+list; **Test connection** in the popup names this case — or use the Sync folder transport,
+which needs no network path at all.
 
 ## To-do sync requires a per-browser host manifest
 **Impact**: Low · **Status**: By design
