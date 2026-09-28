@@ -60,6 +60,9 @@ Settings → Peer IPs, or `install --peer <IP>`).
 Under a VPN that owns the default route macOS refuses the multicast send (`No route to host`) —
 the broadcast path still delivers, so that log line (printed once) is noise. Files:
 `peer/stickysites-peer.py`, `docs/runbooks/peer-sync.md`.
+A VPN that tunnels every app (e.g. Surfshark with Bypasser on) also blocks the helper's LAN
+unicast and TCP entirely until **StickySites Peer** (`~/Applications`) is added to its bypass
+list; **Test connection** in the popup names this case.
 
 ## To-do sync requires a per-browser host manifest
 **Impact**: Low · **Status**: By design
