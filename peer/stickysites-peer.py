@@ -327,6 +327,7 @@ class Daemon:
         if not body: return None
         if getattr(self, '_folder_written_etag', None) == etag and os.path.exists(self.own_folder_file()): return 'unchanged'
         if not os.path.isdir(d): raise RuntimeError('sync folder does not exist: %s' % d)
+        # (an OSError from the write below is caught by callers and logged; the daemon keeps serving)
         ts = int(time.time()); snap = json.loads(body.decode())
         doc = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'ts': ts, 'daemon': VERSION,
                'sig': self.folder_sig(self.cfg['id'], self.cfg['name'], ts, snap), 'snapshot': snap}
@@ -342,7 +343,11 @@ class Daemon:
         if not d: return out
         if not os.path.isdir(d): return [{'id': 'folder', 'name': 'sync folder', 'error': 'sync folder does not exist: %s' % d, 'via': 'folder'}]
         own = os.path.basename(self.own_folder_file())
-        for fn in sorted(os.listdir(d)):
+        try: names = sorted(os.listdir(d))
+        except OSError as e:
+            # e.g. macOS refusing a cloud-storage folder to this process: report, never crash the request
+            return [{'id': 'folder', 'name': 'sync folder', 'via': 'folder', 'error': 'cannot read sync folder: %s — allow "StickySites Peer" (or python3) under System Settings → Privacy & Security → Files and Folders, or pick a folder outside ~/Library/CloudStorage (e.g. an SMB share)' % e}]
+        for fn in names:
             if not fn.startswith(self.FOLDER_PREFIX) or not fn.endswith('.json') or fn == own: continue
             path = os.path.join(d, fn)
             try:
@@ -367,6 +372,8 @@ class Daemon:
         d = self.sync_dir()
         if not d: return {'dir': '', 'configured': False}
         info = {'dir': d, 'configured': True, 'exists': os.path.isdir(d), 'writable': os.access(d, os.W_OK) if os.path.isdir(d) else False}
+        try: os.listdir(d) if os.path.isdir(d) else None
+        except OSError as e: info['writable'] = False; info['error'] = 'cannot read sync folder: %s (grant Files and Folders access to StickySites Peer, or use a folder outside ~/Library/CloudStorage)' % e
         try:
             st = os.stat(self.own_folder_file()); info['ownFileAge'] = int(time.time() - st.st_mtime)
         except OSError: info['ownFileAge'] = None
