@@ -180,7 +180,7 @@ lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout
 
 | Piece | Purpose |
 |---|---|
-| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`; CORS for `chrome-extension://` origins only |
+| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`, `GET /config` / `PUT /config` (pairing key, static peers, name — validated, hot-applied, persisted; a key change drops known peers); CORS for `chrome-extension://` origins only |
 | LAN HTTPS `0.0.0.0:47832` | `GET /snapshot` (ETag / 304 / 204), `GET /hello`; `Authorization: Bearer HMAC(pairKey,'auth')`; self-signed cert from `openssl` |
 | UDP `:47833` — multicast `239.255.77.31`, subnet broadcast, optional unicast (`static_peers`) | Announce every 5 s `{ id, name, port, fp, ts, addrs, sig }`, HMAC-signed with the pairing key, on every non-tunnel interface (table rescanned every 60 s; LAN addresses advertised first, tunnels last); listener joins the group per interface and also receives broadcasts; drops unsigned/stale/self; peers expire after 20 s |
 | `fetch_peer` | Tries each announced address (recv addr first), pins the cert SHA-256 from the announcement, bearer auth, `If-None-Match` |

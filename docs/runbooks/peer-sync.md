@@ -18,6 +18,9 @@ block both — configure `--peer IP` on each side, see `peer/README.md`).
    ```bash
    python3 /Users/mitch/dev/stickysites/peer/stickysites-peer.py install --pair-key <KEY>
    ```
+   Or skip the key flag: after installing, open the popup → Settings → Local Peer Sync, paste the
+   first laptop's key into **Pairing key** (and the other laptop's IP into **Peer IPs** if the
+   network blocks discovery), click **Save**. Applied live.
 3. Reload the extension on each machine (`chrome://extensions` → ↻) so the service worker
    picks up the first sync; or open the popup → Settings → **Local Peer Sync** → **Sync now**.
 

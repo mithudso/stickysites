@@ -12,7 +12,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.12.1** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.12.2** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -221,7 +221,9 @@ stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer
 - Triggers: alarm `stickysites-peer-sync` every 1 min, startup/install, 4 s after a note /
   tombstone / crypto change, and `STICKYSITES_PEER_SYNC_NOW` from the popup. `peerSyncRunning`
   guards re-entrancy; the merge's own writes re-trigger only a push (nothing new to apply).
-- Popup Settings → Local Peer Sync: On/Off (`stickysites_peer_v1.enabled`), Sync now, status.
+- Popup Settings → Local Peer Sync: On/Off (`stickysites_peer_v1.enabled`), Sync now, status,
+  plus **Pairing key** (Copy) and **Peer IPs** (comma-separated) fields read from / written to the
+  daemon's loopback `GET/PUT /config`; the daemon hot-applies and persists to `~/.stickysites/peer.json`.
 - Outline doc deletion writes a tombstone; other note types have no delete path in the UI.
 
 ### Popout window
@@ -293,6 +295,7 @@ cluster icons and re-opens an open site/page note under the new key (flushing fi
 | native `{cmd:'sync'}` | SW → `com.mitch.todo_bridge` | Two-way to-do sync (`docs/external-calls.md`) |
 | `STICKYSITES_PEER_SYNC_NOW` | popup → SW | Run a peer sync immediately; replies with `stickysites_peer_v1` |
 | HTTP `PUT /snapshot`, `GET /peers/snapshots` | SW → `127.0.0.1:47831` | Local peer daemon (`peer/README.md`) |
+| HTTP `GET /config`, `PUT /config` | popup → `127.0.0.1:47831` | Read / hot-apply pairing key, static peer IPs, name |
 
 ## MCP servers
 None shipped. `global_ai_hub` (`.mcp.json`) is the developer's local semantic index over this

@@ -62,7 +62,8 @@ your own laptops on the same network. No servers, no internet calls.
 - A tiny stdlib-Python helper on each machine discovers peers (multicast + subnet broadcast, pairing key) and relays
   snapshots over pinned TLS; merging is record-level last-writer-wins inside the extension
 - Encrypted vaults sync as envelopes; enable encryption on one laptop and the others adopt it
-- Setup: `python3 peer/stickysites-peer.py install` — see [peer/README.md](peer/README.md)
+- Setup: `python3 peer/stickysites-peer.py install`, then paste the pairing key (and, if your
+  network blocks discovery, the other laptop's IP) in the popup Settings — see [peer/README.md](peer/README.md)
 
 ### Encryption at rest
 - Opt-in AES-256-GCM; key derived from your passphrase with PBKDF2 (600,000 iterations, SHA-256)

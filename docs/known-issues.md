@@ -55,7 +55,8 @@ Files: `src/content/outline.js`, `src/shared/peer-sync.js`.
 ## Peer sync needs peers on the same subnet (or a static peer address)
 **Impact**: Low · **Status**: By design
 Discovery is UDP multicast plus subnet broadcast on port 47833 on every non-tunnel interface;
-networks with client isolation or that drop UDP need `install --peer <IP>` on each side.
+networks with client isolation or that drop UDP need static peer IPs on each side (popup
+Settings → Peer IPs, or `install --peer <IP>`).
 Under a VPN that owns the default route macOS refuses the multicast send (`No route to host`) —
 the broadcast path still delivers, so that log line (printed once) is noise. Files:
 `peer/stickysites-peer.py`, `docs/runbooks/peer-sync.md`.

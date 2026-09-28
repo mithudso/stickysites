@@ -1,5 +1,9 @@
 # StickySites Prompts Log
 
+## Prompt v1.12.2 - 2026-09-28T01:05:00-04:00
+- User request:
+  - 1. tolerant 2. Add the option to add a pair key after loading the extension, as well as the option to specify a comma separated set of peer IPs. Otherwise it'd have to listen on broadcast for an announcement
+
 ## Prompt v1.12.1 - 2026-09-28T00:33:00-04:00
 - User request:
   - 1. yes. 2. ok 3. ok  (install the peer helper on this laptop; pairing key + encryption notes acknowledged)

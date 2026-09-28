@@ -15,6 +15,9 @@ State lives in ~/.stickysites/ (config, self-signed cert, latest snapshot).
   stickysites-peer.py status                                    ask the running daemon for peers
   stickysites-peer.py pair [KEY]                                show or set the pairing key
   stickysites-peer.py init                                      config+cert only (no launchd; used by tests)
+
+The pairing key and static peer list can also be set from the extension popup (Settings →
+Local Peer Sync); the daemon applies them live and writes them back to peer.json.
 """
 import argparse, errno, hashlib, hmac, http.client, json, os, secrets, socket, ssl, subprocess, sys, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -292,8 +295,47 @@ class Daemon:
             out.append({'id': p['id'], 'name': p['name'], 'snapshot': snap})
         return out
 
+    # Loopback-only config view/update (popup Settings). Mutates self.cfg in place so the announce,
+    # listen and fetch loops pick the new pairing key / static peers up on their next iteration.
+    def get_config(self):
+        return {'id': self.cfg['id'], 'name': self.cfg['name'], 'pairKey': self.cfg['pair_key'],
+                'staticPeers': list(self.cfg.get('static_peers', [])), 'lanPort': self.cfg['lan_port']}
+
+    def update_config(self, body):
+        changed = []
+        if 'pairKey' in body:
+            key = str(body['pairKey']).strip()
+            if len(key) < 8 or len(key) > 128 or any(c.isspace() for c in key): raise ValueError('pairKey must be 8-128 characters without spaces')
+            if key != self.cfg['pair_key']: self.cfg['pair_key'] = key; changed.append('pairKey')
+        if 'staticPeers' in body:
+            raw = body['staticPeers']
+            if isinstance(raw, str): raw = raw.split(',')
+            if not isinstance(raw, list): raise ValueError('staticPeers must be a list or a comma-separated string')
+            peers = []
+            for p in raw:
+                p = str(p).strip()
+                if not p: continue
+                try: socket.inet_aton(p)
+                except OSError:
+                    try: socket.getaddrinfo(p, None, socket.AF_INET)
+                    except OSError: raise ValueError('not an IPv4 address or resolvable host: %s' % p)
+                if p not in peers: peers.append(p)
+            if len(peers) > 32: raise ValueError('at most 32 static peers')
+            if peers != list(self.cfg.get('static_peers', [])): self.cfg['static_peers'] = peers; changed.append('staticPeers')
+        if 'name' in body:
+            name = str(body['name']).strip()[:64]
+            if name and name != self.cfg['name']: self.cfg['name'] = name; changed.append('name')
+        if changed:
+            save_config(self.cfg)
+            if 'pairKey' in changed:
+                with self.peers.lock: self.peers.peers.clear()   # peers seen under the old key are no longer trusted
+                self.cache.clear()
+            log('config updated via loopback: %s' % ', '.join(changed))
+        return changed
+
     def status(self):
         return {'version': VERSION, 'id': self.cfg['id'], 'name': self.cfg['name'], 'lanPort': self.cfg['lan_port'],
+                'staticPeers': list(self.cfg.get('static_peers', [])),
                 'hasSnapshot': bool(self.store.get()[0]),
                 'peers': [{'id': p['id'], 'name': p['name'], 'addr': p['addr'], 'port': p['port'], 'lastSeen': int(time.time() - p['lastSeen'])} for p in self.peers.live().values()]}
 
@@ -316,9 +358,19 @@ def make_handlers(d):
             self.send_response(204); self._cors(); self.end_headers()
         def do_GET(self):
             if self.path == '/status': return self._json(200, d.status())
+            if self.path == '/config': return self._json(200, d.get_config())
             if self.path == '/peers/snapshots': return self._json(200, {'peers': d.peers_snapshots()})
             self._json(404, {'error': 'not found'})
         def do_PUT(self):
+            if self.path == '/config':
+                n = int(self.headers.get('Content-Length', '0'))
+                if n > 16 * 1024: return self._json(413, {'error': 'too large'})
+                try:
+                    body = json.loads(self.rfile.read(n).decode())
+                    if not isinstance(body, dict): raise ValueError('body must be an object')
+                    changed = d.update_config(body)
+                except ValueError as e: return self._json(400, {'error': str(e)})
+                return self._json(200, {'ok': True, 'changed': changed, 'config': d.get_config()})
             if self.path != '/snapshot': return self._json(404, {'error': 'not found'})
             n = int(self.headers.get('Content-Length', '0'))
             if n > 64 * 1024 * 1024: return self._json(413, {'error': 'snapshot too large'})
