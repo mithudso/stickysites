@@ -7,7 +7,7 @@ One declarative fact per line, each with a `[src:]` tag.
 ## 2026-09-27 [gen: repo-bootstrapper/1.0]
 
 - StickySites is a Chrome Extension on Manifest V3 written in vanilla JavaScript with no build step [src: CLAUDE.md]
-- manifest.json is the canonical version file (1.11.1) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
+- manifest.json is the canonical version file (1.11.2) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
 - There are six note types: Global (yellow), Site (green), Page (blue), To-do list (purple), Outliner (orange), Daily (red) [src: src/content/note-types.js]
 - Site notes are keyed by hostname without www, Page notes by origin plus pathname, Daily notes by YYYY-MM-DD [src: src/content/note-types.js]
 - The outliner is a global library of named documents keyed ol_<id>; the active doc is the activeOutlineId pref [src: src/content/outline.js]

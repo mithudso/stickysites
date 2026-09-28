@@ -12,7 +12,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.11.1** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.11.2** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -47,7 +47,12 @@ stickysites/
     rotate-workflow-logs.mjs # npm run logs:rotate — memory.md/prompts.md → docs/archive/
     generate-icons.js      # npm run icons — regenerate icons/*.png (canvas)
     verify-live.mjs        # npm run verify:live — puppeteer harness (Chrome for Testing)
+    build-store-zip.mjs    # npm run build:store — dist/stickysites-<version>.zip (runtime files only)
+    store-screenshots.mjs  # npm run store:screenshots — 1280×800 listing screenshots from a live build
+    store-promo.mjs        # npm run store:promo — 440×280 + 1400×560 promo tiles (canvas)
   docs/                    # Architecture, components, security, testing, runbooks, indexes
+  store/                   # Chrome Web Store kit: README (checklist), listing.md, justifications, screenshots/, promo/
+  PRIVACY.md               # Public privacy policy (linked from the store listing)
   icons/                   # 16 / 48 / 128 px
   llms*.txt                # LLM context suite (index, full, small, facts)
   .github/                 # ci.yml, dependabot, CODEOWNERS, templates, copilot-instructions.md
@@ -66,6 +71,9 @@ npm run docs:check-indexes -- --prune      # drop dead index entries
 npm run logs:rotate         # rotate memory.md / prompts.md when > ~200 KB
 npm run icons               # regenerate icons/
 npm run verify:live         # needs: npm i --no-save puppeteer-core; Chrome for Testing (SS_CHROME)
+npm run build:store         # Chrome Web Store zip → dist/ (refuses on version drift or dev files)
+npm run store:screenshots   # regenerate store/screenshots/*.png (same prerequisites as verify:live)
+npm run store:promo         # regenerate store/promo/*.png
 ```
 
 Loading: `chrome://extensions` → Developer mode → Load unpacked → repo root → ↻ after changes.

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/mithudso/stickysites/actions/workflows/ci.yml/badge.svg)](https://github.com/mithudso/stickysites/actions/workflows/ci.yml)
 
-Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.1) with six note
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.2) with six note
 types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and
 @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global
 outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
@@ -107,6 +107,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTIN
 | [Logging](docs/logging.md) · [Caching](docs/caching-and-optimization.md) | Diagnostics and performance notes |
 | [Runbooks](docs/runbooks/) | Load/reload, release, to-do sync troubleshooting, encryption recovery |
 | [Known issues](docs/known-issues.md) · [Requirements](docs/requirements.md) · [Onboarding](docs/onboarding.md) | |
+| [Privacy policy](PRIVACY.md) · [Store kit](store/README.md) | What the extension stores; Chrome Web Store submission assets and checklist |
 | [llms.txt](llms.txt) | LLM context index (`llms-full.txt`, `llms-small.txt`, `llms-facts.txt`) |
 
 ## License

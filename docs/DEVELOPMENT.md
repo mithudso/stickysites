@@ -37,6 +37,8 @@ Runbook with verification steps: `runbooks/load-and-reload-extension.md`.
 | `npm run logs:rotate` | Archive old `memory.md` / `prompts.md` sections once past ~200 KB |
 | `npm run icons` | Regenerate `icons/*.png` |
 | `npm run verify:live` | Puppeteer end-to-end harness (`npm i --no-save puppeteer-core`; Chrome for Testing via `SS_CHROME`) |
+| `npm run build:store` | Chrome Web Store zip in `dist/` (runtime files only) |
+| `npm run store:screenshots` / `npm run store:promo` | Regenerate the store listing images |
 
 CI runs lint → test → index check → manifest validation (`.github/workflows/ci.yml`).
 
