@@ -457,3 +457,11 @@ body {
 .settings-input:focus { border-color: rgba(148, 163, 184, 0.5); }
 .settings-input:disabled { opacity: 0.5; }
 .settings-input::placeholder { color: #64748b; }
+
+/* Settings → Local Peer Sync → Test connection results */
+.settings-test-results { margin: 6px 0 2px; font-size: 12px; line-height: 1.45; }
+.settings-test-line { padding: 4px 0; border-top: 1px solid rgba(148, 163, 184, 0.12); word-break: break-word; }
+.settings-test-line.is-ok { color: #34d399; }
+.settings-test-line.is-fail { color: #f87171; }
+.settings-test-line.is-warn { color: #fbbf24; }
+.settings-test-line.is-info { color: #94a3b8; }

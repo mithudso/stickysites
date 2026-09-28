@@ -93,6 +93,21 @@ class TwoDaemons(unittest.TestCase):
         # clear again so other tests are unaffected
         http('PUT', 'http://127.0.0.1:57831/config', b'{"staticPeers": []}')
 
+    def test_connection_test_endpoint(self):
+        # peer0 tests peer1 explicitly by address: tcp → tls → pairing all pass
+        _, _, body = http('GET', 'http://127.0.0.1:57831/test?peer=127.0.0.1:57842')
+        res = json.loads(body)['results'][0]
+        self.assertTrue(res['ok'], res)
+        self.assertEqual([s['step'] for s in res['steps']], ['tcp', 'tls', 'pairing'])
+        self.assertEqual(res['peerName'], 'peer1')
+        # a closed port fails definitively at the tcp step
+        _, _, body = http('GET', 'http://127.0.0.1:57831/test?peer=127.0.0.1:1')
+        res = json.loads(body)['results'][0]
+        self.assertFalse(res['ok']); self.assertEqual(res['steps'][-1]['step'], 'tcp')
+        # default (no ?peer): tests every announced peer
+        _, _, body = http('GET', 'http://127.0.0.1:57831/test')
+        self.assertTrue(any(r['ok'] for r in json.loads(body)['results']))
+
     def test_lan_endpoint_requires_bearer(self):
         import ssl, http.client
         ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE

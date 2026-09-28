@@ -153,6 +153,14 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
   } catch (err) { return { status: 'error', deviceId, error: err?.message || 'peers fetch failed' }; }
   const peers = Array.isArray(peersBody?.peers) ? peersBody.peers : [];
   const result = { status: 'ok', deviceId, peers: [], changedKeys: [], stats: { applied: 0, deleted: 0, kept: 0 } };
+  // Peers the daemon heard from but could not fetch a snapshot from (error, or no snapshot yet)
+  const unreachable = peers.filter((p) => p.error);
+  if (peers.length && unreachable.length === peers.length) {
+    result.status = 'unreachable';
+    result.peers = unreachable.map((p) => ({ id: p.id, name: p.name, state: 'unreachable', error: p.error }));
+    await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
+    return result;
+  }
   if (!peers.length) {
     result.status = 'no-peers';
     await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: [] } });
@@ -171,6 +179,7 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
   for (const p of peers) {
     const snap = p.snapshot;
     const info = { id: p.id, name: p.name, state: 'ok' };
+    if (p.error) { info.state = 'unreachable'; info.error = p.error; result.peers.push(info); continue; }
     if (!snap || snap.version !== SNAPSHOT_VERSION || snap.deviceId === deviceId) { info.state = snap ? 'self-or-unknown' : 'no-snapshot'; result.peers.push(info); continue; }
     const compat = cryptoCompatibility(localCrypto, snap.crypto);
     info.state = compat;

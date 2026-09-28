@@ -12,7 +12,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.12.3** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.12.4** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -222,6 +222,8 @@ stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer
   tombstone / crypto change, and `STICKYSITES_PEER_SYNC_NOW` from the popup. `peerSyncRunning`
   guards re-entrancy; the merge's own writes re-trigger only a push (nothing new to apply).
 - Popup Settings → Local Peer Sync: On/Off (`stickysites_peer_v1.enabled`), Sync now, status,
+  **Test connection** (daemon `GET /test[?peer=ip[:port]]` — TCP → TLS → pairing per peer, plus
+  who announced to us; a `No route to host` at tcp means a VPN/Local-Network gate on this Mac),
   plus **Pairing key** (Copy), this laptop's LAN address, and **Peer IPs** (`ip[:port]`,
   comma-separated; discovery port 47833 assumed) fields read from / written to the
   daemon's loopback `GET/PUT /config`; the daemon hot-applies and persists to `~/.stickysites/peer.json`.

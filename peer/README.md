@@ -119,6 +119,9 @@ Enable encryption on **one** laptop and let the others adopt it.
 
 | Symptom | Check |
 |---|---|
+| **Test connection** fails at `tcp` with `No route to host` although the other laptop is heard | This Mac is refusing to *send* on the LAN. Almost always a VPN that tunnels every app: add **StickySites Peer** (`~/Applications/StickySites Peer.app`, created by `install`) to the VPN's bypass / split-tunnel list — Surfshark: Settings → VPN settings → Bypasser → Bypass VPN → add app; Tailscale/others: allow LAN access. On recent macOS also check System Settings → Privacy & Security → Local Network → StickySites Peer. Then `launchctl kickstart -k gui/$(id -u)/com.stickysites.peer`. Reproduce from the terminal: `open -a "StickySites Peer" --args probe` and read `~/.stickysites/peer.log` |
+| **Test connection** fails at `pairing` with HTTP 401 | The other laptop has a different pairing key — paste this one there (or theirs here) and Save |
+| **Test connection** fails at `tcp` with `timed out` | Wrong IP, helper not running there, or its firewall blocks TCP 47832 |
 | Popup says "Peer helper not running" | `python3 peer/stickysites-peer.py status`; `launchctl list \| grep stickysites`; log at `~/.stickysites/peer.log` |
 | "no other laptop seen" | Same Wi-Fi/LAN? Same pairing key (`pair`)? Firewall allowing inbound TCP 47832 and UDP 47833? Client isolation on the Wi-Fi → use `--peer` (see *Discovery on VPNs*). `~/.stickysites/peer.log` lists the interfaces announced on |
 | Fetch from peer fails in the log | Certificate changed after reinstall → the announcement carries the new fingerprint automatically; a stale `lastSeen` entry expires in 20 s |

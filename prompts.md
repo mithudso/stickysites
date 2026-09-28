@@ -1,5 +1,9 @@
 # StickySites Prompts Log
 
+## Prompt v1.12.4 - 2026-09-28T02:02:00-04:00
+- User request:
+  - They're not finding each other, and there needs to be a test button which definitively tells you whether or not it succeeded in connecting to the other system. (screenshot)
+
 ## Prompt v1.12.3 - 2026-09-28T01:51:00-04:00
 - User request:
   - (screenshot of the popup) Where does one put an IP? Make that more clear. Also what port?
