@@ -33,6 +33,13 @@ Other commands: `status` (peers seen by the running daemon), `pair [KEY]` (show 
 key; restart after changing), `uninstall` (removes the launchd job; keeps `~/.stickysites/`),
 `run` (foreground, for debugging), `init` (config + cert only).
 
+**From the extension instead of the terminal:** popup → Settings → Local Peer Sync shows this
+laptop's pairing key (Copy button) and a **Peer IPs** field. Paste the other laptop's key
+and/or a comma-separated list of its LAN addresses and click **Save** — the daemon applies
+both live (`PUT /config` on loopback, written back to `~/.stickysites/peer.json`), no restart.
+Static IPs get a direct unicast announcement every 5 s, so machines on networks that drop
+multicast and broadcast still find each other.
+
 ### Discovery on VPNs and locked-down networks
 
 Announcements go out every 5 s on **every non-tunnel interface** (Wi-Fi, Ethernet), as UDP

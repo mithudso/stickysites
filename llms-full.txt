@@ -67,7 +67,8 @@ your own laptops on the same network. No servers, no internet calls.
 - A tiny stdlib-Python helper on each machine discovers peers (multicast + subnet broadcast, pairing key) and relays
   snapshots over pinned TLS; merging is record-level last-writer-wins inside the extension
 - Encrypted vaults sync as envelopes; enable encryption on one laptop and the others adopt it
-- Setup: `python3 peer/stickysites-peer.py install` — see [peer/README.md](peer/README.md)
+- Setup: `python3 peer/stickysites-peer.py install`, then paste the pairing key (and, if your
+  network blocks discovery, the other laptop's IP) in the popup Settings — see [peer/README.md](peer/README.md)
 
 #### Encryption at rest
 - Opt-in AES-256-GCM; key derived from your passphrase with PBKDF2 (600,000 iterations, SHA-256)
@@ -145,7 +146,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ### Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.12.1** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.12.2** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -354,7 +355,9 @@ stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer
 - Triggers: alarm `stickysites-peer-sync` every 1 min, startup/install, 4 s after a note /
   tombstone / crypto change, and `STICKYSITES_PEER_SYNC_NOW` from the popup. `peerSyncRunning`
   guards re-entrancy; the merge's own writes re-trigger only a push (nothing new to apply).
-- Popup Settings → Local Peer Sync: On/Off (`stickysites_peer_v1.enabled`), Sync now, status.
+- Popup Settings → Local Peer Sync: On/Off (`stickysites_peer_v1.enabled`), Sync now, status,
+  plus **Pairing key** (Copy) and **Peer IPs** (comma-separated) fields read from / written to the
+  daemon's loopback `GET/PUT /config`; the daemon hot-applies and persists to `~/.stickysites/peer.json`.
 - Outline doc deletion writes a tombstone; other note types have no delete path in the UI.
 
 #### Popout window
@@ -426,6 +429,7 @@ cluster icons and re-opens an open site/page note under the new key (flushing fi
 | native `{cmd:'sync'}` | SW → `com.mitch.todo_bridge` | Two-way to-do sync (`docs/external-calls.md`) |
 | `STICKYSITES_PEER_SYNC_NOW` | popup → SW | Run a peer sync immediately; replies with `stickysites_peer_v1` |
 | HTTP `PUT /snapshot`, `GET /peers/snapshots` | SW → `127.0.0.1:47831` | Local peer daemon (`peer/README.md`) |
+| HTTP `GET /config`, `PUT /config` | popup → `127.0.0.1:47831` | Read / hot-apply pairing key, static peer IPs, name |
 
 ### MCP servers
 None shipped. `global_ai_hub` (`.mcp.json`) is the developer's local semantic index over this
@@ -803,7 +807,7 @@ lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout
 
 | Piece | Purpose |
 |---|---|
-| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`; CORS for `chrome-extension://` origins only |
+| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`, `GET /config` / `PUT /config` (pairing key, static peers, name — validated, hot-applied, persisted; a key change drops known peers); CORS for `chrome-extension://` origins only |
 | LAN HTTPS `0.0.0.0:47832` | `GET /snapshot` (ETag / 304 / 204), `GET /hello`; `Authorization: Bearer HMAC(pairKey,'auth')`; self-signed cert from `openssl` |
 | UDP `:47833` — multicast `239.255.77.31`, subnet broadcast, optional unicast (`static_peers`) | Announce every 5 s `{ id, name, port, fp, ts, addrs, sig }`, HMAC-signed with the pairing key, on every non-tunnel interface (table rescanned every 60 s; LAN addresses advertised first, tunnels last); listener joins the group per interface and also receives broadcasts; drops unsigned/stale/self; peers expire after 20 s |
 | `fetch_peer` | Tries each announced address (recv addr first), pins the cert SHA-256 from the announcement, bearer auth, `If-None-Match` |
@@ -1112,7 +1116,7 @@ talks only to the user's paired machines on the LAN). Chrome-internal APIs (`chr
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | `chrome.runtime.sendNativeMessage(TODO_HOST, { cmd:'sync', ext, items, sections })` | `src/shared/todo-bridge.js:115` (call) · `src/background/service-worker.js:103` (injection) | Host `com.mitch.todo_bridge` → `~/.claude/skills/todo/scripts/todo_host` → `todo.py native-host` → `TODO.md` | Chrome native messaging (stdio, length-prefixed JSON) | `onStartup`, `onInstalled`, alarm every 2 min, 3 s after `stickysites_todos_v1` changes | `console.warn('[stickysites] todo-sync', …)` in `runTodoSync` | `tests/todo-bridge.test.js` (23 tests: request, merge, encrypted skip, host error, malformed reply, storage failures) | this file; `runbooks/todo-sync-troubleshooting.md`; `SECURITY.md` | None in-process; the next alarm (≤ 2 min) is the retry. Not idempotency-sensitive: the host merges, and the extension writes only when the merged result differs. |
 
-| 2 | `fetch('http://127.0.0.1:47831/snapshot', PUT)` · `fetch('http://127.0.0.1:47831/peers/snapshots')` | `src/shared/peer-sync.js` `syncWithDaemon` (calls) · `src/background/service-worker.js` `runPeerSync` (injection, schedule) | Local daemon `peer/stickysites-peer.py` → LAN peers over HTTPS (`:47832`, pinned cert, bearer) discovered via UDP multicast `239.255.77.31:47833` / subnet broadcast `:47833` / static `--peer` unicast | Loopback HTTP (CORS-gated to the extension origin; no host permission) | `onStartup`, `onInstalled`, alarm every 1 min, 4 s after note/tombstone/crypto change, popup **Sync now** | `console.warn('[stickysites] peer-sync', …)` once per outage + on errors; status persisted in `stickysites_peer_v1.lastResult` and shown in popup Settings | `tests/peer-sync.test.js` (24: snapshot, compatibility, LWW merge, tombstones, orchestration with fake daemon/crypto) + `peer/test_peer.py` (two daemons: discovery, CORS, auth, ETag round-trip) | this file; `peer/README.md`; `runbooks/peer-sync.md`; `SECURITY.md` | None in-process; next alarm (≤ 1 min) retries. Idempotent: full-state snapshots, merge only writes changed keys. |
+| 2 | `fetch('http://127.0.0.1:47831/snapshot', PUT)` · `fetch('http://127.0.0.1:47831/peers/snapshots')` · popup `GET/PUT /config` | `src/shared/peer-sync.js` `syncWithDaemon` (calls) · `src/background/service-worker.js` `runPeerSync` (injection, schedule) | Local daemon `peer/stickysites-peer.py` → LAN peers over HTTPS (`:47832`, pinned cert, bearer) discovered via UDP multicast `239.255.77.31:47833` / subnet broadcast `:47833` / static `--peer` unicast | Loopback HTTP (CORS-gated to the extension origin; no host permission) | `onStartup`, `onInstalled`, alarm every 1 min, 4 s after note/tombstone/crypto change, popup **Sync now** | `console.warn('[stickysites] peer-sync', …)` once per outage + on errors; status persisted in `stickysites_peer_v1.lastResult` and shown in popup Settings | `tests/peer-sync.test.js` (24: snapshot, compatibility, LWW merge, tombstones, orchestration with fake daemon/crypto) + `peer/test_peer.py` (two daemons: discovery, CORS, auth, ETag round-trip) | this file; `peer/README.md`; `runbooks/peer-sync.md`; `SECURITY.md` | None in-process; next alarm (≤ 1 min) retries. Idempotent: full-state snapshots, merge only writes changed keys. |
 
 Install the host on a machine with
 `python3 ~/.claude/skills/todo/scripts/todo.py install-native-host` (finds StickySites'
@@ -1796,7 +1800,8 @@ Files: `src/content/outline.js`, `src/shared/peer-sync.js`.
 ### Peer sync needs peers on the same subnet (or a static peer address)
 **Impact**: Low · **Status**: By design
 Discovery is UDP multicast plus subnet broadcast on port 47833 on every non-tunnel interface;
-networks with client isolation or that drop UDP need `install --peer <IP>` on each side.
+networks with client isolation or that drop UDP need static peer IPs on each side (popup
+Settings → Peer IPs, or `install --peer <IP>`).
 Under a VPN that owns the default route macOS refuses the multicast send (`No route to host`) —
 the broadcast path still delivers, so that log line (printed once) is noise. Files:
 `peer/stickysites-peer.py`, `docs/runbooks/peer-sync.md`.
@@ -1924,22 +1929,22 @@ version (`npm run lint` enforces this); `memory.md` / `prompts.md` updated.
 
 1. Bump the version in **both** files (patch for fixes, minor for features):
    ```bash
-   # example: 1.12.1
-   sed -i '' 's/"version": "[0-9.]*"/"version": "1.12.1"/' manifest.json package.json
+   # example: 1.12.2
+   sed -i '' 's/"version": "[0-9.]*"/"version": "1.12.2"/' manifest.json package.json
    npm run lint
    ```
 2. Commit, push, merge via PR (CI must pass).
-3. Tag: `git tag v1.12.1 && git push origin v1.12.1`.
+3. Tag: `git tag v1.12.2 && git push origin v1.12.2`.
 4. Build the store zip (runtime files only; the script refuses on version drift):
    ```bash
-   npm run build:store        # → dist/stickysites-1.12.1.zip + printed file listing
+   npm run build:store        # → dist/stickysites-1.12.2.zip + printed file listing
    ```
 5. Upload on the item's **Package** tab in the Chrome Web Store developer dashboard and
    submit for review. Full walkthrough and listing copy: `store/README.md`.
 
 ### Verification
 
-- `unzip -l stickysites-1.12.1.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
+- `unzip -l stickysites-1.12.2.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
   or `.remember/` entries.
 - Load the unzipped folder unpacked in a fresh profile and run the checks in
   `load-and-reload-extension.md`.

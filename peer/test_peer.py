@@ -70,6 +70,28 @@ class TwoDaemons(unittest.TestCase):
         _, _, body = http('GET', 'http://127.0.0.1:57831/peers/snapshots')
         self.assertIsNone(json.loads(body)['peers'][0]['snapshot'])
 
+    def test_config_round_trip_and_validation(self):
+        _, _, body = http('GET', 'http://127.0.0.1:57831/config')
+        cfg = json.loads(body)
+        self.assertEqual(cfg['name'], 'peer0'); self.assertEqual(cfg['pairKey'], 'test-pair-key-123'); self.assertEqual(cfg['staticPeers'], [])
+        # set static peers (comma-separated string accepted, whitespace/dupes dropped) — persists to peer.json
+        _, _, body = http('PUT', 'http://127.0.0.1:57831/config', b'{"staticPeers": "192.168.1.50, 192.168.1.51,,192.168.1.50"}')
+        res = json.loads(body)
+        self.assertTrue(res['ok']); self.assertEqual(res['changed'], ['staticPeers'])
+        self.assertEqual(res['config']['staticPeers'], ['192.168.1.50', '192.168.1.51'])
+        on_disk = json.load(open(os.path.join(self.homes[0], 'peer.json')))
+        self.assertEqual(on_disk['static_peers'], ['192.168.1.50', '192.168.1.51'])
+        st = json.loads(http('GET', 'http://127.0.0.1:57831/status')[2])
+        self.assertEqual(st['staticPeers'], ['192.168.1.50', '192.168.1.51'])
+        # invalid inputs are rejected and leave config untouched
+        for bad in (b'{"pairKey": "short"}', b'{"staticPeers": ["not an ip !!"]}', b'[1,2]'):
+            with self.assertRaises(urllib.error.HTTPError) as cm:
+                http('PUT', 'http://127.0.0.1:57831/config', bad)
+            self.assertEqual(cm.exception.code, 400); cm.exception.close()
+        self.assertEqual(json.loads(http('GET', 'http://127.0.0.1:57831/config')[2])['pairKey'], 'test-pair-key-123')
+        # clear again so other tests are unaffected
+        http('PUT', 'http://127.0.0.1:57831/config', b'{"staticPeers": []}')
+
     def test_lan_endpoint_requires_bearer(self):
         import ssl, http.client
         ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE

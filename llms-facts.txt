@@ -7,7 +7,7 @@ One declarative fact per line, each with a `[src:]` tag.
 ## 2026-09-27 [gen: repo-bootstrapper/1.0]
 
 - StickySites is a Chrome Extension on Manifest V3 written in vanilla JavaScript with no build step [src: CLAUDE.md]
-- manifest.json is the canonical version file (1.12.1) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
+- manifest.json is the canonical version file (1.12.2) and package.json must match; `npm run lint` fails on drift [src: scripts/check-syntax.mjs]
 - There are six note types: Global (yellow), Site (green), Page (blue), To-do list (purple), Outliner (orange), Daily (red) [src: src/content/note-types.js]
 - Site notes are keyed by hostname without www, Page notes by origin plus pathname, Daily notes by YYYY-MM-DD [src: src/content/note-types.js]
 - The outliner is a global library of named documents keyed ol_<id>; the active doc is the activeOutlineId pref [src: src/content/outline.js]
@@ -42,3 +42,4 @@ One declarative fact per line, each with a `[src:]` tag.
 - Peer sync never mixes vaults: same salt merges on decrypted data, different salts report mismatch and write nothing, and a laptop with encryption off adopts a peer's vault config and locks [src: src/shared/peer-sync.js]
 - The peer daemon's loopback API accepts only chrome-extension:// origins via CORS, so no host permission was added to the manifest [src: peer/stickysites-peer.py]
 - Only outline document deletion writes a tombstone today because no other note type has a delete action in the UI [src: docs/known-issues.md]
+- The popup Settings can set the peer pairing key and a comma-separated list of static peer IPs; the daemon hot-applies them through GET/PUT /config on loopback and writes them to ~/.stickysites/peer.json [src: popup.js]

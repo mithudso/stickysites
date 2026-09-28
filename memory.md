@@ -1,5 +1,23 @@
 # StickySites Memory Log
 
+## v1.12.2 - 2026-09-28
+- User request:
+  - Set the pairing key after loading the extension, and specify a comma-separated set of peer IPs
+    (so discovery need not rely on broadcast); make the memory-central validator tolerant
+- Completed:
+  - Daemon: `GET /config` / `PUT /config` on loopback (pairKey, staticPeers, name) — validated,
+    hot-applied (loops read `self.cfg` each tick; key change clears known peers + cache), persisted
+    to `~/.stickysites/peer.json`; `status` exposes `staticPeers`; test added
+  - Popup Settings → Local Peer Sync: Pairing key (Copy), Peer IPs (comma-separated), Save →
+    triggers a sync; disabled with a hint when the helper is not running
+  - memory-central: `validate_rows.py --repair` (fills kind/date/trigger, quarantines unparseable
+    rows) wired into `mcl_run.sh`; the stale `claude.p1` row repaired; recompile rerun
+- In progress:
+  - None
+- Next steps:
+  - Reload the extension in Chrome; on the second laptop install the helper (or install without a
+    key, then paste the key + this laptop's IP in the popup)
+
 ## v1.12.1 - 2026-09-28
 - User request:
   - Yes: install the peer helper on this laptop

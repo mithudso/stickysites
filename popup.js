@@ -370,7 +370,79 @@
     });
 
     peerRow.append(peerToggleLabel, peerToggle, peerNowBtn);
-    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus);
+
+    // Pairing key + static peer IPs, pushed live to the local helper (GET/PUT http://127.0.0.1:47831/config).
+    var PEER_DAEMON = 'http://127.0.0.1:47831';
+    var keyLabel = document.createElement('div');
+    keyLabel.className = 'settings-info';
+    keyLabel.textContent = 'Pairing key (same on every laptop) and optional peer IPs for networks that block discovery.';
+    var keyRow = document.createElement('div');
+    keyRow.className = 'settings-input-row';
+    var keyInput = document.createElement('input');
+    keyInput.type = 'text'; keyInput.className = 'settings-input'; keyInput.placeholder = 'Pairing key'; keyInput.spellcheck = false; keyInput.autocomplete = 'off';
+    var keyCopy = document.createElement('button');
+    keyCopy.className = 'settings-toggle-btn'; keyCopy.textContent = 'Copy'; keyCopy.title = 'Copy the pairing key to paste on another laptop';
+    keyRow.append(keyInput, keyCopy);
+    var ipsInput = document.createElement('input');
+    ipsInput.type = 'text'; ipsInput.className = 'settings-input'; ipsInput.placeholder = 'Peer IPs, comma-separated (optional, e.g. 192.168.1.20, 192.168.1.21)'; ipsInput.spellcheck = false; ipsInput.autocomplete = 'off';
+    var saveRow = document.createElement('div');
+    saveRow.className = 'settings-input-row';
+    var peerName = document.createElement('span');
+    peerName.className = 'settings-info'; peerName.textContent = '';
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'settings-toggle-btn'; saveBtn.textContent = 'Save';
+    saveRow.append(peerName, saveBtn);
+    var cfgStatus = document.createElement('div');
+    cfgStatus.className = 'settings-status';
+    var cfgLoaded = null;
+
+    function setCfgInputsEnabled(on) { keyInput.disabled = !on; ipsInput.disabled = !on; saveBtn.disabled = !on; keyCopy.disabled = !on; }
+
+    async function loadPeerConfig() {
+      try {
+        var r = await fetch(PEER_DAEMON + '/config');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        cfgLoaded = await r.json();
+        keyInput.value = cfgLoaded.pairKey || '';
+        ipsInput.value = (cfgLoaded.staticPeers || []).join(', ');
+        peerName.textContent = 'This laptop: ' + (cfgLoaded.name || '') ;
+        setCfgInputsEnabled(true);
+        cfgStatus.textContent = '';
+      } catch (e) {
+        cfgLoaded = null;
+        setCfgInputsEnabled(false);
+        peerName.textContent = '';
+        cfgStatus.textContent = 'Peer helper not running — install it first (peer/stickysites-peer.py install).';
+        cfgStatus.style.color = '#fbbf24';
+      }
+    }
+
+    keyCopy.addEventListener('click', async function () {
+      try { await navigator.clipboard.writeText(keyInput.value); cfgStatus.textContent = 'Pairing key copied.'; cfgStatus.style.color = '#34d399'; }
+      catch (e) { keyInput.select(); cfgStatus.textContent = 'Select the key and copy it.'; cfgStatus.style.color = '#94a3b8'; }
+    });
+
+    saveBtn.addEventListener('click', async function () {
+      var body = { pairKey: keyInput.value.trim(), staticPeers: ipsInput.value };
+      if (body.pairKey.length < 8) { cfgStatus.textContent = 'Pairing key must be at least 8 characters.'; cfgStatus.style.color = '#f87171'; return; }
+      saveBtn.disabled = true; cfgStatus.textContent = 'Saving…'; cfgStatus.style.color = '#94a3b8';
+      try {
+        var r = await fetch(PEER_DAEMON + '/config', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+        var res = await r.json();
+        if (!r.ok) throw new Error(res.error || ('HTTP ' + r.status));
+        cfgLoaded = res.config;
+        ipsInput.value = (res.config.staticPeers || []).join(', ');
+        cfgStatus.textContent = res.changed.length ? 'Saved (' + res.changed.join(', ') + '). Applied live — no restart needed.' : 'No changes.';
+        cfgStatus.style.color = '#34d399';
+        if (res.changed.length) chrome.runtime.sendMessage({ type: 'STICKYSITES_PEER_SYNC_NOW' }, function () { renderPeerState(); });
+      } catch (e) {
+        cfgStatus.textContent = 'Not saved: ' + (e && e.message ? e.message : e);
+        cfgStatus.style.color = '#f87171';
+      } finally { saveBtn.disabled = false; }
+    });
+
+    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus, keyLabel, keyRow, ipsInput, saveRow, cfgStatus);
+    loadPeerConfig();
     renderPeerState();
 
     panel.append(header, section);
