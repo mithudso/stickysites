@@ -20,6 +20,7 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | `llms.txt` / `llms-full.txt` / `llms-small.txt` / `llms-facts.txt` | — | LLM context suite: index, concatenated docs, abstracts, sourced facts **G** |
 | `.editorconfig` / `.gitattributes` / `.gitignore` / `.nvmrc` (22) | — | Editor + VCS hygiene **C** |
 | `.env.example` | — | Documents `SS_CHROME` (harness only; no runtime env vars) **C** |
+| `PRIVACY.md` | — | Public privacy policy linked from the Chrome Web Store listing |
 | `.mcp.json` | — | `global_ai_hub` MCP server for Claude Code (developer tooling, not the extension) **C** |
 
 ## `src/background/`
@@ -70,6 +71,9 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | `rotate-workflow-logs.mjs` | ~170 | `npm run logs:rotate` — archive old `memory.md` / `prompts.md` sections |
 | `generate-icons.js` | 44 | `npm run icons` — icon PNGs via `canvas` |
 | `verify-live.mjs` | 464 | `npm run verify:live` — puppeteer-core end-to-end harness (Chrome for Testing) |
+| `build-store-zip.mjs` | ~50 | `npm run build:store` — Chrome Web Store package in `dist/`, runtime files only |
+| `store-screenshots.mjs` | ~190 | `npm run store:screenshots` — seeds a throwaway profile and captures 5 × 1280×800 listing screenshots |
+| `store-promo.mjs` | ~90 | `npm run store:promo` — 440×280 and 1400×560 promo tiles via canvas |
 
 ## `docs/`
 
@@ -95,6 +99,16 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | `runbooks/load-and-reload-extension.md` · `release-packaging.md` · `todo-sync-troubleshooting.md` · `encryption-lock-and-recovery.md` | Operational procedures |
 | `archive/` | Rotated workflow-log sections |
 | `superpowers/specs/*.md` · `superpowers/plans/*.md` | Historical design specs and implementation plans (phases 1–5, to-do overhaul, note identity + outliner) |
+
+## `store/` — Chrome Web Store kit
+
+| File | Purpose |
+|---|---|
+| `README.md` | Submission checklist: every asset, its spec, status, and the dashboard walkthrough |
+| `listing.md` | Paste-ready store listing, privacy-tab answers, reviewer notes |
+| `permissions-justifications.md` | One justification per permission + host permission + remote code |
+| `screenshots/01…05.png` | 1280×800 listing screenshots **G** |
+| `promo/small-tile-440x280.png`, `promo/marquee-1400x560.png`, `promo/icon-128.png` | Promo tiles and store icon **G** |
 
 ## `.github/`
 

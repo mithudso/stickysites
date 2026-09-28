@@ -3,7 +3,7 @@
 # StickySites
 Source: https://github.com/mithudso/stickysites/blob/HEAD/README.md
 
-Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.1) with six note types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.2) with six note types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
 
 # CLAUDE.md
 Source: https://github.com/mithudso/stickysites/blob/HEAD/CLAUDE.md

@@ -42,6 +42,8 @@ There is no build step. Chrome loads the repo root unpacked.
 | `npm run logs:rotate` | Rotate `memory.md` / `prompts.md` sections into `docs/archive/` once past ~200 KB |
 | `npm run icons` | Regenerate `icons/*.png` (needs `canvas`) |
 | `npm run verify:live` | Puppeteer harness against Chrome for Testing (`npm i --no-save puppeteer-core`; set `SS_CHROME`) |
+| `npm run build:store` | Chrome Web Store zip → `dist/` (runtime files only; version-drift guard) |
+| `npm run store:screenshots` / `store:promo` | Regenerate `store/screenshots/` and `store/promo/` |
 | Load extension | `chrome://extensions` → Developer mode → Load unpacked → repo root; click ↻ after edits |
 
 CI (`.github/workflows/ci.yml`) runs lint → test → index check → manifest validation on every push and PR to `main`.

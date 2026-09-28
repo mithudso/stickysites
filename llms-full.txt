@@ -7,7 +7,7 @@ Source: https://github.com/mithudso/stickysites/blob/HEAD/README.md
 
 [![CI](https://github.com/mithudso/stickysites/actions/workflows/ci.yml/badge.svg)](https://github.com/mithudso/stickysites/actions/workflows/ci.yml)
 
-Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.1) with six note
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.2) with six note
 types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and
 @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global
 outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
@@ -112,6 +112,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTIN
 | [Logging](docs/logging.md) · [Caching](docs/caching-and-optimization.md) | Diagnostics and performance notes |
 | [Runbooks](docs/runbooks/) | Load/reload, release, to-do sync troubleshooting, encryption recovery |
 | [Known issues](docs/known-issues.md) · [Requirements](docs/requirements.md) · [Onboarding](docs/onboarding.md) | |
+| [Privacy policy](PRIVACY.md) · [Store kit](store/README.md) | What the extension stores; Chrome Web Store submission assets and checklist |
 | [llms.txt](llms.txt) | LLM context index (`llms-full.txt`, `llms-small.txt`, `llms-facts.txt`) |
 
 ### License
@@ -135,7 +136,7 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ### Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.11.1** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+Version: **1.11.2** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
 
 ```
 stickysites/
@@ -170,7 +171,12 @@ stickysites/
     rotate-workflow-logs.mjs # npm run logs:rotate — memory.md/prompts.md → docs/archive/
     generate-icons.js      # npm run icons — regenerate icons/*.png (canvas)
     verify-live.mjs        # npm run verify:live — puppeteer harness (Chrome for Testing)
+    build-store-zip.mjs    # npm run build:store — dist/stickysites-<version>.zip (runtime files only)
+    store-screenshots.mjs  # npm run store:screenshots — 1280×800 listing screenshots from a live build
+    store-promo.mjs        # npm run store:promo — 440×280 + 1400×560 promo tiles (canvas)
   docs/                    # Architecture, components, security, testing, runbooks, indexes
+  store/                   # Chrome Web Store kit: README (checklist), listing.md, justifications, screenshots/, promo/
+  PRIVACY.md               # Public privacy policy (linked from the store listing)
   icons/                   # 16 / 48 / 128 px
   llms*.txt                # LLM context suite (index, full, small, facts)
   .github/                 # ci.yml, dependabot, CODEOWNERS, templates, copilot-instructions.md
@@ -189,6 +195,9 @@ npm run docs:check-indexes -- --prune      # drop dead index entries
 npm run logs:rotate         # rotate memory.md / prompts.md when > ~200 KB
 npm run icons               # regenerate icons/
 npm run verify:live         # needs: npm i --no-save puppeteer-core; Chrome for Testing (SS_CHROME)
+npm run build:store         # Chrome Web Store zip → dist/ (refuses on version drift or dev files)
+npm run store:screenshots   # regenerate store/screenshots/*.png (same prerequisites as verify:live)
+npm run store:promo         # regenerate store/promo/*.png
 ```
 
 Loading: `chrome://extensions` → Developer mode → Load unpacked → repo root → ↻ after changes.
@@ -776,6 +785,7 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | `llms.txt` / `llms-full.txt` / `llms-small.txt` / `llms-facts.txt` | — | LLM context suite: index, concatenated docs, abstracts, sourced facts **G** |
 | `.editorconfig` / `.gitattributes` / `.gitignore` / `.nvmrc` (22) | — | Editor + VCS hygiene **C** |
 | `.env.example` | — | Documents `SS_CHROME` (harness only; no runtime env vars) **C** |
+| `PRIVACY.md` | — | Public privacy policy linked from the Chrome Web Store listing |
 | `.mcp.json` | — | `global_ai_hub` MCP server for Claude Code (developer tooling, not the extension) **C** |
 
 ### `src/background/`
@@ -826,6 +836,9 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | `rotate-workflow-logs.mjs` | ~170 | `npm run logs:rotate` — archive old `memory.md` / `prompts.md` sections |
 | `generate-icons.js` | 44 | `npm run icons` — icon PNGs via `canvas` |
 | `verify-live.mjs` | 464 | `npm run verify:live` — puppeteer-core end-to-end harness (Chrome for Testing) |
+| `build-store-zip.mjs` | ~50 | `npm run build:store` — Chrome Web Store package in `dist/`, runtime files only |
+| `store-screenshots.mjs` | ~190 | `npm run store:screenshots` — seeds a throwaway profile and captures 5 × 1280×800 listing screenshots |
+| `store-promo.mjs` | ~90 | `npm run store:promo` — 440×280 and 1400×560 promo tiles via canvas |
 
 ### `docs/`
 
@@ -851,6 +864,16 @@ Every tracked file, grouped by directory. Line counts as of v1.11.1. **G** = gen
 | `runbooks/load-and-reload-extension.md` · `release-packaging.md` · `todo-sync-troubleshooting.md` · `encryption-lock-and-recovery.md` | Operational procedures |
 | `archive/` | Rotated workflow-log sections |
 | `superpowers/specs/*.md` · `superpowers/plans/*.md` | Historical design specs and implementation plans (phases 1–5, to-do overhaul, note identity + outliner) |
+
+### `store/` — Chrome Web Store kit
+
+| File | Purpose |
+|---|---|
+| `README.md` | Submission checklist: every asset, its spec, status, and the dashboard walkthrough |
+| `listing.md` | Paste-ready store listing, privacy-tab answers, reviewer notes |
+| `permissions-justifications.md` | One justification per permission + host permission + remote code |
+| `screenshots/01…05.png` | 1280×800 listing screenshots **G** |
+| `promo/small-tile-440x280.png`, `promo/marquee-1400x560.png`, `promo/icon-128.png` | Promo tiles and store icon **G** |
 
 ### `.github/`
 
@@ -1131,7 +1154,7 @@ close and reopen the tabs you use.
 
 ### Chrome Web Store
 
-Not yet published. Packaging steps: `runbooks/release-packaging.md`.
+Not yet published. Submission kit (assets, copy, checklist): `store/README.md`; packaging: `runbooks/release-packaging.md`.
 
 # Development
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/DEVELOPMENT.md
@@ -1175,6 +1198,8 @@ Runbook with verification steps: `runbooks/load-and-reload-extension.md`.
 | `npm run logs:rotate` | Archive old `memory.md` / `prompts.md` sections once past ~200 KB |
 | `npm run icons` | Regenerate `icons/*.png` |
 | `npm run verify:live` | Puppeteer end-to-end harness (`npm i --no-save puppeteer-core`; Chrome for Testing via `SS_CHROME`) |
+| `npm run build:store` | Chrome Web Store zip in `dist/` (runtime files only) |
+| `npm run store:screenshots` / `npm run store:promo` | Regenerate the store listing images |
 
 CI runs lint → test → index check → manifest validation (`.github/workflows/ci.yml`).
 
@@ -1740,23 +1765,22 @@ version (`npm run lint` enforces this); `memory.md` / `prompts.md` updated.
 
 1. Bump the version in **both** files (patch for fixes, minor for features):
    ```bash
-   # example: 1.11.1
-   sed -i '' 's/"version": "[0-9.]*"/"version": "1.11.1"/' manifest.json package.json
+   # example: 1.11.2
+   sed -i '' 's/"version": "[0-9.]*"/"version": "1.11.2"/' manifest.json package.json
    npm run lint
    ```
 2. Commit, push, merge via PR (CI must pass).
-3. Tag: `git tag v1.11.1 && git push origin v1.11.1`.
-4. Build the store zip from a clean tree (dev files excluded):
+3. Tag: `git tag v1.11.2 && git push origin v1.11.2`.
+4. Build the store zip (runtime files only; the script refuses on version drift):
    ```bash
-   zip -r stickysites-1.11.1.zip manifest.json icons/ src/ popup.html popup.js popup.css \
-     popout.html popout.js popout.css -x "*.DS_Store"
+   npm run build:store        # → dist/stickysites-1.11.2.zip + printed file listing
    ```
-5. Upload at the Chrome Web Store developer dashboard (not yet published — see
-   `docs/INSTALLATION.md`).
+5. Upload on the item's **Package** tab in the Chrome Web Store developer dashboard and
+   submit for review. Full walkthrough and listing copy: `store/README.md`.
 
 ### Verification
 
-- `unzip -l stickysites-1.11.1.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
+- `unzip -l stickysites-1.11.2.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
   or `.remember/` entries.
 - Load the unzipped folder unpacked in a fresh profile and run the checks in
   `load-and-reload-extension.md`.
@@ -2048,6 +2072,8 @@ There is no build step. Chrome loads the repo root unpacked.
 | `npm run logs:rotate` | Rotate `memory.md` / `prompts.md` sections into `docs/archive/` once past ~200 KB |
 | `npm run icons` | Regenerate `icons/*.png` (needs `canvas`) |
 | `npm run verify:live` | Puppeteer harness against Chrome for Testing (`npm i --no-save puppeteer-core`; set `SS_CHROME`) |
+| `npm run build:store` | Chrome Web Store zip → `dist/` (runtime files only; version-drift guard) |
+| `npm run store:screenshots` / `store:promo` | Regenerate `store/screenshots/` and `store/promo/` |
 | Load extension | `chrome://extensions` → Developer mode → Load unpacked → repo root; click ↻ after edits |
 
 CI (`.github/workflows/ci.yml`) runs lint → test → index check → manifest validation on every push and PR to `main`.

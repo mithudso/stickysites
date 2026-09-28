@@ -1,5 +1,20 @@
 # StickySites Memory Log
 
+## v1.11.2 - 2026-09-27
+- User request:
+  - Get the repo ready for Chrome Web Store submission; produce a full file listing of everything needed
+- Completed:
+  - `store/README.md` (asset table + dashboard walkthrough), `store/listing.md`, `store/permissions-justifications.md`,
+    `PRIVACY.md` (public policy URL), 5 × 1280×800 screenshots (`scripts/store-screenshots.mjs`), promo tiles
+    (`scripts/store-promo.mjs`), `scripts/build-store-zip.mjs` (`npm run build:store`, guarded), manifest
+    `homepage_url` + `minimum_chrome_version`; docs/index/CLAUDE.md updated; version 1.11.2
+- In progress:
+  - None
+- Next steps:
+  - Owner: register the Chrome Web Store developer account ($5, separate from Google Play), verify email/2SV,
+    trader declaration, then upload `dist/stickysites-1.11.2.zip` and paste the copy (store/README.md § 3)
+  - After approval: add the store URL to README.md and docs/INSTALLATION.md
+
 ## v1.11.1 - 2026-09-27
 - User request:
   - Run the repo-bootstrapper (mdb-tam standard) on this repo

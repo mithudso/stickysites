@@ -826,5 +826,87 @@
       "llms-txt"
     ],
     "last_updated": "2026-09-27"
+  },
+  {
+    "path": "PRIVACY.md",
+    "purpose": "Public privacy policy for the Chrome Web Store listing: local-only storage, page access, native messaging, encryption, no collection",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "scripts/build-store-zip.mjs",
+    "purpose": "npm run build:store: packages runtime files into dist/stickysites-<version>.zip with version-drift and dev-file guards",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [
+      "manifest.json"
+    ],
+    "patterns": [
+      "cli",
+      "package-guard"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "scripts/store-screenshots.mjs",
+    "purpose": "npm run store:screenshots: seeds demo data in a throwaway profile and captures five 1280x800 store screenshots with puppeteer-core + canvas",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "e2e-harness",
+      "image-compose"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "scripts/store-promo.mjs",
+    "purpose": "npm run store:promo: renders the 440x280 and 1400x560 promo tiles and copies the 128px icon",
+    "layer": "tooling",
+    "exports": [],
+    "depends_on": [
+      "icons/icon128.png"
+    ],
+    "patterns": [
+      "canvas"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "store/README.md",
+    "purpose": "Chrome Web Store submission checklist: asset table with specs and status, dashboard walkthrough, review expectations",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [
+      "store/listing.md",
+      "store/permissions-justifications.md"
+    ],
+    "patterns": [
+      "checklist"
+    ],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "store/listing.md",
+    "purpose": "Paste-ready store listing copy, privacy-tab answers, distribution settings, reviewer notes",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [],
+    "patterns": [],
+    "last_updated": "2026-09-27"
+  },
+  {
+    "path": "store/permissions-justifications.md",
+    "purpose": "One justification per manifest permission, the host permission, and the remote-code declaration",
+    "layer": "config",
+    "exports": [],
+    "depends_on": [
+      "manifest.json"
+    ],
+    "patterns": [],
+    "last_updated": "2026-09-27"
   }
 ]

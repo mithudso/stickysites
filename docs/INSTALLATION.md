@@ -52,4 +52,4 @@ close and reopen the tabs you use.
 
 ## Chrome Web Store
 
-Not yet published. Packaging steps: `runbooks/release-packaging.md`.
+Not yet published. Submission kit (assets, copy, checklist): `store/README.md`; packaging: `runbooks/release-packaging.md`.
