@@ -42,8 +42,15 @@ separately: disable on one, let it sync, re-enable there if wanted.
 
 ## Troubleshooting
 
+Start with popup → Settings → Local Peer Sync → **Test connection**. It connects to every Peer IP
+and every laptop heard on the network and reports the first failing step (`tcp` → `tls` →
+`pairing`) with the cause, plus whether the other side is announcing to us.
+
 | Symptom | Action |
 |---|---|
+| Test: `tcp` fails with `No route to host` while the peer is heard | A VPN is tunnelling the helper: add **StickySites Peer** (`~/Applications`) to its bypass list (Surfshark: Bypasser → Bypass VPN → add app), or allow it in Privacy & Security → Local Network; then `launchctl kickstart -k gui/$(id -u)/com.stickysites.peer` |
+| Test: `pairing` fails with 401 | Different pairing keys — copy one to the other laptop and Save |
+| Test: `tcp` times out | Wrong IP / helper not running there / firewall blocking TCP 47832 |
 | Popup: "Peer helper not running on this machine" | `launchctl list \| grep com.stickysites.peer`; `tail ~/.stickysites/peer.log`; re-run `install` |
 | Popup: "no other laptop seen yet" | Same LAN? `pair` shows the same key on both? Firewall: allow inbound TCP 47832 + UDP 47833. VPN with "block LAN" on? |
 | Log: `fetch from X failed: unreachable on …` | The peer's announced addresses are not routable from here (VPN/utun). Both machines must share a subnet; the daemon tries every address it was told about |

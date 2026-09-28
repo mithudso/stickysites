@@ -172,6 +172,24 @@ describe('syncWithDaemon', () => {
     expect(storage.store[PEER_STATE_KEY].lastResult.peers).toEqual([{ id: 'x', name: 'me', state: 'self-or-unknown' }]);
     expect(storage.store[PEER_STATE_KEY].deviceId).toBe('dev_me');
   });
+  it('reports unreachable when the daemon heard peers but could not fetch from them', async () => {
+    const storage = fakeStorage({ stickysites_sites_v1: { a: site('a', 'x', '1') } });
+    const { fetch } = fakeFetch({ peers: [{ id: 'p', name: 'laptop-b', error: 'unreachable on 192.168.1.214 (timed out)' }] });
+    const r = await syncWithDaemon({ storage, fetch });
+    expect(r.status).toBe('unreachable');
+    expect(r.peers[0]).toEqual({ id: 'p', name: 'laptop-b', state: 'unreachable', error: 'unreachable on 192.168.1.214 (timed out)' });
+    expect(storage.store[PEER_STATE_KEY].lastResult.status).toBe('unreachable');
+    expect(storage.store.stickysites_sites_v1.a.body).toBe('x');
+  });
+  it('a peer with no snapshot yet does not hide a working peer', async () => {
+    const storage = fakeStorage({ stickysites_sites_v1: {} });
+    const good = { id: 'g', name: 'good', snapshot: { version: 1, deviceId: 'dev_g', notes: { stickysites_sites_v1: { a: site('a', 'from-good', '2026-01-01T00:00:00Z') } }, tombstones: {}, crypto: null } };
+    const { fetch } = fakeFetch({ peers: [{ id: 'p', name: 'b', error: 'timed out' }, good] });
+    const r = await syncWithDaemon({ storage, fetch });
+    expect(r.status).toBe('ok');
+    expect(r.peers.map((p) => p.state)).toEqual(['unreachable', 'compatible']);
+    expect(storage.store.stickysites_sites_v1.a.body).toBe('from-good');
+  });
   it('skips merging while the local vault is locked', async () => {
     const storage = fakeStorage({ [CRYPTO_KEY]: { enabled: true, salt: 's', verify: {} }, stickysites_sites_v1: enc({}) });
     const { fetch } = fakeFetch({ peers: [{ id: 'p', name: 'b', snapshot: { version: 1, deviceId: 'dev_b', notes: {}, tombstones: {}, crypto: { enabled: true, salt: 's' } } }] });

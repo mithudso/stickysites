@@ -22,7 +22,7 @@ Local Peer Sync); the daemon applies them live and writes them back to peer.json
 import argparse, errno, hashlib, hmac, http.client, json, os, secrets, socket, ssl, subprocess, sys, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-VERSION = '1.0.1'
+VERSION = '1.1.0'
 HOME = os.path.expanduser(os.environ.get('STICKYSITES_HOME', '~/.stickysites'))
 CONFIG = os.path.join(HOME, 'peer.json')
 CERT = os.path.join(HOME, 'peer-cert.pem')
@@ -345,6 +345,50 @@ class Daemon:
             log('config updated via loopback: %s' % ', '.join(changed))
         return changed
 
+    # Definitive connectivity test to one peer address: TCP → TLS (cert fingerprint) → GET /hello with
+    # the bearer token. Each step reports ok/fail + elapsed ms; the first failing step names the cause.
+    def test_peer(self, target):
+        host, dport = split_host_port(str(target))
+        port = dport if dport and dport != self.cfg['mcast_port'] else self.cfg['lan_port']
+        res = {'target': str(target), 'host': host, 'port': port, 'steps': [], 'ok': False}
+        t0 = time.time()
+        def step(name, ok, detail=''):
+            res['steps'].append({'step': name, 'ok': ok, 'ms': int((time.time() - t0) * 1000), 'detail': detail})
+        ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+        conn = http.client.HTTPSConnection(host, port, timeout=4, context=ctx)
+        try:
+            try: conn.connect()
+            except OSError as e:
+                hint = ''
+                if getattr(e, 'errno', None) in (errno.EHOSTUNREACH, errno.ENETUNREACH):
+                    hint = (' — this Mac refused to send on the local network. Usually a VPN forcing all apps into its tunnel: add "StickySites Peer" (in ~/Applications) to its bypass / split-tunnel list '
+                            '(Surfshark: Settings → VPN settings → Bypasser → Bypass VPN → add app), or allow it under System Settings → Privacy & Security → Local Network, then run `launchctl kickstart -k gui/$(id -u)/com.stickysites.peer`')
+                elif isinstance(e, socket.timeout) or 'timed out' in str(e):
+                    hint = ' — no answer: wrong IP, helper not running there, or a firewall blocking TCP %d' % port
+                elif getattr(e, 'errno', None) == errno.ECONNREFUSED:
+                    hint = ' — port closed: the helper is not running on that machine (or a different lan_port)'
+                step('tcp', False, '%s%s' % (e, hint)); return res
+            step('tcp', True, 'connected')
+            fp = hashlib.sha256(conn.sock.getpeercert(binary_form=True)).hexdigest()
+            known = [q for q in self.peers.live().values() if q.get('fp') == fp]
+            step('tls', True, 'cert %s%s' % (fp[:12], ' (matches announced peer %s)' % known[0]['name'] if known else ''))
+            conn.request('GET', '/hello', headers={'Authorization': 'Bearer ' + bearer(self.cfg['pair_key'])})
+            r = conn.getresponse(); body = r.read()
+            if r.status == 401:
+                step('pairing', False, 'HTTP 401 — the other laptop has a DIFFERENT pairing key'); return res
+            if r.status != 200:
+                step('pairing', False, 'HTTP %s' % r.status); return res
+            try: hello = json.loads(body.decode())
+            except ValueError: hello = {}
+            step('pairing', True, 'key accepted by %s' % hello.get('name', host))
+            res.update({'ok': True, 'peerName': hello.get('name'), 'peerId': hello.get('id'), 'peerVersion': hello.get('version')})
+            heard = next((q for q in self.peers.live().values() if q.get('id') == hello.get('id')), None)
+            res['heardFrom'] = int(time.time() - heard['lastSeen']) if heard else None
+            return res
+        finally:
+            try: conn.close()
+            except Exception: pass
+
     def status(self):
         return {'version': VERSION, 'id': self.cfg['id'], 'name': self.cfg['name'], 'lanPort': self.cfg['lan_port'],
                 'staticPeers': list(self.cfg.get('static_peers', [])),
@@ -371,6 +415,16 @@ def make_handlers(d):
         def do_GET(self):
             if self.path == '/status': return self._json(200, d.status())
             if self.path == '/config': return self._json(200, d.get_config())
+            if self.path.startswith('/test'):
+                # /test?peer=IP[:port] (repeatable) — default: every static peer and every announced peer
+                from urllib.parse import urlparse, parse_qs
+                q = parse_qs(urlparse(self.path).query)
+                targets = q.get('peer') or list(d.cfg.get('static_peers', [])) + ['%s:%s' % (p['addr'], p['port']) for p in d.peers.live().values()]
+                seen = []; results = []
+                for t in targets:
+                    if t in seen: continue
+                    seen.append(t); results.append(d.test_peer(t))
+                return self._json(200, {'results': results, 'heard': [{'name': p['name'], 'addr': p['addr'], 'lastSeen': int(time.time() - p['lastSeen'])} for p in d.peers.live().values()]})
             if self.path == '/peers/snapshots': return self._json(200, {'peers': d.peers_snapshots()})
             self._json(404, {'error': 'not found'})
         def do_PUT(self):
@@ -431,18 +485,49 @@ def run(cfg):
         d.stop.set(); loop.shutdown(); lan.shutdown()
 
 # ── install ──────────────────────────────────────────────────────────────────
-def launchd_plist(cfg):
+APP_DIR = os.path.expanduser('~/Applications/StickySites Peer.app')
+
+def build_app_bundle():
+    """Wrap the daemon in a minimal, ad-hoc-signed .app so macOS attributes its LAN traffic to a
+    named app: recent macOS (Local Network privacy) silently refuses multicast/broadcast/unicast
+    sends (EHOSTUNREACH, "No route to host") from bare background executables, but shows an
+    "Allow" prompt for an app bundle and remembers the answer. The bundle only execs this script."""
+    macos = os.path.join(APP_DIR, 'Contents', 'MacOS'); os.makedirs(macos, exist_ok=True)
+    exe = os.path.join(macos, 'stickysites-peer')
+    with open(exe, 'w') as f:
+        f.write('#!/bin/sh\n# launchd runs this with no args (daemon); `open -a "StickySites Peer" --args probe` runs one LAN send to trigger the macOS Local Network prompt.\nexec "%s" "%s" "${1:-run}"\n' % (sys.executable, os.path.abspath(__file__)))
+    os.chmod(exe, 0o755)
+    with open(os.path.join(APP_DIR, 'Contents', 'Info.plist'), 'w') as f:
+        f.write('''<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>%s</string>
+  <key>CFBundleName</key><string>StickySites Peer</string>
+  <key>CFBundleDisplayName</key><string>StickySites Peer</string>
+  <key>CFBundleExecutable</key><string>stickysites-peer</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>%s</string>
+  <key>CFBundleVersion</key><string>%s</string>
+  <key>LSUIElement</key><true/>
+  <key>LSBackgroundOnly</key><true/>
+  <key>NSLocalNetworkUsageDescription</key><string>StickySites Peer finds your other laptops on the local network and syncs your notes with them. Nothing leaves your network.</string>
+</dict></plist>
+''' % (LAUNCHD_LABEL, VERSION, VERSION))
+    subprocess.run(['codesign', '--force', '--sign', '-', APP_DIR], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return exe
+
+def launchd_plist(cfg, program):
     return '''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>%s</string>
-  <key>ProgramArguments</key><array><string>%s</string><string>%s</string><string>run</string></array>
+  <key>ProgramArguments</key><array><string>%s</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>%s</string>
   <key>StandardErrorPath</key><string>%s</string>
 </dict></plist>
-''' % (LAUNCHD_LABEL, sys.executable, os.path.abspath(__file__), LOG, LOG)
+''' % (LAUNCHD_LABEL, program, LOG, LOG)
 
 def cmd_install(a):
     cfg = ensure_config(a.pair_key, a.name, peers=a.peer); ensure_cert()
@@ -450,19 +535,72 @@ def cmd_install(a):
         plist = os.path.expanduser('~/Library/LaunchAgents/%s.plist' % LAUNCHD_LABEL)
         os.makedirs(os.path.dirname(plist), exist_ok=True)
         subprocess.run(['launchctl', 'unload', plist], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        open(plist, 'w').write(launchd_plist(cfg))
+        program = build_app_bundle()
+        open(plist, 'w').write(launchd_plist(cfg, program))
         subprocess.run(['launchctl', 'load', plist], check=True)
-        print('launchd job %s loaded (%s)' % (LAUNCHD_LABEL, plist))
+        print('launchd job %s loaded (%s) running %s' % (LAUNCHD_LABEL, plist, APP_DIR))
+        # A LaunchServices launch of the bundle is what reliably triggers the Local Network prompt.
+        subprocess.run(['open', '-a', APP_DIR, '--args', 'probe'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print('If macOS asks whether "StickySites Peer" may find and connect to devices on your local network, click Allow.')
+        print('(Later: System Settings > Privacy & Security > Local Network > StickySites Peer)')
     elif not a.no_launchd:
         print('Non-macOS: run `%s %s run` under your service manager (systemd unit example in peer/README.md).' % (sys.executable, os.path.abspath(__file__)))
     print('peer "%s" ready. Pairing key (use it on your other laptops):\n\n  %s\n' % (cfg['name'], cfg['pair_key']))
     print('On another laptop:  python3 peer/stickysites-peer.py install --pair-key %s' % cfg['pair_key'])
+
+def _ifname_for(ip):
+    """Interface name carrying `ip` (macOS/BSD ifconfig parse; Linux ip addr)."""
+    try:
+        if sys.platform.startswith('linux'):
+            for line in subprocess.run(['ip', '-4', '-o', 'addr'], capture_output=True, text=True, timeout=3).stdout.splitlines():
+                parts = line.split()
+                if 'inet' in parts and parts[parts.index('inet') + 1].split('/')[0] == ip: return parts[1]
+        else:
+            name = ''
+            for line in subprocess.run(['ifconfig'], capture_output=True, text=True, timeout=3).stdout.splitlines():
+                if line and not line[0].isspace(): name = line.split(':', 1)[0]
+                parts = line.split()
+                if parts and parts[0] == 'inet' and parts[1] == ip: return name
+    except (OSError, subprocess.SubprocessError): pass
+    return ''
+
+def cmd_probe(a):
+    """Send one signed announcement (multicast + broadcast + static peers) and exit. Launched through
+    the app bundle by `open`, this is what makes macOS show the Local Network permission prompt."""
+    cfg = load_config() if os.path.exists(CONFIG) else ensure_config(); ensure_cert()
+    d = Daemon(cfg); d.stop.set()
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    ts = int(time.time()); addrs = local_ipv4s()
+    msg = {'v': 1, 'id': cfg['id'], 'name': cfg['name'], 'port': cfg['lan_port'], 'fp': d.fp, 'ts': ts, 'addrs': addrs}
+    msg['sig'] = sign(cfg['pair_key'], msg['id'], msg['name'], msg['port'], msg['fp'], ts, ','.join(addrs))
+    data = json.dumps(msg).encode(); results = []
+    targets = [(MCAST_GROUP, cfg['mcast_port'])] + [(b, cfg['mcast_port']) for b in broadcast_targets()] + [split_host_port(str(p))[0:1] + (split_host_port(str(p))[1] or cfg['mcast_port'],) for p in cfg.get('static_peers', [])]
+    for host, port in targets:
+        try: sock.sendto(data, (host, port)); results.append('%s ok' % host)
+        except OSError as e: results.append('%s FAIL %s' % (host, e))
+    # diagnostic variants: source-bound and interface-bound sockets (a VPN tunnel that captures the
+    # default route can be bypassed by binding to the physical interface)
+    for ip, _p2p, _b in [t for t in _iface_table() if not t[1]][:2]:
+        for label, setup in (('bind-src', lambda so: so.bind((ip, 0))), ('bound-if', lambda so: so.setsockopt(socket.IPPROTO_IP, 25, socket.if_nametoindex(_ifname_for(ip))))):
+            so = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            try:
+                setup(so)
+                for host, port in targets:
+                    try: so.sendto(data, (host, port)); results.append('%s@%s(%s) ok' % (host, ip, label))
+                    except OSError as e: results.append('%s@%s(%s) FAIL %s' % (host, ip, label, e))
+            except Exception as e: results.append('%s(%s) setup FAIL %s' % (ip, label, e))
+            finally: so.close()
+    log('probe: ' + '; '.join(results))
+    print('\n'.join(results))
 
 def cmd_uninstall(a):
     plist = os.path.expanduser('~/Library/LaunchAgents/%s.plist' % LAUNCHD_LABEL)
     if os.path.exists(plist):
         subprocess.run(['launchctl', 'unload', plist], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); os.remove(plist)
         print('launchd job removed')
+    if os.path.isdir(APP_DIR):
+        import shutil; shutil.rmtree(APP_DIR, ignore_errors=True); print('app bundle removed')
     print('config, cert and snapshot left in %s (delete the folder to purge)' % HOME)
 
 def cmd_status(a):
@@ -485,6 +623,7 @@ def main(argv=None):
     sub.add_parser('uninstall').set_defaults(fn=cmd_uninstall)
     sub.add_parser('run').set_defaults(fn=lambda a: run(load_config() if os.path.exists(CONFIG) else ensure_config()))
     sub.add_parser('status').set_defaults(fn=cmd_status)
+    sub.add_parser('probe').set_defaults(fn=cmd_probe)
     p = sub.add_parser('pair'); p.add_argument('key', nargs='?'); p.set_defaults(fn=cmd_pair)
     a = ap.parse_args(argv); a.fn(a)
 

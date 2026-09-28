@@ -329,6 +329,7 @@
         case 'ok': return { text: 'In sync with ' + (names || 'peers') + (when ? ' · ' + when : '') + (r.stats && r.stats.applied ? ' · applied ' + r.stats.applied : ''), color: '#34d399' };
         case 'no-peers': return { text: 'Helper running, no other laptop seen yet' + (when ? ' · ' + when : ''), color: '#94a3b8' };
         case 'no-daemon': return { text: 'Peer helper not running on this machine (peer/stickysites-peer.py install)', color: '#fbbf24' };
+        case 'unreachable': return { text: 'Heard from ' + (peers.map(function (p) { return p.name; }).join(', ') || 'a peer') + ' but cannot fetch from it: ' + ((peers[0] && peers[0].error) || 'unknown error') + ' — use Test connection below', color: '#f87171' };
         case 'locked': return { text: 'Vault locked — unlock to merge with ' + (names || 'peers'), color: '#fbbf24' };
         case 'mismatch': return { text: 'Encryption mismatch with ' + names + ' — disable encryption on one laptop, let it sync, then re-enable', color: '#f87171' };
         case 'adopted-remote-vault': return { text: 'Adopted the vault from ' + names + ' — enter that passphrase to unlock and merge', color: '#fbbf24' };
@@ -400,12 +401,62 @@
     peerName.className = 'settings-info'; peerName.textContent = '';
     var saveBtn = document.createElement('button');
     saveBtn.className = 'settings-toggle-btn'; saveBtn.textContent = 'Save';
-    saveRow.append(peerName, saveBtn);
+    var testBtn = document.createElement('button');
+    testBtn.className = 'settings-toggle-btn'; testBtn.textContent = 'Test connection';
+    testBtn.title = 'Connect to each peer IP (and every laptop heard on the network): TCP → TLS → pairing key';
+    saveRow.append(peerName, testBtn, saveBtn);
+    var testOut = document.createElement('div');
+    testOut.className = 'settings-test-results';
+
+    function renderTestResults(data) {
+      testOut.textContent = '';
+      var results = (data && data.results) || [];
+      if (!results.length) {
+        var none = document.createElement('div');
+        none.className = 'settings-test-line is-warn';
+        none.textContent = 'Nothing to test: no Peer IPs saved and no laptop heard on the network yet.';
+        testOut.appendChild(none);
+        return;
+      }
+      results.forEach(function (r) {
+        var line = document.createElement('div');
+        line.className = 'settings-test-line ' + (r.ok ? 'is-ok' : 'is-fail');
+        var last = r.steps[r.steps.length - 1] || {};
+        if (r.ok) {
+          line.textContent = '\u2705 Connected to ' + (r.peerName || r.host) + ' (' + r.host + ':' + r.port + ') \u2014 TCP, TLS and pairing key OK, ' + last.ms + ' ms' +
+            (r.heardFrom != null ? '; they announce to us too (' + r.heardFrom + ' s ago)' : '; they have not announced to us yet \u2014 add this laptop\u2019s IP on their side');
+        } else {
+          line.textContent = '\u274c ' + r.host + ':' + r.port + ' \u2014 failed at ' + last.step + ': ' + last.detail;
+        }
+        testOut.appendChild(line);
+      });
+      var heard = (data && data.heard) || [];
+      var h = document.createElement('div');
+      h.className = 'settings-test-line is-info';
+      h.textContent = heard.length ? 'Heard on the network: ' + heard.map(function (p) { return p.name + ' (' + p.addr + ', ' + p.lastSeen + ' s ago)'; }).join(', ') : 'No announcements heard from other laptops in the last 20 s.';
+      testOut.appendChild(h);
+    }
+
+    testBtn.addEventListener('click', async function () {
+      testBtn.disabled = true; testOut.textContent = 'Testing\u2026';
+      try {
+        var params = ipsInput.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { return 'peer=' + encodeURIComponent(x); }).join('&');
+        var r = await fetch(PEER_DAEMON + '/test' + (params ? '?' + params : ''));
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        renderTestResults(await r.json());
+      } catch (e) {
+        testOut.textContent = '';
+        var line = document.createElement('div');
+        line.className = 'settings-test-line is-fail';
+        line.textContent = '\u274c Could not reach the local helper: ' + (e && e.message ? e.message : e);
+        testOut.appendChild(line);
+      } finally { testBtn.disabled = false; }
+    });
     var cfgStatus = document.createElement('div');
     cfgStatus.className = 'settings-status';
     var cfgLoaded = null;
 
-    function setCfgInputsEnabled(on) { keyInput.disabled = !on; ipsInput.disabled = !on; saveBtn.disabled = !on; keyCopy.disabled = !on; }
+    function setCfgInputsEnabled(on) { keyInput.disabled = !on; ipsInput.disabled = !on; saveBtn.disabled = !on; keyCopy.disabled = !on; testBtn.disabled = !on; }
 
     async function loadPeerConfig() {
       try {
@@ -452,7 +503,7 @@
       } finally { saveBtn.disabled = false; }
     });
 
-    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus, keyLabel, keyHint, keyRow, ipsLabel, ipsHint, ipsInput, saveRow, cfgStatus);
+    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus, keyLabel, keyHint, keyRow, ipsLabel, ipsHint, ipsInput, saveRow, cfgStatus, testOut);
     loadPeerConfig();
     renderPeerState();
 

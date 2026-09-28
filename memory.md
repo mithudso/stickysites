@@ -1,5 +1,25 @@
 # StickySites Memory Log
 
+## v1.12.4 - 2026-09-28
+- User request:
+  - Laptops not finding each other; add a Test button that definitively says whether it connected
+- Completed:
+  - Daemon `GET /test[?peer=ip[:port]]`: TCP → TLS (fingerprint, matched to announcements) → GET /hello
+    with bearer (401 = different key) per target, plus who announced to us; popup **Test connection**
+    renders ✅/❌ per peer with the failing step and cause. `peer-sync.js` reports `unreachable`
+    (heard but cannot fetch) instead of "no peers"; popup shows the error
+  - Root cause on m5: Surfshark (WireGuard, Bypasser on) tunnels every non-bypassed app, so the
+    launchd daemon's LAN unicast/TCP fail with EHOSTUNREACH while Terminal-spawned processes work.
+    Verified: from a shell, TLS /hello to 192.168.1.214 returns 200 (keys match). `install` now wraps
+    the daemon in an ad-hoc-signed `~/Applications/StickySites Peer.app` (LSUIElement,
+    NSLocalNetworkUsageDescription) so it can be added to the VPN bypass list / Local Network pane;
+    `probe` subcommand for diagnostics; binding sockets to en0 does not bypass the tunnel
+  - Docs (README, runbook, known-issues, CLAUDE, COMPONENTS); version 1.12.4
+- In progress:
+  - None
+- Next steps:
+  - User: add StickySites Peer to Surfshark Bypasser, kickstart the job, click Test connection
+
 ## v1.12.3 - 2026-09-28
 - User request:
   - Popup: unclear where to put an IP and which port

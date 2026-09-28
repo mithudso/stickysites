@@ -7,22 +7,22 @@ version (`npm run lint` enforces this); `memory.md` / `prompts.md` updated.
 
 1. Bump the version in **both** files (patch for fixes, minor for features):
    ```bash
-   # example: 1.12.3
-   sed -i '' 's/"version": "[0-9.]*"/"version": "1.12.3"/' manifest.json package.json
+   # example: 1.12.4
+   sed -i '' 's/"version": "[0-9.]*"/"version": "1.12.4"/' manifest.json package.json
    npm run lint
    ```
 2. Commit, push, merge via PR (CI must pass).
-3. Tag: `git tag v1.12.3 && git push origin v1.12.3`.
+3. Tag: `git tag v1.12.4 && git push origin v1.12.4`.
 4. Build the store zip (runtime files only; the script refuses on version drift):
    ```bash
-   npm run build:store        # → dist/stickysites-1.12.3.zip + printed file listing
+   npm run build:store        # → dist/stickysites-1.12.4.zip + printed file listing
    ```
 5. Upload on the item's **Package** tab in the Chrome Web Store developer dashboard and
    submit for review. Full walkthrough and listing copy: `store/README.md`.
 
 ## Verification
 
-- `unzip -l stickysites-1.12.3.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
+- `unzip -l stickysites-1.12.4.zip` lists no `tests/`, `docs/`, `node_modules/`, `scripts/`,
   or `.remember/` entries.
 - Load the unzipped folder unpacked in a fresh profile and run the checks in
   `load-and-reload-extension.md`.

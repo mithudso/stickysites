@@ -180,11 +180,11 @@ lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout
 
 | Piece | Purpose |
 |---|---|
-| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`, `GET /config` (pairing key, static peers `host[:port]`, name, this host's `addrs`, `discoveryPort`) / `PUT /config` (validated, hot-applied, persisted; a key change drops known peers); CORS for `chrome-extension://` origins only |
+| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`, `GET /config` (pairing key, static peers `host[:port]`, name, this host's `addrs`, `discoveryPort`) / `PUT /config` (validated, hot-applied, persisted; a key change drops known peers), `GET /test[?peer=…]` (TCP → TLS → pairing per target with cause hints, plus announcements heard); CORS for `chrome-extension://` origins only |
 | LAN HTTPS `0.0.0.0:47832` | `GET /snapshot` (ETag / 304 / 204), `GET /hello`; `Authorization: Bearer HMAC(pairKey,'auth')`; self-signed cert from `openssl` |
 | UDP `:47833` — multicast `239.255.77.31`, subnet broadcast, optional unicast (`static_peers`) | Announce every 5 s `{ id, name, port, fp, ts, addrs, sig }`, HMAC-signed with the pairing key, on every non-tunnel interface (table rescanned every 60 s; LAN addresses advertised first, tunnels last); listener joins the group per interface and also receives broadcasts; drops unsigned/stale/self; peers expire after 20 s |
 | `fetch_peer` | Tries each announced address (recv addr first), pins the cert SHA-256 from the announcement, bearer auth, `If-None-Match` |
-| CLI | `install [--pair-key] [--name]` (config + cert + launchd agent `com.stickysites.peer`), `uninstall`, `run`, `status`, `pair [KEY]`, `init` (tests) |
+| CLI | `install [--pair-key] [--name] [--peer IP]` (config + cert + ad-hoc-signed `~/Applications/StickySites Peer.app` wrapper + launchd agent `com.stickysites.peer`; launches the app once so macOS can show its Local Network prompt), `uninstall`, `run`, `status`, `pair [KEY]`, `probe` (one signed announcement + bound-socket diagnostics), `init` (tests) |
 
 `peer/test_peer.py` boots two daemons on ephemeral ports and checks CORS, bad-snapshot rejection, LAN auth, and the discovery + snapshot round-trip.
 
