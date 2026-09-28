@@ -18,6 +18,10 @@ to-do list with a local native-messaging host. There is no network surface.
 | Passphrase brute force against the stored `verify` envelope | Low | PBKDF2 600,000 iterations, SHA-256, random 16-byte salt. |
 | Native host impersonation | Low | Chrome only launches the host registered in the browser's `NativeMessagingHosts` manifest whose `allowed_origins` contains this extension id; the host runs as the local user. |
 | Plaintext to-dos reaching `TODO.md` | By design when encryption is off | Sync is skipped entirely while `stickysites_todos_v1` is an encrypted envelope. |
+| Peer daemon loopback API abused by another local extension | Low–Medium | Bound to `127.0.0.1`, CORS-gated to `chrome-extension://` origins; any extension on that machine could read/replace the snapshot — same trust boundary as the Chrome profile. Vault on ⇒ snapshot is envelopes. |
+| Stranger on the LAN joins the sync | Low | Announcements are HMAC-signed with the pairing key and dropped otherwise; LAN requests need a bearer token derived from it; TLS cert fingerprint pinned from the signed announcement. Rotate the key with `stickysites-peer.py pair`. |
+| Notes readable on the Wi-Fi | Low | Peer transport is HTTPS with pinned certs. Without the vault, notes are plaintext inside the tunnel; tombstones (record keys + timestamps) are always plaintext. |
+| Snapshot file at rest | Same as Chrome storage | `~/.stickysites/snapshot.json` mode 0600; envelopes when the vault is on. |
 | Content script on sensitive pages | N/A | Chrome blocks content scripts on `chrome://`, `chrome-extension://`, the Web Store. |
 
 ### Permissions audit
@@ -36,8 +40,10 @@ No `tabs`, `webRequest`, `cookies`, `history`, `identity`, `scripting`, or extra
 
 - All notes stay in `chrome.storage.local` on the device. No network transmission, telemetry,
   crash reporting, third-party scripts, or remote resources.
-- The only data that leaves the browser is the to-do list (items, sections, notes) sent to the
-  local host process when the optional sync is installed and encryption is off.
+- Data that can leave the browser, both to local processes only: the to-do list (items,
+  sections, notes) to the native host when that sync is installed and encryption is off; and
+  the note snapshot to the peer daemon on `127.0.0.1` when it is installed, from where it goes
+  only to the user's own paired machines on the LAN (`peer/README.md`).
 
 ## Encryption at rest
 
@@ -67,7 +73,11 @@ Opt-in; enabled from the popup Settings panel with a passphrase.
 ### Invariants the code enforces
 
 - Never write plaintext to a note key while enabled and no cached key: the outliner shows a
-  lock notice instead of auto-creating; the to-do sync skips; `syncFromStorage` skips.
+  lock notice instead of auto-creating; the to-do sync skips; `syncFromStorage` skips; peer
+  sync reports `locked` and writes nothing.
+- Peer sync never mixes vaults: same salt → merge on decrypted data and re-encrypt; different
+  salts → `mismatch`, nothing written; local vault off + peer on → adopt the peer's config
+  (salt + verify token, never the passphrase) and lock.
 - `src/content/crypto-content.js` and `src/shared/crypto.js` implement the same primitives
   and must change together.
 

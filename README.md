@@ -2,10 +2,11 @@
 
 [![CI](https://github.com/mithudso/stickysites/actions/workflows/ci.yml/badge.svg)](https://github.com/mithudso/stickysites/actions/workflows/ci.yml)
 
-Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.2) with six note
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.12.0) with six note
 types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and
 @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global
-outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
+outliner library, opt-in AES-256-GCM encryption at rest, and optional peer-to-peer sync between
+your own laptops on the same network. No servers, no internet calls.
 
 ## Note types
 
@@ -56,6 +57,13 @@ outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no netw
   type and tag filters, Markdown export
 - Settings: encryption Enable / Disable / **Lock Now**, note-type visibility, cluster layout
 
+### Local peer sync (optional)
+- Keep two or more of your laptops converged over the local network — no account, no cloud
+- A tiny stdlib-Python helper on each machine discovers peers (multicast, pairing key) and relays
+  snapshots over pinned TLS; merging is record-level last-writer-wins inside the extension
+- Encrypted vaults sync as envelopes; enable encryption on one laptop and the others adopt it
+- Setup: `python3 peer/stickysites-peer.py install` — see [peer/README.md](peer/README.md)
+
 ### Encryption at rest
 - Opt-in AES-256-GCM; key derived from your passphrase with PBKDF2 (600,000 iterations, SHA-256)
 - The derived key is cached locally until you click **Lock Now**; an in-page lock overlay
@@ -76,7 +84,7 @@ Full details: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 ```bash
 npm install                 # vitest + canvas (dev only)
 npm run lint                # syntax gate for every script + version agreement
-npm test                    # 101 unit tests (vitest, node env, chrome mocked)
+npm test                    # 125 unit tests (vitest, node env, chrome mocked)
 npm run docs:check-indexes  # retrieval indexes point at real files
 ```
 
@@ -107,6 +115,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTIN
 | [Logging](docs/logging.md) · [Caching](docs/caching-and-optimization.md) | Diagnostics and performance notes |
 | [Runbooks](docs/runbooks/) | Load/reload, release, to-do sync troubleshooting, encryption recovery |
 | [Known issues](docs/known-issues.md) · [Requirements](docs/requirements.md) · [Onboarding](docs/onboarding.md) | |
+| [Peer sync](peer/README.md) | Local-network sync between your laptops: install, merge rules, security model |
 | [Privacy policy](PRIVACY.md) · [Store kit](store/README.md) | What the extension stores; Chrome Web Store submission assets and checklist |
 | [llms.txt](llms.txt) | LLM context index (`llms-full.txt`, `llms-small.txt`, `llms-facts.txt`) |
 

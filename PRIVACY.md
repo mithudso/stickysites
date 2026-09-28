@@ -1,6 +1,6 @@
 # StickySites Privacy Policy
 
-_Last updated: 2026-09-27_
+_Last updated: 2026-09-28_
 
 StickySites is a Chrome extension that lets you keep notes attached to websites, pages, and
 dates, plus a to-do list and an outliner. This policy explains what the extension does with
@@ -39,6 +39,16 @@ state, notes, sections) are passed to that local program through Chrome's native
 channel. This never leaves your machine, and the sync is skipped entirely while encryption is
 turned on. Without the companion program installed, the feature is simply inactive.
 
+## Optional local peer sync
+
+If you install the optional peer helper (`peer/stickysites-peer.py`) on two or more of your own
+computers and give them the same pairing key, the extension hands its notes to that helper over
+`127.0.0.1`, and the helpers exchange them **only across your local network** (multicast
+discovery, HTTPS with pinned certificates, authenticated with the pairing key). Nothing goes to
+the internet, to us, or to any third party, and computers without your pairing key are ignored.
+With encryption on, the exchanged data is already encrypted. Without the helper installed the
+feature is inactive; it can also be switched off in Settings.
+
 ## Encryption
 
 Encryption is optional. When enabled, your notes are encrypted at rest with AES-256-GCM using
@@ -47,7 +57,9 @@ if you forget the passphrase, because we never see it.
 
 ## Data sharing and sale
 
-We do not collect, transmit, sell, or share any personal data. There is nothing to share.
+We do not collect, transmit, sell, or share any personal data. The only transmissions the
+extension can make are to programs on your own computer (`127.0.0.1`), and from there, if you
+opt in, to your own other computers on your local network.
 
 ## Permissions
 

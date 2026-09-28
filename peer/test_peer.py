@@ -1,0 +1,78 @@
+"""End-to-end test: two daemons on one box (different ports, same pairing key, multicast loopback)
+discover each other and exchange a snapshot. Run: python3 -m unittest peer/test_peer.py"""
+import json, os, shutil, subprocess, sys, tempfile, time, unittest, urllib.request
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPT = os.path.join(HERE, 'stickysites-peer.py')
+
+def http(method, url, body=None, origin='chrome-extension://abc'):
+    req = urllib.request.Request(url, data=body, method=method, headers={'Origin': origin, 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        return r.status, dict(r.headers), r.read()
+
+class TwoDaemons(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if shutil.which('openssl') is None: raise unittest.SkipTest('openssl not available')
+        cls.homes = [tempfile.mkdtemp(prefix='ss-peer-') for _ in range(2)]
+        cls.procs = []
+        key = 'test-pair-key-123'
+        for i, home in enumerate(cls.homes):
+            env = dict(os.environ, STICKYSITES_HOME=home)
+            subprocess.run([sys.executable, SCRIPT, 'init', '--pair-key', key, '--name', 'peer%d' % i,
+                            '--loop-port', str(57831 + i * 10), '--lan-port', str(57832 + i * 10), '--mcast-port', '57833'],
+                           env=env, check=True, stdout=subprocess.DEVNULL)
+            cls.procs.append(subprocess.Popen([sys.executable, SCRIPT, 'run'], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        deadline = time.time() + 15
+        while time.time() < deadline:
+            try:
+                st = json.loads(http('GET', 'http://127.0.0.1:57841/status')[2])
+                if st['peers']: return
+            except Exception: pass
+            time.sleep(0.5)
+        raise RuntimeError('peers never discovered each other')
+
+    @classmethod
+    def tearDownClass(cls):
+        for p in cls.procs: p.terminate()
+        for p in cls.procs: p.wait(timeout=5)
+        for h in cls.homes: shutil.rmtree(h, ignore_errors=True)
+
+    def test_cors_preflight_for_extension_origin(self):
+        req = urllib.request.Request('http://127.0.0.1:57831/snapshot', method='OPTIONS', headers={'Origin': 'chrome-extension://abc'})
+        with urllib.request.urlopen(req, timeout=5) as r:
+            self.assertEqual(r.status, 204)
+            self.assertEqual(r.headers['Access-Control-Allow-Origin'], 'chrome-extension://abc')
+            self.assertIn('PUT', r.headers['Access-Control-Allow-Methods'])
+
+    def test_rejects_bad_snapshot(self):
+        with self.assertRaises(urllib.error.HTTPError) as cm:
+            http('PUT', 'http://127.0.0.1:57831/snapshot', b'{"nope":1}')
+        self.assertEqual(cm.exception.code, 400)
+
+    def test_snapshot_round_trip_between_peers(self):
+        snap = {'version': 1, 'deviceId': 'dev_a', 'ts': 'T', 'notes': {'stickysites_sites_v1': {'example.com': {'key': 'example.com', 'body': 'hello', 'updatedAt': '2026-01-01T00:00:00Z'}}}, 'tombstones': {}, 'crypto': None}
+        status, _, body = http('PUT', 'http://127.0.0.1:57831/snapshot', json.dumps(snap).encode())
+        self.assertEqual(status, 200); self.assertTrue(json.loads(body)['ok'])
+        # peer1 pulls peer0's snapshot over pinned TLS with bearer auth
+        _, _, body = http('GET', 'http://127.0.0.1:57841/peers/snapshots')
+        peers = json.loads(body)['peers']
+        self.assertEqual(len(peers), 1)
+        self.assertEqual(peers[0]['name'], 'peer0')
+        self.assertEqual(peers[0]['snapshot']['notes']['stickysites_sites_v1']['example.com']['body'], 'hello')
+        # second pull hits the ETag cache and still returns the snapshot
+        _, _, body = http('GET', 'http://127.0.0.1:57841/peers/snapshots')
+        self.assertEqual(json.loads(body)['peers'][0]['snapshot']['deviceId'], 'dev_a')
+        # peer0 has no snapshot from peer1 yet → entry has no snapshot
+        _, _, body = http('GET', 'http://127.0.0.1:57831/peers/snapshots')
+        self.assertIsNone(json.loads(body)['peers'][0]['snapshot'])
+
+    def test_lan_endpoint_requires_bearer(self):
+        import ssl, http.client
+        ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
+        conn = http.client.HTTPSConnection('127.0.0.1', 57832, timeout=5, context=ctx)
+        conn.request('GET', '/snapshot'); r = conn.getresponse(); conn.close()
+        self.assertEqual(r.status, 401)
+
+if __name__ == '__main__':
+    unittest.main()

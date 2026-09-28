@@ -34,6 +34,17 @@ python3 ~/.claude/skills/todo/scripts/todo.py install-native-host
 Then reload the extension. Without the host the extension works normally and the list stays
 in the browser. Troubleshooting: `runbooks/todo-sync-troubleshooting.md`.
 
+### Optional: keep two laptops in sync over the local network
+
+Install the peer helper on each machine with the same pairing key (`peer/README.md`):
+
+```bash
+python3 peer/stickysites-peer.py install                 # first laptop — prints the key
+python3 peer/stickysites-peer.py install --pair-key KEY  # the others
+```
+
+Then popup → Settings → Local Peer Sync shows the peers it can see.
+
 ### Updating
 
 ```bash

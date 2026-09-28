@@ -1,9 +1,9 @@
-<!-- Generated 2026-09-27 [gen: repo-bootstrapper/1.0]; verified-as-of 2026-09-27 -->
+<!-- Generated 2026-09-28 [gen: repo-bootstrapper/1.0]; verified-as-of 2026-09-28 -->
 
 # StickySites
 Source: https://github.com/mithudso/stickysites/blob/HEAD/README.md
 
-Sticky notes for every website. A Chrome Extension (Manifest V3, v1.11.2) with six note types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global outliner library, and opt-in AES-256-GCM encryption at rest. No servers, no network calls.
+Sticky notes for every website. A Chrome Extension (Manifest V3, v1.12.0) with six note types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global outliner library, opt-in AES-256-GCM encryption at rest, and optional peer-to-peer sync between your own laptops on the same network. No servers, no internet calls.
 
 # CLAUDE.md
 Source: https://github.com/mithudso/stickysites/blob/HEAD/CLAUDE.md
@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Architecture
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/ARCHITECTURE.md
 
-StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into every web page. Notes live in `chrome.storage.local` with optional AES-256-GCM encryption. There are no servers, network calls, or analytics. The single out-of-browser boundary is an optional native-messaging host that mirrors the global to-do list into a local `TODO.md`.
+StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into every web page. Notes live in `chrome.storage.local` with optional AES-256-GCM encryption. There are no servers, internet calls, or analytics. Two optional out-of-browser boundaries exist, both local: a native-messaging host that mirrors the global to-do list into `TODO.md`, and a loopback peer daemon that syncs notes between the user's own machines on the same LAN.
 
 # Components
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/COMPONENTS.md
@@ -33,7 +33,7 @@ StickySites runs as a Chrome Extension on every web page. It injects DOM into un
 # External Calls
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/external-calls.md
 
-StickySites makes **no network calls**. Everything stays in `chrome.storage.local`. The one call that leaves the browser is optional local IPC: the to-do sync with a native-messaging host. Chrome-internal APIs (`chrome.storage`, `chrome.tabs`, `chrome.windows`, `chrome.alarms`, `chrome.contextMenus`) never leave the browser and are inventoried in `integrations-and-assumptions.md`, not here.
+StickySites makes **no internet calls**. Everything stays in `chrome.storage.local`. Two optional calls leave the browser, both to processes on the same machine: the to-do sync with a native-messaging host, and the loopback HTTP calls to the local peer-sync daemon (which in turn talks only to the user's paired machines on the LAN). Chrome-internal APIs (`chrome.storage`, `chrome.tabs`, `chrome.windows`, `chrome.alarms`, `chrome.contextMenus`) never leave the browser and are inventoried in `integrations-and-assumptions.md`, not here.
 
 # Integrations and Assumptions
 Source: https://github.com/mithudso/stickysites/blob/HEAD/docs/integrations-and-assumptions.md

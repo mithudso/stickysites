@@ -45,6 +45,19 @@ mirrored there. Files: `popup.js`, `src/content/prefs.js`.
 `prefs.js` defaults `panelMode: 'fixed'` and tests round-trip it, but no runtime code reads
 it. Safe to remove once tests are adjusted. Files: `prefs.js`, `notes-storage.js`, tests.
 
+## Peer sync: only outline deletions propagate
+**Impact**: Low · **Status**: By design (for now)
+Peer sync uses tombstones to delete records on other machines, and only the outliner's Delete
+writes one (no other note type has a delete action in the UI). If a future delete path is added,
+call `addTombstone` from `src/shared/peer-sync.js` or the record will reappear from a peer.
+Files: `src/content/outline.js`, `src/shared/peer-sync.js`.
+
+## Peer sync needs multicast on the LAN
+**Impact**: Low · **Status**: By design
+Discovery is UDP multicast (`239.255.77.31:47833`). Guest Wi-Fi with client isolation, some
+VPNs, and firewalls that block UDP prevent peers from seeing each other; there is no manual
+peer-address fallback yet. Files: `peer/stickysites-peer.py`, `docs/runbooks/peer-sync.md`.
+
 ## To-do sync requires a per-browser host manifest
 **Impact**: Low · **Status**: By design
 Each Chromium browser (Chrome, Chrome Beta, Brave, Arc…) has its own `NativeMessagingHosts`

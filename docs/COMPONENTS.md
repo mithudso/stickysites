@@ -5,7 +5,7 @@ script attaches; "Exports" = ES module exports.
 
 ## Service worker — `src/background/service-worker.js` (122 lines, ES module)
 
-Imports `syncTodosWithHost`, `TODOS_KEY` from `src/shared/todo-bridge.js`.
+Imports `todo-bridge.js` (to-do sync), `peer-sync.js` (LAN sync), `crypto.js` (`importJwk`, `encrypt`, `decrypt` for the peer merge).
 
 | Responsibility | Detail |
 |---|---|
@@ -13,7 +13,8 @@ Imports `syncTodosWithHost`, `TODOS_KEY` from `src/shared/todo-bridge.js`.
 | Command | `toggle-cluster` (`Alt+S`) → `STICKYSITES_TOGGLE` to the active tab |
 | Popout | `onMessage(STICKYSITES_POPOUT)` → `windows.create(popout.html?type&key&label, popup, 1400×1100)` |
 | To-do sync | `runTodoSync()` with a `todoSyncRunning` guard; alarm `stickysites-todo-sync` every 2 min; `onStartup`, `onInstalled`; 3 s after `storage.onChanged` touches `stickysites_todos_v1` |
-| Failure paths | `console.warn('[stickysites] …')` when a tab has no content script or the native host fails |
+| Peer sync | `runPeerSync()` with a `peerSyncRunning` guard; alarm `stickysites-peer-sync` every 1 min; `onStartup`, `onInstalled`; 4 s after a note / tombstone / crypto change or the enable toggle; `STICKYSITES_PEER_SYNC_NOW` from the popup replies with the persisted state. `peerCryptoApi()` turns the cached JWK into `{ decrypt, encrypt }` for the merge |
+| Failure paths | `console.warn('[stickysites] …')` when a tab has no content script, the native host fails, or the peer daemon errors (the "no daemon" case is logged once per outage) |
 
 ---
 
@@ -156,10 +157,36 @@ lock overlay, toast, popout hint, dark theme, animations. Also linked by `popout
 | `isEncryptedValue(v)` | Same test as `Crypto.isEncrypted` |
 | `syncTodosWithHost({ storage, sendNativeMessage, extId })` | Skip if encrypted; round-trip; write only when `changed`; returns `{ changed, count }`, `{ skipped }`, or `{ error }` |
 
-## `src/shared/crypto.js` (71, ES exports) — tests
+## `src/shared/peer-sync.js` (ES exports) — used by the SW; unit-tested
+
+| Export | Purpose |
+|---|---|
+| `NOTE_KEYS`, `TOMBSTONES_KEY`, `CRYPTO_KEY`, `CACHED_KEY`, `PEER_STATE_KEY`, `DEFAULT_DAEMON_URL` | Constants (`http://127.0.0.1:47831`) |
+| `buildSnapshot({ deviceId, notes, tombstones, crypto, ts })` | `{ version:1, deviceId, ts, notes, tombstones, crypto:{enabled,salt}\|null, cryptoFull? }` |
+| `recordsOf(storageKey, value)` / `fromRecords(storageKey, records)` | Normalise every note type to `{ recordKey: record }` (global note → `__single__`) and back |
+| `cryptoCompatibility(local, remote)` | `compatible` / `adopt-remote` / `remote-off` / `mismatch` |
+| `mergeNotes(local, remotes)` | Record-level LWW on `updatedAt` across N peers, tombstone-aware; `{ notes, tombstones, changedKeys, stats }` |
+| `syncWithDaemon({ storage, fetch, daemonUrl, cryptoApi, now })` | Full round: read → `PUT /snapshot` → `GET /peers/snapshots` → per-peer vault decision → decrypt → merge → write changed keys (re-encrypted when the vault is on) → persist `stickysites_peer_v1` |
+| `addTombstone(tombstones, storageKey, recordKey, when)` | Immutable helper for writers that delete records |
+| `isEnvelope(v)`, `genDeviceId()` | Helpers |
+
+## `src/shared/crypto.js` (ES exports) — tests + SW
 
 `generateSalt`, `deriveKey` (same PBKDF2/AES-GCM parameters as the namespace version),
-`encrypt`, `decrypt`, `isEncrypted`. Kept in lock-step with `crypto-content.js`.
+`encrypt`, `decrypt`, `importJwk` (cached JWK → `CryptoKey`; used by the SW's peer merge),
+`isEncrypted`. Kept in lock-step with `crypto-content.js` (which gained `importJwk` too).
+
+## `peer/stickysites-peer.py` (stdlib Python 3.9+) — local peer daemon
+
+| Piece | Purpose |
+|---|---|
+| Loopback HTTP `127.0.0.1:47831` | `PUT /snapshot` (stores to `~/.stickysites/snapshot.json`, 0600), `GET /peers/snapshots` (fetches every live peer, ETag-cached), `GET /status`; CORS for `chrome-extension://` origins only |
+| LAN HTTPS `0.0.0.0:47832` | `GET /snapshot` (ETag / 304 / 204), `GET /hello`; `Authorization: Bearer HMAC(pairKey,'auth')`; self-signed cert from `openssl` |
+| UDP multicast `239.255.77.31:47833` | Announce every 5 s `{ id, name, port, fp, ts, addrs, sig }`, HMAC-signed with the pairing key; sent on the default-route interface; listener drops unsigned/stale/self; peers expire after 20 s |
+| `fetch_peer` | Tries each announced address (recv addr first), pins the cert SHA-256 from the announcement, bearer auth, `If-None-Match` |
+| CLI | `install [--pair-key] [--name]` (config + cert + launchd agent `com.stickysites.peer`), `uninstall`, `run`, `status`, `pair [KEY]`, `init` (tests) |
+
+`peer/test_peer.py` boots two daemons on ephemeral ports and checks CORS, bad-snapshot rejection, LAN auth, and the discovery + snapshot round-trip.
 
 ## `src/shared/notes-storage.js` (363, ES exports) — reference CRUD; tests only
 

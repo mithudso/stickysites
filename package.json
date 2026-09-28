@@ -1,7 +1,7 @@
 {
   "name": "stickysites",
   "private": true,
-  "version": "1.11.2",
+  "version": "1.12.0",
   "description": "Sticky notes for every website \u2014 global, site, page, daily, todo, and outline notes with rich text, encryption, and sync",
   "engines": {
     "node": ">=22"
@@ -9,6 +9,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:peer": "python3 -m unittest peer/test_peer.py",
     "lint": "node scripts/check-syntax.mjs",
     "docs:check-indexes": "node scripts/check-doc-indexes.mjs",
     "logs:rotate": "node scripts/rotate-workflow-logs.mjs",

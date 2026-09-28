@@ -20,6 +20,9 @@ jobs:
       # Syntax gate for every content script / module + manifest↔package version agreement.
       - run: npm run lint
       - run: npm test
+      # Local peer-sync daemon: two instances on ephemeral ports discover each other and exchange a snapshot.
+      - name: Peer daemon test
+        run: python3 -m unittest peer/test_peer.py
       # Retrieval indexes (docs/high_signal_file_index.json, llms.txt) must not point at dead files.
       - run: npm run docs:check-indexes
       # The unpacked extension is the repo root — make sure the manifest still parses.

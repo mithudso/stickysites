@@ -48,7 +48,7 @@ quiet:
 | `src/content/panel.js:828` | skip a `Range` that crosses element boundaries | Find-highlighting edge case; the match is simply not highlighted |
 | `src/content/outline.js:36` | treat undecryptable outline map as `{}` | Locked vault; the renderer shows the lock notice instead |
 | `src/content/sticky-inject.js:217` | proceed without prefs | Only affects `enabledTypes` filtering of function-key shortcuts |
-| `src/background/service-worker.js` (3 sites) | `console.warn('[stickysites] …')` | **Logged** — these are the integration boundaries (tabs without content script, native host missing) |
+| `src/background/service-worker.js` (clip, toggle, popout, todo-sync, peer-sync) | `console.warn('[stickysites] …')` | **Logged** — these are the integration boundaries (tabs without content script, native host missing, peer daemon absent — logged once per outage — or erroring) |
 
 If you add a new external boundary (a new `chrome.runtime.sendNativeMessage`, a new message
 type), log its failure path; if you add another storage read, the neutral-return pattern above

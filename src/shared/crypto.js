@@ -48,6 +48,11 @@ export async function decrypt(key, envelope) {
   return dec.decode(plaintext);
 }
 
+// Import a cached JWK (as stored in chrome.storage.local["stickysites_cached_key"]) back into a CryptoKey.
+export async function importJwk(jwk) {
+  return crypto.subtle.importKey('jwk', jwk, { name: ALGO }, true, ['encrypt', 'decrypt']);
+}
+
 export function isEncrypted(value) {
   return !!(value && typeof value === 'object' && typeof value.iv === 'string' && typeof value.data === 'string' && !value.body && !value.items && !value.siteKey);
 }

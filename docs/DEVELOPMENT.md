@@ -30,7 +30,8 @@ Runbook with verification steps: `runbooks/load-and-reload-extension.md`.
 | Command | What it does |
 |---|---|
 | `npm run lint` | `node --check` every `.js`/`.mjs`; fails if `manifest.json` and `package.json` versions differ |
-| `npm test` | 101 unit tests (vitest, node env, mocked `chrome`) |
+| `npm test` | 125 unit tests (vitest, node env, mocked `chrome`) |
+| `npm run test:peer` | Two peer daemons on ephemeral ports (Python unittest, needs `openssl`) |
 | `npm run test:watch` | Watch mode |
 | `npx vitest run tests/<file>` | One test file |
 | `npm run docs:check-indexes` | Validate `docs/high_signal_file_index.json` paths and `llms.txt` links; `-- --prune` drops dead entries |
@@ -50,7 +51,8 @@ See `codebase-overview.md` for every file. The short version:
 src/background/service-worker.js   ES module: menus, Alt+S, popout, to-do sync
 src/content/*.js                   10 classic scripts in manifest order → window.StickySites.*
 src/content/sticky-inject.css      all injected styles
-src/shared/*.js                    ES modules: todo-bridge (SW + tests), crypto, notes-storage (tests)
+src/shared/*.js                    ES modules: todo-bridge, peer-sync (SW + tests), crypto, notes-storage (tests)
+peer/                              local peer-sync daemon (Python) + its test + README
 popup.* / popout.*                 extension pages
 tests/                             vitest
 scripts/                           lint, index check, log rotation, icons, live harness
@@ -94,6 +96,7 @@ tests. Keep the two crypto files in lock-step.
 | Storage | any extension console: `chrome.storage.local.get(null, console.log)` |
 | Encryption state | `chrome.storage.local.get(['stickysites_crypto_v1','stickysites_cached_key'], console.log)` — a JWK under `stickysites_cached_key` means unlocked |
 | To-do sync | `runbooks/todo-sync-troubleshooting.md` |
+| Peer sync | popup → Settings → Local Peer Sync status; `python3 peer/stickysites-peer.py status`; `~/.stickysites/peer.log`; `runbooks/peer-sync.md` |
 
 Encrypted storage values appear as `{ iv, data }` envelopes instead of records.
 

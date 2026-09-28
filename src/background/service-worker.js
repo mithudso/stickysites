@@ -1,4 +1,6 @@
 import { syncTodosWithHost, TODOS_KEY } from '../shared/todo-bridge.js';
+import { syncWithDaemon, NOTE_KEYS, TOMBSTONES_KEY, CRYPTO_KEY, CACHED_KEY, PEER_STATE_KEY, DEFAULT_DAEMON_URL } from '../shared/peer-sync.js';
+import { importJwk, encrypt, decrypt } from '../shared/crypto.js';
 
 // Create context menus on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -124,4 +126,67 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes[TODOS_KEY] || todoSyncRunning) return;
   clearTimeout(todoSyncTimer);
   todoSyncTimer = setTimeout(runTodoSync, 3000);
+});
+
+// Local peer sync: push our snapshot to the local daemon (peer/stickysites-peer.py) and merge every
+// LAN peer's snapshot back. Runs every minute, on startup/install, and 4 s after any note changes.
+// Merge logic lives in src/shared/peer-sync.js; this is only the wiring. No daemon → quiet no-op.
+const PEER_SYNC_ALARM = 'stickysites-peer-sync';
+let peerSyncRunning = false;
+let peerSyncTimer = null;
+let peerNoDaemonLogged = false;
+
+// Crypto adapter for the merge: decrypt/encrypt storage values with the cached vault key.
+async function peerCryptoApi() {
+  const stored = await chrome.storage.local.get([CRYPTO_KEY, CACHED_KEY]);
+  const cfg = stored[CRYPTO_KEY];
+  const jwk = stored[CACHED_KEY];
+  if (!cfg?.enabled || !jwk) return null;
+  const key = await importJwk(jwk);
+  return {
+    decrypt: async (envelope) => JSON.parse(await decrypt(key, envelope)),
+    encrypt: async (value) => encrypt(key, JSON.stringify(value))
+  };
+}
+
+async function runPeerSync() {
+  if (peerSyncRunning) return;
+  peerSyncRunning = true;
+  try {
+    const cryptoApi = await peerCryptoApi().catch(() => null);
+    const result = await syncWithDaemon({ storage: chrome.storage.local, fetch: globalThis.fetch.bind(globalThis), daemonUrl: DEFAULT_DAEMON_URL, cryptoApi });
+    if (result.status === 'no-daemon') {
+      if (!peerNoDaemonLogged) { console.warn('[stickysites] peer-sync', { status: result.status, hint: 'install peer/stickysites-peer.py to sync across laptops' }); peerNoDaemonLogged = true; }
+    } else if (result.status === 'error') {
+      console.warn('[stickysites] peer-sync', { status: result.status, error: result.error });
+    } else {
+      peerNoDaemonLogged = false;
+    }
+  } catch (err) {
+    console.warn('[stickysites] peer-sync', { error: err?.message || String(err) });
+  } finally {
+    peerSyncRunning = false;
+  }
+}
+
+chrome.alarms.create(PEER_SYNC_ALARM, { periodInMinutes: 1 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === PEER_SYNC_ALARM) runPeerSync();
+});
+chrome.runtime.onStartup.addListener(runPeerSync);
+chrome.runtime.onInstalled.addListener(runPeerSync);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || peerSyncRunning) return;
+  const relevant = [...NOTE_KEYS, TOMBSTONES_KEY, CRYPTO_KEY].some((k) => changes[k]);
+  const toggled = changes[PEER_STATE_KEY] && changes[PEER_STATE_KEY].newValue?.enabled !== changes[PEER_STATE_KEY].oldValue?.enabled;
+  if (!relevant && !toggled) return;
+  clearTimeout(peerSyncTimer);
+  peerSyncTimer = setTimeout(runPeerSync, 4000);
+});
+// The popup asks for an immediate sync after toggling the feature or when the user clicks "Sync now".
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type === 'STICKYSITES_PEER_SYNC_NOW') {
+    runPeerSync().then(() => chrome.storage.local.get(PEER_STATE_KEY)).then((s) => sendResponse({ ok: true, state: s[PEER_STATE_KEY] || null }));
+    return true;
+  }
 });

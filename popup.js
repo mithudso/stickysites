@@ -298,6 +298,81 @@
 
     settingsEl.append(typesLabel, typesContainer, layoutLabel, layoutRow, layoutHint);
 
+    // --- Local peer sync ---
+    var peerLabel = document.createElement('div');
+    peerLabel.className = 'settings-label';
+    peerLabel.textContent = 'Local Peer Sync';
+
+    var peerDesc = document.createElement('div');
+    peerDesc.className = 'settings-section-desc';
+    peerDesc.textContent = 'Keep your laptops in sync over the local network. Needs the peer helper (peer/stickysites-peer.py install) on each machine with the same pairing key.';
+
+    var peerRow = document.createElement('div');
+    peerRow.className = 'settings-toggle-row';
+    var peerToggleLabel = document.createElement('span');
+    peerToggleLabel.textContent = 'Peer sync';
+    var peerToggle = document.createElement('button');
+    peerToggle.className = 'settings-toggle-btn';
+    var peerNowBtn = document.createElement('button');
+    peerNowBtn.className = 'settings-toggle-btn';
+    peerNowBtn.textContent = 'Sync now';
+    var peerStatus = document.createElement('div');
+    peerStatus.className = 'settings-status';
+
+    function describePeerState(state) {
+      if (!state) return { text: 'Not synced yet.', color: '#94a3b8' };
+      var r = state.lastResult || {};
+      var when = state.lastSync ? new Date(state.lastSync).toLocaleTimeString() : '';
+      var peers = (r.peers || []).filter(function (p) { return p.state !== 'self-or-unknown'; });
+      var names = peers.map(function (p) { return p.name + (p.state && p.state !== 'ok' && p.state !== 'compatible' && p.state !== 'remote-off' ? ' (' + p.state + ')' : ''); }).join(', ');
+      switch (r.status) {
+        case 'ok': return { text: 'In sync with ' + (names || 'peers') + (when ? ' · ' + when : '') + (r.stats && r.stats.applied ? ' · applied ' + r.stats.applied : ''), color: '#34d399' };
+        case 'no-peers': return { text: 'Helper running, no other laptop seen yet' + (when ? ' · ' + when : ''), color: '#94a3b8' };
+        case 'no-daemon': return { text: 'Peer helper not running on this machine (peer/stickysites-peer.py install)', color: '#fbbf24' };
+        case 'locked': return { text: 'Vault locked — unlock to merge with ' + (names || 'peers'), color: '#fbbf24' };
+        case 'mismatch': return { text: 'Encryption mismatch with ' + names + ' — disable encryption on one laptop, let it sync, then re-enable', color: '#f87171' };
+        case 'adopted-remote-vault': return { text: 'Adopted the vault from ' + names + ' — enter that passphrase to unlock and merge', color: '#fbbf24' };
+        default: return { text: r.status ? 'Last result: ' + r.status : 'Not synced yet.', color: '#94a3b8' };
+      }
+    }
+
+    async function renderPeerState(stateOverride) {
+      var stored = stateOverride ? { stickysites_peer_v1: stateOverride } : await chrome.storage.local.get('stickysites_peer_v1');
+      var state = stored?.stickysites_peer_v1 || null;
+      var enabled = !state || state.enabled !== false;
+      peerToggle.textContent = enabled ? 'On' : 'Off';
+      peerToggle.className = 'settings-toggle-btn' + (enabled ? ' is-on' : '');
+      peerNowBtn.style.display = enabled ? '' : 'none';
+      var d = enabled ? describePeerState(state) : { text: 'Peer sync is off.', color: '#94a3b8' };
+      peerStatus.textContent = d.text;
+      peerStatus.style.color = d.color;
+    }
+
+    peerToggle.addEventListener('click', async function () {
+      var stored = await chrome.storage.local.get('stickysites_peer_v1');
+      var state = stored?.stickysites_peer_v1 || {};
+      state.enabled = state.enabled === false;
+      await chrome.storage.local.set({ stickysites_peer_v1: state });
+      await renderPeerState(state);
+    });
+
+    peerNowBtn.addEventListener('click', function () {
+      peerNowBtn.disabled = true;
+      peerStatus.textContent = 'Syncing…';
+      peerStatus.style.color = '#94a3b8';
+      chrome.runtime.sendMessage({ type: 'STICKYSITES_PEER_SYNC_NOW' }, function (resp) {
+        peerNowBtn.disabled = false;
+        if (chrome.runtime.lastError || !resp) { peerStatus.textContent = 'Sync request failed.'; peerStatus.style.color = '#f87171'; return; }
+        var st = resp.state;
+        if (!st || !st.lastResult) { peerStatus.textContent = 'Peer helper not running on this machine (peer/stickysites-peer.py install).'; peerStatus.style.color = '#fbbf24'; return; }
+        renderPeerState(st);
+      });
+    });
+
+    peerRow.append(peerToggleLabel, peerToggle, peerNowBtn);
+    settingsEl.append(peerLabel, peerDesc, peerRow, peerStatus);
+    renderPeerState();
+
     panel.append(header, section);
     document.body.appendChild(panel);
     updateToggleState();

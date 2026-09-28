@@ -87,6 +87,14 @@ window.StickySites = window.StickySites || {};
     var map = await readRawMap();
     delete map[docKey];
     await writeRawMap(map);
+    // Tombstone so local peer sync (src/shared/peer-sync.js) deletes the doc on other machines
+    // instead of resurrecting it from their copy.
+    try {
+      var stored = await chrome.storage.local.get('stickysites_tombstones_v1');
+      var tomb = stored?.stickysites_tombstones_v1 || {};
+      tomb.stickysites_outlines_v1 = Object.assign({}, tomb.stickysites_outlines_v1, { [docKey]: new Date().toISOString() });
+      await chrome.storage.local.set({ stickysites_tombstones_v1: tomb });
+    } catch (e) { /* tombstone is best-effort */ }
   }
 
   function downloadText(filename, text, mime) {
