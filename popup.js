@@ -296,7 +296,38 @@
     layoutHint.className = 'settings-info';
     layoutHint.textContent = 'Layout applies instantly. Hold an icon to reorder.';
 
-    settingsEl.append(typesLabel, typesContainer, layoutLabel, layoutRow, layoutHint);
+    // --- Collapse to circle ---
+    var collapseLabel = document.createElement('div');
+    collapseLabel.className = 'settings-label';
+    collapseLabel.textContent = 'Collapse Cluster';
+
+    var collapseRow = document.createElement('div');
+    collapseRow.className = 'settings-toggle-row';
+
+    var collapseText = document.createElement('span');
+    collapseText.textContent = 'Collapse to circle';
+
+    var collapseToggle = document.createElement('button');
+    var isCollapsedPref = !!prefsData.collapseToCircle;
+    collapseToggle.className = 'settings-toggle-btn' + (isCollapsedPref ? ' is-on' : '');
+    collapseToggle.textContent = isCollapsedPref ? 'On' : 'Off';
+
+    collapseToggle.addEventListener('click', async function () {
+      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
+      var p = stored?.stickysites_prefs_v1 || {};
+      p.collapseToCircle = !p.collapseToCircle;
+      await chrome.storage.local.set({ stickysites_prefs_v1: p });
+      collapseToggle.classList.toggle('is-on', p.collapseToCircle);
+      collapseToggle.textContent = p.collapseToCircle ? 'On' : 'Off';
+    });
+
+    collapseRow.append(collapseText, collapseToggle);
+
+    var collapseHint = document.createElement('div');
+    collapseHint.className = 'settings-info';
+    collapseHint.textContent = 'Shrinks floating window to a single circle. Expands on hover, scroll, or hotkeys.';
+
+    settingsEl.append(typesLabel, typesContainer, layoutLabel, layoutRow, layoutHint, collapseLabel, collapseRow, collapseHint);
 
     // --- Local peer sync ---
     var peerLabel = document.createElement('div');

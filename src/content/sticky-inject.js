@@ -202,6 +202,10 @@
   // Ctrl/Cmd + F1..F6 → toggle (show/hide/switch) a specific note type
   // Works regardless of cluster visibility or host-page focus.
   document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && SS.Cluster && SS.Cluster._hotkeyExpanded) {
+      SS.Cluster.setHotkeyExpanded(false);
+      return;
+    }
     if (!e.ctrlKey && !e.metaKey) return;
     if (!/^F[1-6]$/.test(e.key)) return;
     var idx = parseInt(e.key.slice(1), 10) - 1;
@@ -261,7 +265,7 @@
 
   chrome.runtime.onMessage.addListener(function (msg) {
     if (msg?.type === 'STICKYSITES_TOGGLE') {
-      SS.Cluster.toggle();
+      SS.Cluster.toggle(msg.fromCommand);
       if (SS.Cluster.hidden) SS.Panel.close();
     }
     if (msg?.type === 'STICKYSITES_OPEN') {
@@ -274,7 +278,7 @@
           }
           if (SS.Cluster.hidden) SS.Cluster.toggle();
           SS.Cluster.setActive(noteType.id);
-          SS.Panel.open(noteType);
+          handleIconClick(noteType.id);
         })();
       }
     }
@@ -286,10 +290,15 @@
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
     SS.Panel.syncFromStorage(changes);
-    // Live-apply a cluster-layout change from the popup — no page reload needed.
-    if (changes.stickysites_prefs_v1 && SS.Cluster.applyLayout) {
+    // Live-apply cluster prefs from the popup — no page reload needed.
+    if (changes.stickysites_prefs_v1 && SS.Cluster) {
       var newPrefs = changes.stickysites_prefs_v1.newValue || {};
-      SS.Cluster.applyLayout(newPrefs.clusterLayout || 'vertical');
+      if (SS.Cluster.applyLayout) {
+        SS.Cluster.applyLayout(newPrefs.clusterLayout || 'vertical');
+      }
+      if (SS.Cluster.applyCollapsePref) {
+        SS.Cluster.applyCollapsePref(!!newPrefs.collapseToCircle);
+      }
     }
   });
 })();

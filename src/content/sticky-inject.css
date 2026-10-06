@@ -17,11 +17,45 @@
   cursor: grab;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
   user-select: none;
+  box-sizing: border-box;
+}
+#stickysites-cluster,
+#stickysites-cluster * {
+  box-sizing: border-box;
 }
 #stickysites-cluster.is-hidden { display: none; }
 #stickysites-cluster.is-horizontal { flex-direction: row; }
 #stickysites-cluster.is-reorder-mode { outline: 2px dashed rgba(148, 163, 184, 0.3); outline-offset: 2px; }
 .stickysites-cluster-icon.is-reordering { opacity: 0.6; transform: scale(1.15); z-index: 1; }
+
+/* Collapsible Cluster */
+#stickysites-cluster.is-collapsible {
+  overflow: hidden;
+  transition: max-height 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+              max-width 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s ease,
+              border-radius 0.2s ease;
+}
+#stickysites-cluster.is-collapsible:not(.is-horizontal) {
+  max-height: 400px;
+  max-width: 48px;
+}
+#stickysites-cluster.is-collapsible.is-horizontal {
+  max-width: 400px;
+  max-height: 48px;
+}
+#stickysites-cluster.is-collapsible.is-collapsed:not(:hover):not(.is-expanded) {
+  max-height: 48px;
+  max-width: 48px;
+}
+#stickysites-cluster.is-collapsible .stickysites-cluster-icon {
+  flex-shrink: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+}
+#stickysites-cluster.is-collapsible.is-collapsed:not(:hover):not(.is-expanded) .stickysites-cluster-icon:not(.is-first-visible) {
+  opacity: 0;
+  pointer-events: none;
+}
 
 .stickysites-cluster-icon {
   width: 32px;

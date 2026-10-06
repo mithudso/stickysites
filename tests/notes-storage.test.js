@@ -180,6 +180,7 @@ describe('preferences', () => {
   it('defaults match src/content/prefs.js', async () => {
     const prefs = await readPrefs();
     expect(prefs.clusterLayout).toBe('vertical');
+    expect(prefs.collapseToCircle).toBe(false);
     expect(prefs.iconOrder).toBeNull();
     expect(prefs.enabledTypes).toEqual({ global: true, site: true, page: true, todo: true, outline: true, daily: true });
     expect(prefs.panelSize).toBeNull();
@@ -199,6 +200,12 @@ describe('preferences', () => {
     const prefs = await readPrefs();
     expect(prefs.clusterPosition).toEqual({ x: 100, y: 200 });
     expect(prefs.panelMode).toBe('anchored');
+  });
+
+  it('updates collapseToCircle preference', async () => {
+    await writePrefs({ collapseToCircle: true });
+    const prefs = await readPrefs();
+    expect(prefs.collapseToCircle).toBe(true);
   });
 });
 
