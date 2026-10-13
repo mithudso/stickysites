@@ -6,6 +6,10 @@ window.StickySites = window.StickySites || {};
     buttons: [],
     activeTypeId: null,
     hidden: false,
+    collapseToCircle: false,
+    _isHovered: false,
+    _hotkeyExpanded: false,
+    _leaveTimer: null,
     onIconClick: null,
     _wasDragging: false,
     _reorderTarget: null,
@@ -19,6 +23,7 @@ window.StickySites = window.StickySites || {};
       var prefs = await window.StickySites.Prefs.read();
       var iconOrder = prefs.iconOrder || null;
       var clusterLayout = prefs.clusterLayout || 'vertical';
+      this.collapseToCircle = !!prefs.collapseToCircle;
 
       if (clusterLayout === 'horizontal') {
         cluster.classList.add('is-horizontal');
@@ -64,8 +69,82 @@ window.StickySites = window.StickySites || {};
         }
       }
 
+      this._initCollapse();
       this._initDrag();
       this._initReorder();
+      this._updateCollapseState();
+    },
+
+    _initCollapse: function () {
+      var self = this;
+      this.el.addEventListener('mouseenter', function () {
+        if (self._leaveTimer) { clearTimeout(self._leaveTimer); self._leaveTimer = null; }
+        self._isHovered = true;
+        self._updateCollapseState();
+      });
+
+      this.el.addEventListener('mouseleave', function () {
+        if (self._leaveTimer) clearTimeout(self._leaveTimer);
+        self._leaveTimer = setTimeout(function () {
+          self._leaveTimer = null;
+          self._isHovered = false;
+          self._updateCollapseState();
+        }, 120);
+      });
+
+      this.el.addEventListener('wheel', function () {
+        if (self._leaveTimer) { clearTimeout(self._leaveTimer); self._leaveTimer = null; }
+        self._isHovered = true;
+        self._updateCollapseState();
+      }, { passive: true });
+    },
+
+    _updateFirstVisible: function () {
+      if (!this.el) return;
+      var foundFirst = false;
+      var icons = Array.from(this.el.querySelectorAll('.stickysites-cluster-icon'));
+      for (var i = 0; i < icons.length; i++) {
+        var icon = icons[i];
+        if (icon.style.display !== 'none' && !foundFirst) {
+          icon.classList.add('is-first-visible');
+          foundFirst = true;
+        } else {
+          icon.classList.remove('is-first-visible');
+        }
+      }
+    },
+
+    _updateCollapseState: function () {
+      if (!this.el) return;
+      if (!this.collapseToCircle) {
+        this.el.classList.remove('is-collapsible', 'is-collapsed', 'is-expanded');
+        return;
+      }
+      this.el.classList.add('is-collapsible');
+      this._updateFirstVisible();
+
+      var shouldExpand = this._isHovered || this._hotkeyExpanded || !!this.activeTypeId;
+      if (shouldExpand) {
+        this.el.classList.remove('is-collapsed');
+        this.el.classList.add('is-expanded');
+      } else {
+        this.el.classList.add('is-collapsed');
+        this.el.classList.remove('is-expanded');
+      }
+    },
+
+    applyCollapsePref: function (enabled) {
+      this.collapseToCircle = !!enabled;
+      this._updateCollapseState();
+    },
+
+    setHotkeyExpanded: function (expanded) {
+      this._hotkeyExpanded = !!expanded;
+      this._updateCollapseState();
+    },
+
+    isCollapsed: function () {
+      return this.collapseToCircle && !this._isHovered && !this._hotkeyExpanded && !this.activeTypeId;
     },
 
     _makeClickHandler: function (typeId) {
@@ -93,6 +172,7 @@ window.StickySites = window.StickySites || {};
         var b = this.buttons[i];
         b.el.classList.toggle('is-active', b.typeId === typeId);
       }
+      this._updateCollapseState();
     },
 
     _setIconContent: function (btn, nt) {
@@ -120,7 +200,23 @@ window.StickySites = window.StickySites || {};
       return this.getVisibleIcons().map(function (el) { return el.dataset.typeId; });
     },
 
-    toggle: function () {
+    toggle: function (fromCommand) {
+      if (this.collapseToCircle && fromCommand) {
+        if (this.hidden) {
+          this.hidden = false;
+          this.el.classList.remove('is-hidden');
+          this.setHotkeyExpanded(true);
+          return;
+        }
+        if (this.isCollapsed()) {
+          this.setHotkeyExpanded(true);
+          return;
+        }
+        if (this._hotkeyExpanded) {
+          this.setHotkeyExpanded(false);
+          return;
+        }
+      }
       this.hidden = !this.hidden;
       this.el.classList.toggle('is-hidden', this.hidden);
       if (this.hidden) {
@@ -134,6 +230,7 @@ window.StickySites = window.StickySites || {};
     applyLayout: function (layout) {
       if (!this.el) return;
       this.el.classList.toggle('is-horizontal', layout === 'horizontal');
+      this._updateCollapseState();
     },
 
     _initReorder: function () {
@@ -206,6 +303,7 @@ window.StickySites = window.StickySites || {};
           }).filter(Boolean);
 
           await window.StickySites.Prefs.write({ iconOrder: newOrder });
+          self._updateFirstVisible();
           dragBtn = null;
         }
       });

@@ -60,7 +60,7 @@ chrome.commands.onCommand.addListener(async (command) => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
       try {
-        await chrome.tabs.sendMessage(tab.id, { type: 'STICKYSITES_TOGGLE' });
+        await chrome.tabs.sendMessage(tab.id, { type: 'STICKYSITES_TOGGLE', fromCommand: true });
       } catch (err) {
         // Content script not injected on this page
         console.warn('[stickysites] toggle', { tabId: tab.id, error: err?.message });

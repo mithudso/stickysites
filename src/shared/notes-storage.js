@@ -10,6 +10,7 @@ const DEFAULT_PREFS = {
   clusterPosition: { x: null, y: null },
   panelMode: 'fixed',
   clusterLayout: 'vertical',
+  collapseToCircle: false,
   iconOrder: null,
   enabledTypes: { global: true, site: true, page: true, todo: true, outline: true, daily: true },
   panelSize: null,
