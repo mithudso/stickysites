@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/mithudso/stickysites/actions/workflows/ci.yml/badge.svg)](https://github.com/mithudso/stickysites/actions/workflows/ci.yml)
 
-Sticky notes for every website. A Chrome Extension (Manifest V3, v1.12.0) with six note
+Sticky notes for every website. A Chrome Extension (Manifest V3) with six note
 types, a floating draggable icon cluster, a rich-text workspace panel with find & replace and
 @-mention autocomplete, a full to-do list that can sync with a local `TODO.md`, a global
 outliner library, opt-in AES-256-GCM encryption at rest, and optional peer-to-peer sync between
-your own laptops on the same network. No servers, no internet calls.
+your own laptops over a paired LAN or a shared folder you choose. No hosted service or telemetry.
 
 ## Note types
 
@@ -58,7 +58,7 @@ your own laptops on the same network. No servers, no internet calls.
 - Settings: encryption Enable / Disable / **Lock Now**, note-type visibility, cluster layout
 
 ### Local peer sync (optional)
-- Keep two or more of your laptops converged over the local network — no account, no cloud
+- Keep two or more of your laptops converged over the local network, or through your own shared/cloud folder
 - A tiny stdlib-Python helper on each machine discovers peers (multicast + subnet broadcast, pairing key) and relays
   snapshots over pinned TLS; merging is record-level last-writer-wins inside the extension
 - Encrypted vaults sync as envelopes; enable encryption on one laptop and the others adopt it
@@ -83,13 +83,14 @@ Full details: [docs/INSTALLATION.md](docs/INSTALLATION.md).
 ## Development
 
 ```bash
-npm install                 # vitest + canvas (dev only)
-npm run lint                # syntax gate for every script + version agreement
-npm test                    # 125 unit tests (vitest, node env, chrome mocked)
-npm run docs:check-indexes  # retrieval indexes point at real files
+npm ci                      # development dependencies from the lockfile
+npm run lint                # syntax, ESLint, and version agreement
+npm test                    # pure modules and actual-script DOM regressions
+npm run test:peer            # synthetic actual-daemon tests on loopback
+npm run docs:check-generated # verify generated public documentation matches sources
 ```
 
-No build step — Chrome loads the repo root directly. Requires Node ≥ 22 for the tooling.
+No build step — Chrome loads the repo root directly. Use the Node version in `.nvmrc` that satisfies `package.json` for the tooling.
 See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTING.md).
 
 ## Tech stack
@@ -97,13 +98,14 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTIN
 - Chrome Extension Manifest V3 (content scripts + module service worker)
 - Vanilla JavaScript and CSS — no frameworks, transpilers, or bundlers
 - Web Crypto API (PBKDF2, AES-256-GCM)
-- Vitest for unit tests; puppeteer-core harness for live verification
+- Vitest with jsdom for runtime regression tests; optional puppeteer-core browser harnesses
 
 ## Documentation
 
 | Document | Contents |
 |----------|----------|
 | [CLAUDE.md](CLAUDE.md) | Agent guide: shape, commands, conventions, storage keys, workflow log rule |
+| [Documentation index](docs/wiki/index.md) | Guides and operational runbooks |
 | [Architecture](docs/ARCHITECTURE.md) | Runtime contexts, data flows, storage schema, design decisions |
 | [Components](docs/COMPONENTS.md) | Module-by-module API reference |
 | [Codebase overview](docs/codebase-overview.md) | Every file, grouped by directory |
@@ -111,7 +113,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) and [docs/TESTING.md](docs/TESTIN
 | [Testing](docs/TESTING.md) | Suites, coverage targets, CI gates, live harness |
 | [Installation](docs/INSTALLATION.md) | Install, update, uninstall, optional to-do host |
 | [Security](docs/SECURITY.md) | Threat model, permissions audit, encryption design |
-| [External calls](docs/external-calls.md) | The one out-of-browser call and its standards audit |
+| [External calls](docs/external-calls.md) | Native, loopback, LAN, and shared-folder boundaries |
 | [Integrations & assumptions](docs/integrations-and-assumptions.md) | Chrome APIs relied on, hardcoded assumptions |
 | [Logging](docs/logging.md) · [Caching](docs/caching-and-optimization.md) | Diagnostics and performance notes |
 | [Runbooks](docs/runbooks/) | Load/reload, release, to-do sync troubleshooting, encryption recovery |

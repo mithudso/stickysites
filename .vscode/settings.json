@@ -2,7 +2,9 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.tabSize": 2,
-  "editor.rulers": [100],
+  "editor.rulers": [
+    100
+  ],
   "files.eol": "\n",
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
@@ -11,5 +13,8 @@
   "search.exclude": {
     "node_modules": true,
     "coverage": true
-  }
+  },
+  "eslint.validate": [
+    "javascript"
+  ]
 }

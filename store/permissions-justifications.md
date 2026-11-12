@@ -6,8 +6,9 @@ pasted verbatim. Keep them factual — reviewers compare against the code.
 ## `storage`
 ```
 Saves the user's notes, to-do items, outlines, and settings in chrome.storage.local on the
-user's device. This is the extension's only data store; nothing is written anywhere else and
-nothing is synced or uploaded.
+user's device, including vault configuration and sync state. Optional sync can also place
+snapshots on paired computers or in a shared/cloud folder selected by the user; the extension
+operates no hosted collection service.
 ```
 
 ## `activeTab`
@@ -27,8 +28,8 @@ when the user chooses one of these menu items.
 ## `alarms`
 ```
 Schedules the optional local to-do sync every two minutes (MV3 service workers cannot keep
-timers alive). The alarm handler exits immediately if the optional companion program is not
-installed or if encryption is enabled.
+timers alive), and optional peer sync every minute. Native to-do sync skips while the vault
+is enabled; missing optional helpers leave notes in local storage and report local status.
 ```
 
 ## `nativeMessaging`
@@ -36,7 +37,7 @@ installed or if encryption is enabled.
 Optional feature: mirrors the user's to-do list into a Markdown file on their own computer via
 a companion program the user installs manually (a native-messaging host registered in the
 browser). Data flows only between the extension and that local process — no network. Without
-the host installed the call fails silently and the extension works normally.
+the host installed, the boundary reports a local failure and the extension still works.
 ```
 
 ## Host permission — content script on `<all_urls>`
@@ -44,7 +45,9 @@ the host installed the call fails silently and the extension works normally.
 The core feature is a note attached to whatever website or page the user is on, so the content
 script that draws the floating note cluster and panel must run on every page. It reads only the
 page URL (to pick the site/page note and draw the identity icons) and text the user explicitly
-selects and clips. It never scrapes page content, injects ads, or sends anything off-device.
+selects and clips. It does not automatically scrape page content or inject ads. Optional
+paired sync can transfer note snapshots through the local helper or a chosen shared/cloud
+folder, as disclosed in the privacy policy.
 ```
 
 ## Remote code

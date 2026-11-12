@@ -1,4 +1,4 @@
-# Chrome Web Store listing copy — StickySites 1.13.0
+# Chrome Web Store listing copy — StickySites
 
 Paste-ready text for every field in the Developer Dashboard. Character limits are the
 store's; counts are given where they matter.
@@ -17,7 +17,7 @@ Sticky notes for every website. Global notes, per-site notes, and per-page notes
 
 **Description** (≤ 16,000 chars; plain text, line breaks kept)
 ```
-StickySites puts a sticky note on every website — and keeps everything on your device.
+StickySites puts a sticky note on every website, with local storage and optional sync you control.
 
 A small floating cluster of icons sits on each page. Click one to open a note that belongs to
 that place:
@@ -42,8 +42,8 @@ STAY IN FLOW
 • Notes follow single-page apps as the URL changes
 
 PRIVATE BY DESIGN
-• No account, no servers, no analytics, no network requests — ever
-• All notes live in Chrome's local extension storage on your computer
+• No account, hosted StickySites service, analytics, or telemetry
+• Notes live in Chrome's local extension storage by default; optional sync uses your chosen helpers and destinations
 • Optional AES-256-GCM encryption with a passphrase you choose; lock and unlock any time
 • Export everything as Markdown from the popup
 
@@ -51,16 +51,17 @@ THE POPUP
 Search across every note, sort by recency or name, filter by type or tag, export, and manage
 settings (encryption, which note types are shown, cluster layout).
 
-OPTIONAL: KEEP YOUR OWN LAPTOPS IN SYNC — WITHOUT THE CLOUD
+OPTIONAL: KEEP YOUR OWN LAPTOPS IN SYNC
 Install the small open-source peer helper on two or more of your computers with the same
-pairing key and they keep each other's notes converged over your local network only: multicast
-discovery, pinned TLS, record-level merge. No account, nothing leaves your LAN — or, if you
-prefer, point them at a shared folder of your own (Google Drive, iCloud, SMB) instead.
+pairing key for signed discovery, pinned TLS, and record-level merge over your LAN. Or choose
+a shared folder (Google Drive, iCloud, SMB): its provider stores and transfers the snapshot
+files. Vault-on note content is encrypted; deletion and sync metadata remain readable.
+With encryption off, shared-folder files contain plaintext notes.
 
 OPTIONAL: SYNC YOUR TO-DO LIST WITH A LOCAL FILE
 Power users can install a small companion program on their own computer so the to-do list
-mirrors into a Markdown file. It never leaves your machine, and the extension works fully
-without it.
+mirrors into a local Markdown file while the vault is off. The extension works fully
+without it. A separate folder-sync service you use may transfer that file.
 
 Open source (MIT): https://github.com/mithudso/stickysites
 Privacy policy: https://github.com/mithudso/stickysites/blob/main/PRIVACY.md
@@ -95,7 +96,7 @@ domain in Search Console — skip; leave blank)
 StickySites lets the user write and keep notes attached to the website, page, or date they are
 viewing — plus a to-do list and an outliner — stored locally in the browser with optional
 encryption. Every feature (floating icon cluster, note panel, right-click clipping, popup
-search/export, optional local to-do file sync) exists only to create, find, and manage those
+search/export, optional local to-do file sync and paired note sync) exists only to create, find, and manage those
 personal notes.
 ```
 
@@ -105,11 +106,13 @@ permission plus the host-permission entry for the content script).
 **Remote code**: No, I am not using remote code. (All JavaScript ships in the package;
 nothing is fetched or eval'd.)
 
-**Data usage — "What user data do you plan to collect?"**: leave **every box unchecked**.
-The extension stores user-authored notes locally and transmits nothing. Selected page text is
-only read when the user explicitly clips it via the context menu, and it is stored locally.
+**Data usage — "What user data do you plan to collect?"**: the publisher must review the
+current form against the implementation and `PRIVACY.md`. StickySites operates no hosted
+collection service. It stores user-authored notes locally and can transfer them through the
+optional native host, paired LAN helpers, or user-selected shared/cloud folder. Selected page
+text is read only when explicitly clipped. Do not describe optional sync as no transmission.
 
-**Certifications** (tick all three):
+**Certifications** (publisher reviews and attests in the console):
 - I do not sell or transfer user data to third parties, outside of the approved use cases
 - I do not use or transfer user data for purposes that are unrelated to my item's single purpose
 - I do not use or transfer user data to determine creditworthiness or for lending purposes
@@ -127,17 +130,21 @@ https://github.com/mithudso/stickysites/blob/main/PRIVACY.md
 
 ## Package tab
 
-Upload `dist/stickysites-1.13.0.zip` (built by `npm run build:store`). Version comes from
+Upload `dist/stickysites-<version>.zip` (built by `npm run build:store`). Version comes from
 `manifest.json`; every later upload must have a higher version.
 
 ## Reviewer notes (optional "Notes for reviewer" field — recommended)
 ```
-StickySites is a local-only note-taking extension. It makes no network requests; all data is
-in chrome.storage.local. The content script runs on all URLs because the core feature is a
+StickySites stores notes in chrome.storage.local by default and operates no hosted telemetry.
+Optional sync uses a local native host or loopback peer helper; paired LAN transport and a
+user-selected shared/cloud folder are supported. The content script runs on all URLs because the core feature is a
 note attached to whatever page the user is on. `nativeMessaging` + `alarms` power an optional
 sync of the to-do list with a local Markdown file through a companion program the user
 installs themselves; without it the code path exits quietly. The service worker also
 fetches http://127.0.0.1:47831 (an optional local helper the user installs for LAN sync between
 their own machines; CORS-gated to the extension origin, no host permission required; unreachable
-→ silent no-op). Encryption (AES-256-GCM) is opt-in from the popup Settings. Source: https://github.com/mithudso/stickysites
+→ no merge and a local status). The helper authenticates LAN discovery and pins TLS.
+Cloud-folder providers can transfer snapshot files; encrypted note buckets still have
+plaintext deletion/config/device metadata. An open injected panel is visible to host-page
+scripts. Encryption (AES-256-GCM) is opt-in from the popup Settings. Source: https://github.com/mithudso/stickysites
 ```

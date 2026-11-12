@@ -32,10 +32,34 @@
   Panel.init(function () {
     window.close();
   });
-  Panel.open(noteType);
-
-  // The popout window is resized by the OS; strip every in-page resize grip.
-  document.querySelectorAll('.stickysites-panel-resize').forEach(function (grip) {
-    grip.remove();
+  var generation = 0;
+  async function showUnavailable(current, message, state = 'unavailable') {
+    try { await Panel.close(true); } catch { Panel.el.replaceChildren(); }
+    if (current !== generation) return;
+    Panel.el.textContent = message;
+    Panel.el.dataset.lockState = state;
+    var retry = document.createElement('button');
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', refreshLock);
+    Panel.el.appendChild(retry);
+    Panel.el.classList.add('is-open');
+  }
+  async function refreshLock() {
+    var current = ++generation, C = window.StickySites.Crypto;
+    try {
+      var locked = await C.isEnabled() && !await C.getCachedKey();
+      if (current !== generation) return;
+      if (locked) await showUnavailable(current, 'StickySites is locked. Unlock it with the extension toolbar icon.', 'locked');
+      else { delete Panel.el.dataset.lockState; await Panel.open(noteType); }
+    } catch {
+      if (current === generation) await showUnavailable(current, 'Could not verify the lock state. Retry before viewing this note.');
+    }
+  }
+  refreshLock();
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area !== 'local') return;
+    if (changes.stickysites_cached_key || changes.stickysites_crypto_v1) refreshLock();
+    else Panel.syncFromStorage(changes).catch(function () {});
   });
+
 })();

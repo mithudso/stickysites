@@ -7,12 +7,16 @@ window.StickySites = window.StickySites || {};
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   }
 
-  function normalizeNode(node) {
+  function normalizeNode(node, seen) {
     node = node || {};
+    seen = seen instanceof Set ? seen : new Set();
+    var id = (typeof node.id === 'string' || typeof node.id === 'number') ? String(node.id) : '';
+    while (!id || seen.has(id)) id = genId();
+    seen.add(id);
     return {
-      id: node.id || genId(),
+      id: id,
       text: String(node.text ?? ''),
-      children: Array.isArray(node.children) ? node.children.map(normalizeNode) : [],
+      children: Array.isArray(node.children) ? node.children.map(function (child) { return normalizeNode(child, seen); }) : [],
       collapsed: !!node.collapsed,
       note: typeof node.note === 'string' ? node.note : '',
       done: !!node.done,
@@ -21,7 +25,8 @@ window.StickySites = window.StickySites || {};
   }
 
   function normalizeItems(arr) {
-    return Array.isArray(arr) ? arr.map(normalizeNode) : [];
+    var seen = new Set();
+    return Array.isArray(arr) ? arr.map(function (node) { return normalizeNode(node, seen); }) : [];
   }
 
   function findParent(targetId, arr, parent) {
@@ -147,11 +152,12 @@ window.StickySites = window.StickySites || {};
   // Reorganize a flat top-level list into a hierarchy. Priority: (a) shared
   // first tag → tag-named parents; (b) shared significant keyword (>3 chars,
   // non-stopword, in ≥2 nodes) → keyword-named parents; (c) rest → "Other".
-  // Single-member groups stay ungrouped. Returns a NEW top-level array; child
+  // Single-member tag groups enter keyword grouping, then Other if a group exists.
+  // Returns a NEW top-level array; child
   // subtrees travel with their nodes untouched.
   function autoGroup(items) {
     var top = items.slice();
-    var tagGroups = {};
+    var tagGroups = Object.create(null);
     var leftovers = [];
 
     top.forEach(function (n) {
@@ -169,7 +175,7 @@ window.StickySites = window.StickySites || {};
       }
     });
 
-    var wordMap = {};
+    var wordMap = Object.create(null);
     leftovers.forEach(function (n) {
       // No apostrophes in tokens: contractions ("don't") would dodge the
       // apostrophe-free STOPWORDS list and crowd out real keyword groups.
@@ -183,19 +189,19 @@ window.StickySites = window.StickySites || {};
     });
 
     var assigned = new Set();
-    var keywordGroups = {};
+    var keywordGroups = Object.create(null);
     Object.keys(wordMap)
       .filter(function (w) { return wordMap[w].length >= 2; })
       .sort(function (a, b) { return wordMap[b].length - wordMap[a].length || a.localeCompare(b); })
       .forEach(function (w) {
-        var members = wordMap[w].filter(function (n) { return !assigned.has(n.id); });
+        var members = wordMap[w].filter(function (n) { return !assigned.has(n); });
         if (members.length >= 2) {
           keywordGroups[w] = members;
-          members.forEach(function (n) { assigned.add(n.id); });
+          members.forEach(function (n) { assigned.add(n); });
         }
       });
 
-    var rest = leftovers.filter(function (n) { return !assigned.has(n.id); });
+    var rest = leftovers.filter(function (n) { return !assigned.has(n); });
     var result = [];
     Object.keys(tagGroups).sort().forEach(function (g) {
       result.push({ id: genId(), text: g, children: tagGroups[g], collapsed: false, note: '', done: false, tags: [] });
@@ -225,7 +231,10 @@ window.StickySites = window.StickySites || {};
   }
 
   function escXml(s) {
-    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return Array.from(String(s), function (character) {
+      var code = character.codePointAt(0);
+      return code === 9 || code === 10 || code === 13 || (code >= 32 && code <= 0xD7FF) || (code >= 0xE000 && code <= 0xFFFD) || (code >= 0x10000 && code <= 0x10FFFF) ? character : '\uFFFD';
+    }).join('').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '&#10;').replace(/\r/g, '&#13;').replace(/\t/g, '&#9;');
   }
 
   function toOPML(items, name) {

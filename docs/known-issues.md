@@ -17,8 +17,8 @@ reloads. Workaround: reload the page after updating. Files: `sticky-inject.js`.
 
 ## PBKDF2 unlock has no progress indicator
 **Impact**: Low (UX) · **Status**: By design
-600,000 iterations take 1–4 s on slow hardware; the unlock button appears to hang.
-Workaround: wait. Fix: spinner / "Unlocking…" state in the lock overlay and popup lock screen.
+PBKDF2 duration depends on the hardware. The popup shows "Unlocking…" while it works;
+the in-page overlay has no detailed progress indicator. Wait for its result before retrying.
 Files: `sticky-inject.js` (`showLockOverlay`), `popup.js`.
 
 ## Cached key persists on disk until Lock Now
@@ -29,16 +29,15 @@ when leaving the machine. Files: `crypto-content.js`, `popup.js`.
 
 ## `src/shared/notes-storage.js` is not the runtime storage layer
 **Impact**: Low (maintenance) · **Status**: Open
-The extension reads/writes `chrome.storage.local` directly in `panel.js`, `outline.js`,
-`sticky-inject.js`, and `popup.js`; `notes-storage.js` is imported only by tests, so its
-record shapes can drift from what the UI writes (it is plaintext-only). Workaround: treat it as documentation + test fixture; when changing a record
-shape, update both. Fix: either route the UI through it or trim it to what tests need.
+Runtime mutations use `storage-content.js` IPC and the service worker `note-writer.js`
+queue. `notes-storage.js` is a plaintext test reference, so its record shapes can still
+drift. Treat the runtime writer as authoritative and update reference tests when schemas change.
 
-## Popup bypasses `Prefs`
-**Impact**: Low · **Status**: Open
-`popup.html` does not load `prefs.js`, so `popup.js` writes `enabledTypes` / `clusterLayout`
-with `chrome.storage.local.set` directly. Any new default added to `prefs.js` must be
-mirrored there. Files: `popup.js`, `src/content/prefs.js`.
+## Preference normalization drift
+**Impact**: Low · **Status**: Resolved for runtime writes
+Popup and content contexts use `settings.js` normalization and queued preference mutations.
+Add new preference defaults there and keep the plaintext `notes-storage.js` reference in sync.
+Files: `src/shared/settings.js`, `src/content/prefs.js`, `src/shared/note-writer.js`.
 
 ## `panelMode` pref is unused
 **Impact**: None · **Status**: Open
@@ -49,13 +48,14 @@ it. Safe to remove once tests are adjusted. Files: `prefs.js`, `notes-storage.js
 **Impact**: Low · **Status**: By design (for now)
 Peer sync uses tombstones to delete records on other machines, and only the outliner's Delete
 writes one (no other note type has a delete action in the UI). If a future delete path is added,
-call `addTombstone` from `src/shared/peer-sync.js` or the record will reappear from a peer.
+use the queued delete operation so the record removal and tombstone publish together;
+otherwise a peer can restore the record.
 Files: `src/content/outline.js`, `src/shared/peer-sync.js`.
 
 ## Peer sync needs peers on the same subnet (or a static peer address)
 **Impact**: Low · **Status**: By design
 Discovery is UDP multicast plus subnet broadcast on port 47833 on every non-tunnel interface;
-networks with client isolation or that drop UDP need static peer IPs on each side (popup
+networks that drop multicast/broadcast may need static peer IPs on each side (popup
 Settings → Peer IPs, or `install --peer <IP>`).
 Under a VPN that owns the default route macOS refuses the multicast send (`No route to host`) —
 the broadcast path still delivers, so that log line (printed once) is noise. Files:
@@ -67,7 +67,9 @@ The launchd job must not run under Homebrew's python3: macOS attributes its LAN 
 Python.app, which never gets the Local Network prompt from a background job, so they fail with
 `No route to host` while `nc`/`curl` work. `install` therefore prefers Apple's `/usr/bin/python3`
 (Command Line Tools; `--python PATH` overrides) and the log's `interpreter …` line shows which one runs.
-When no network path works at all, the Sync folder transport (popup → Sync folder) needs none.
+If direct LAN transport is blocked, the Sync folder path uses the chosen folder provider
+instead. A cloud or network share still needs that provider's transport; local-only folders
+do not synchronize machines by themselves.
 
 ## To-do sync requires a per-browser host manifest
 **Impact**: Low · **Status**: By design
@@ -79,11 +81,13 @@ Files: `docs/runbooks/todo-sync-troubleshooting.md`.
 ## Live harness needs Chrome for Testing
 **Impact**: Low (tooling) · **Status**: By design
 Branded Chrome 137+ ignores `--load-extension`, so `npm run verify:live` needs a Chrome for
-Testing / Chromium binary (`SS_CHROME`). The harness header still says "v1.10" and strips a
-`.stickysites-cluster-badge` element that no longer exists — harmless. Files: `scripts/verify-live.mjs`.
+Testing / Chromium binary (`SS_CHROME`, shared with the screenshot harness). Synthetic
+jsdom tests cover runtime behavior but do not establish live Chrome layout/permissions.
+Files: `scripts/verify-live.mjs`, `scripts/store-screenshots.mjs`.
 
 ## Encryption covers note keys only
 **Impact**: Low · **Status**: By design
-Prefs (`stickysites_prefs_v1`) and the crypto config are plaintext; note *titles* are not
-stored separately, but site/page keys (hostnames, paths) live inside the encrypted envelopes
-and are therefore protected. Files: `crypto-content.js`.
+Prefs, crypto config, device/folder metadata, and tombstones remain plaintext. Site/page
+record keys live inside encrypted note buckets, but a deletion tombstone exposes the deleted
+record key and timestamp. A signed folder file is not itself encrypted. Files:
+`crypto-content.js`, `src/shared/peer-sync.js`, `peer/stickysites-peer.py`.

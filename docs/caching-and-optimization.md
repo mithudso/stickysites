@@ -8,9 +8,12 @@
 | `chrome.storage.local["stickysites_cached_key"]` | JWK export of the derived AES-GCM key | Removed by Lock Now / disable; **persists across browser restarts** until then |
 | `Panel._loadedIds` | Ids of to-do items present when the panel opened | Rebuilt on every `open()`; lets `_writeStructured` keep items another writer (the TODO.md sync) added meanwhile |
 | `Panel._lastWrittenBody` | The HTML this panel last saved | Used by `syncFromStorage` to skip its own echo from `chrome.storage.onChanged` |
+| Daemon peer ETags | Last fetched snapshot per authenticated peer | A changed ETag fetches fresh content; pairing-key rotation clears trust/cache |
+| Daemon folder cache | File docs keyed by mtime and size; last published snapshot etag | Folder/key/name changes invalidate publication; writes serialize with signing config |
 | Popup `loadAllNotes()` result | Decrypted list of every note | Re-read on every popup open; no persistence |
 
-There is no HTTP cache, CDN, or database — all data is `chrome.storage.local`.
+The extension has no CDN or hosted database. It stores data in `chrome.storage.local`;
+the optional daemon also stores a local snapshot and uses peer HTTP ETags/folder caches.
 
 ## Performance patterns in use
 
@@ -32,8 +35,8 @@ There is no HTTP cache, CDN, or database — all data is `chrome.storage.local`.
 
 | Bottleneck | Cost | Mitigation |
 |---|---|---|
-| PBKDF2 at 600,000 iterations | 1–4 s per unlock on slow hardware, blocks the unlock button | By design (NIST guidance); a spinner is an open item in `known-issues.md` |
-| `enable()` / `disable()` re-encrypt all six note keys in one pass | Proportional to total note size | Runs once; popup shows the toggle state only after completion |
+| PBKDF2 at 600,000 iterations | 1–4 s per unlock on slow hardware, blocks the unlock button | Deliberate KDF cost; a spinner is an open item in `known-issues.md` |
+| `enable()` / `disable()` re-encrypt all six note keys in one pass | Proportional to total note size | Stages all bucket transformations before one guarded commit; a failed stage preserves prior state |
 | Popup `loadAllNotes()` decrypts every record on open | Linear in note count | Acceptable at hundreds of notes; paginate if it grows |
 | `execCommand`-based toolbar | Synchronous DOM mutation on large bodies | No action; bodies are small |
 

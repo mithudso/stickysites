@@ -1,6 +1,8 @@
+import './settings.js';
+import './network.js';
 // Local peer sync: keep two or more browsers on the same LAN converged without a server.
 //
-// The extension never talks to the network itself. A small local daemon (peer/stickysites-peer.py)
+// The extension calls loopback HTTP. A small local daemon (peer/stickysites-peer.py)
 // discovers peers on the LAN and exchanges *snapshots*; the extension pushes its snapshot to the
 // daemon over loopback HTTP and pulls every peer's latest snapshot back. All merge logic is here so
 // it can be unit-tested; the service worker only wires storage + fetch + crypto into syncWithDaemon().
@@ -10,7 +12,8 @@
 //   tombstones = { [storageKey]: { [recordKey]: deletedAtISO } } — plaintext, keys + timestamps only.
 //   crypto = { enabled, salt } | null — used to decide whether two peers can understand each other.
 //
-// Merge = record-level last-writer-wins on `updatedAt`, tombstones included; ties keep local.
+// Merge = record-level last-writer-wins on `updatedAt`, tombstones included.
+// Equal-time conflicts choose the lexically first canonical record on every peer.
 
 export const NOTE_KEYS = [
   'stickysites_global_v1', 'stickysites_sites_v1', 'stickysites_pages_v1',
@@ -40,7 +43,7 @@ export function genDeviceId() {
 export function recordsOf(storageKey, value) {
   if (!value || typeof value !== 'object') return {};
   if (storageKey === GLOBAL_KEY) return (value.body != null || value.updatedAt) ? { [SINGLE]: value } : {};
-  const out = {};
+  const out = Object.create(null);
   for (const [k, rec] of Object.entries(value)) if (rec && typeof rec === 'object') out[k] = rec;
   return out;
 }
@@ -51,7 +54,20 @@ export function fromRecords(storageKey, records) {
   return { ...records };
 }
 
-function ts(v) { return typeof v === 'string' ? v : ''; }
+function ts(v) {
+  if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/.test(v)) return -Infinity;
+  const value = Date.parse(v);
+  return Number.isFinite(value) ? value : -Infinity;
+}
+
+function canonical(value) {
+  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical(value[key])).join(',') + '}';
+  return JSON.stringify(value);
+}
+function recordOrder(record) {
+  return canonical({ ...record, updatedAt: ts(record.updatedAt) });
+}
 
 export function buildSnapshot({ deviceId, notes, tombstones, crypto, ts: when }) {
   const cfg = crypto && crypto.enabled ? { enabled: true, salt: String(crypto.salt || '') } : null;
@@ -86,18 +102,18 @@ export function mergeNotes(local, remotes) {
   for (const key of NOTE_KEYS) {
     const localRecs = recordsOf(key, local.notes && local.notes[key]);
     const remoteRecs = remotes.map((r) => recordsOf(key, r.notes && r.notes[key]));
-    const tomb = {};
+    const tomb = Object.create(null);
     for (const t of allTomb) for (const [rk, when] of Object.entries(t[key] || {})) if (ts(when) > ts(tomb[rk])) tomb[rk] = when;
     const keys = new Set([...Object.keys(localRecs), ...remoteRecs.flatMap((r) => Object.keys(r)), ...Object.keys(tomb)]);
-    const merged = {};
+    const merged = Object.create(null);
     for (const rk of keys) {
-      let winner = localRecs[rk] || null; let winTs = winner ? ts(winner.updatedAt) : ''; let fromRemote = false;
+      let winner = localRecs[rk] || null; let winTs = winner ? ts(winner.updatedAt) : -Infinity; let fromRemote = false;
       for (const recs of remoteRecs) {
         const cand = recs[rk];
-        if (cand && ts(cand.updatedAt) > winTs) { winner = cand; winTs = ts(cand.updatedAt); fromRemote = true; }
+        if (cand && (cand.updatedAt == null || cand.updatedAt === '' || ts(cand.updatedAt) !== -Infinity) && (!winner || ts(cand.updatedAt) > winTs || (ts(cand.updatedAt) === winTs && recordOrder(cand) < recordOrder(winner)))) { winner = cand; winTs = ts(cand.updatedAt); fromRemote = true; }
       }
       const deletedAt = ts(tomb[rk]);
-      if (deletedAt && (!winner || deletedAt > winTs)) {
+      if (deletedAt !== -Infinity && (!winner || deletedAt > winTs)) {
         if (localRecs[rk]) { changedKeys.add(key); stats.deleted++; }
         continue; // tombstone wins → record absent
       }
@@ -107,7 +123,7 @@ export function mergeNotes(local, remotes) {
     }
     notes[key] = fromRecords(key, merged);
     // keep only tombstones that still matter (no live record newer than them)
-    const keptTomb = {};
+    const keptTomb = Object.create(null);
     for (const [rk, when] of Object.entries(tomb)) if (!merged[rk]) keptTomb[rk] = when;
     if (Object.keys(keptTomb).length) tombstones[key] = keptTomb;
   }
@@ -117,12 +133,30 @@ export function mergeNotes(local, remotes) {
 // Full round: read → push → pull → merge → write. Dependencies are injected for testability.
 //   storage: chrome.storage.local-like { get(keys), set(obj) }
 //   fetch:   fetch-like; daemonUrl: base URL of the local daemon
-//   cryptoApi: { decrypt(value) → plain, encrypt(value) → envelope } using the cached key, or null
+//   createCryptoApi: construct an adapter from the captured storage snapshot.
+//   cryptoApi: optional injected test adapter; production uses createCryptoApi.
 //   now: () → ISO string
-export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMON_URL, cryptoApi = null, now = () => new Date().toISOString() }) {
+export async function syncWithDaemon(options) {
+  try { return await syncRound(options); }
+  catch (err) { return { status: 'error', error: err?.message === 'STATE_CHANGED' ? 'STATE_CHANGED' : 'SYNC_FAILED' }; }
+}
+
+async function syncRound({ storage, fetch, daemonUrl = DEFAULT_DAEMON_URL, cryptoApi = null, createCryptoApi = null, now = () => new Date().toISOString(), commit = null }) {
   let stored;
   try { stored = await storage.get([...NOTE_KEYS, TOMBSTONES_KEY, CRYPTO_KEY, CACHED_KEY, PEER_STATE_KEY]); }
   catch (err) { return { status: 'error', error: 'storage read failed: ' + (err?.message || err) }; }
+  const expected = Object.fromEntries([...NOTE_KEYS, TOMBSTONES_KEY, CRYPTO_KEY, CACHED_KEY, PEER_STATE_KEY].map(k => [k, structuredClone(stored[k] ?? null)]));
+  if (createCryptoApi) cryptoApi = await createCryptoApi(stored);
+  async function commitWrites(updates) {
+    if (commit) await commit(expected, updates);
+    else {
+      const current = await storage.get(Object.keys(expected));
+      if (Object.keys(expected).some(k => JSON.stringify(current[k] ?? null) !== JSON.stringify(expected[k]))) throw new Error('STATE_CHANGED');
+      await storage.set(updates);
+    }
+    Object.assign(expected, structuredClone(updates));
+  }
+  async function writeState(stateValue) { await commitWrites({ [PEER_STATE_KEY]: stateValue }); }
   const state = stored[PEER_STATE_KEY] || {};
   if (state.enabled === false) return { status: 'disabled' };
   const deviceId = state.deviceId || genDeviceId();
@@ -132,14 +166,17 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
   const rawNotes = {}; for (const k of NOTE_KEYS) if (stored[k] != null) rawNotes[k] = stored[k];
   const tombstones = stored[TOMBSTONES_KEY] || {};
 
+  // Adoption can leave local plaintext staged until unlock. Never publish it under an enabled vault.
+  if (enabled && !unlocked && Object.values(rawNotes).some(v => !isEnvelope(v))) return { status: 'locked', deviceId };
+
   // 1. push our snapshot (raw values: envelopes stay envelopes)
   const snapshot = buildSnapshot({ deviceId, notes: rawNotes, tombstones, crypto: localCrypto, ts: now() });
   let res;
   try {
-    res = await fetch(daemonUrl + '/snapshot', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(snapshot) });
+    res = await globalThis.StickySites.request(fetch, daemonUrl + '/snapshot', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(snapshot) });
   } catch (err) {
     const r = { status: 'no-daemon', deviceId, error: err?.message || 'daemon unreachable' };
-    await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: r.status, error: r.error } });
+    await writeState({ ...state, deviceId, lastSync: now(), lastResult: { status: r.status, error: r.error } });
     return r;
   }
   if (!res.ok) return { status: 'error', deviceId, error: 'daemon rejected snapshot: HTTP ' + res.status };
@@ -147,29 +184,27 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
   // 2. pull peers
   let peersBody;
   try {
-    const r = await fetch(daemonUrl + '/peers/snapshots');
-    if (!r.ok) return { status: 'error', deviceId, error: 'peers fetch: HTTP ' + r.status };
-    peersBody = await r.json();
+    peersBody = await globalThis.StickySites.request(fetch, daemonUrl + '/peers/snapshots', {}, true);
   } catch (err) { return { status: 'error', deviceId, error: err?.message || 'peers fetch failed' }; }
-  const peers = Array.isArray(peersBody?.peers) ? peersBody.peers : [];
+  const peers = Array.isArray(peersBody?.peers) ? peersBody.peers.filter(p => p && typeof p === 'object' && !Array.isArray(p)) : [];
   const result = { status: 'ok', deviceId, peers: [], changedKeys: [], stats: { applied: 0, deleted: 0, kept: 0 } };
   // Peers the daemon heard from but could not fetch a snapshot from (error, or no snapshot yet)
   const unreachable = peers.filter((p) => p.error);
   if (peers.length && unreachable.length === peers.length) {
     result.status = 'unreachable';
     result.peers = unreachable.map((p) => ({ id: p.id, name: p.name, state: 'unreachable', error: p.error, ...(p.via ? { via: p.via } : {}) }));
-    await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
+    await writeState({ ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
     return result;
   }
   if (!peers.length) {
     result.status = 'no-peers';
-    await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: [] } });
+    await writeState({ ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: [] } });
     return result;
   }
 
   if (enabled && !unlocked) {
     result.status = 'locked'; result.peers = peers.map((p) => ({ id: p.id, name: p.name, state: 'locked' }));
-    await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
+    await writeState({ ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
     return result;
   }
 
@@ -185,7 +220,7 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
     const compat = cryptoCompatibility(localCrypto, snap.crypto);
     info.state = compat;
     if (compat === 'mismatch') { result.peers.push(info); continue; }
-    if (compat === 'adopt-remote') { adopt = adopt || { peer: p.name, cfg: snap.crypto }; result.peers.push(info); continue; }
+    if (compat === 'adopt-remote') { adopt = adopt || { snapshot: snap }; result.peers.push(info); continue; }
     // compatible (same salt, or both off) or remote-off: plaintext or decryptable envelopes
     const plain = {};
     let bad = false;
@@ -203,19 +238,19 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
 
   // adopt a peer's vault config: we become locked until the user enters that passphrase
   if (adopt && !enabled) {
-    const remoteSnap = peers.find((p) => p.name === adopt.peer)?.snapshot;
+    const remoteSnap = adopt.snapshot;
     const cfg = remoteSnap?.cryptoFull || null;
     if (cfg && cfg.enabled && cfg.salt && cfg.verify) {
-      try { await storage.set({ [CRYPTO_KEY]: cfg }); } catch {}
+      await commitWrites({ [CRYPTO_KEY]: cfg, [CACHED_KEY]: null });
       result.status = 'adopted-remote-vault';
-      await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
+      await writeState({ ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
       return result;
     }
   }
 
   if (!usable.length) {
     result.status = result.peers.some((p) => p.state === 'mismatch') ? 'mismatch' : 'no-peers';
-    await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
+    await writeState({ ...state, deviceId, lastSync: now(), lastResult: { status: result.status, peers: result.peers } });
     return result;
   }
 
@@ -235,14 +270,10 @@ export async function syncWithDaemon({ storage, fetch, daemonUrl = DEFAULT_DAEMO
   for (const k of merged.changedKeys) writes[k] = enabled ? await cryptoApi.encrypt(merged.notes[k]) : merged.notes[k];
   if (JSON.stringify(merged.tombstones) !== JSON.stringify(tombstones)) writes[TOMBSTONES_KEY] = merged.tombstones;
   if (Object.keys(writes).length) {
-    try { await storage.set(writes); } catch (err) { return { status: 'error', deviceId, error: 'storage write failed: ' + (err?.message || err) }; }
+    try { await commitWrites(writes); } catch (err) { return { status: 'error', deviceId, error: 'storage write failed: ' + (err?.message || err) }; }
   }
-  await writeState(storage, { ...state, deviceId, lastSync: now(), lastResult: { status: 'ok', peers: result.peers, changedKeys: merged.changedKeys, stats: merged.stats } });
+  await writeState({ ...state, deviceId, lastSync: now(), lastResult: { status: 'ok', peers: result.peers, changedKeys: merged.changedKeys, stats: merged.stats } });
   return result;
-}
-
-async function writeState(storage, state) {
-  try { await storage.set({ [PEER_STATE_KEY]: state }); } catch {}
 }
 
 // Helper for writers that delete a record: remember the deletion so peers drop it too.

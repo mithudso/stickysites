@@ -19,8 +19,10 @@
     return !!key;
   }
 
+  var lockedTypeId = null;
+  var selectionGeneration = 0;
   function showLockOverlay(pendingTypeId) {
-    SS.Panel.close();
+    SS.Panel.close(true);
     var overlay = document.getElementById('stickysites-lock');
     if (overlay) overlay.remove();
 
@@ -31,47 +33,40 @@
     title.className = 'stickysites-lock-title';
     title.textContent = 'StickySites Locked';
 
-    var input = document.createElement('input');
-    input.type = 'password';
-    input.className = 'stickysites-lock-input';
-    input.placeholder = 'Enter passphrase...';
-
+    var desc = document.createElement('div');
+    desc.textContent = 'Open StickySites to enter your passphrase securely.';
     var btn = document.createElement('button');
     btn.className = 'stickysites-lock-btn';
-    btn.textContent = 'Unlock';
-
+    btn.textContent = 'Unlock in StickySites';
     var error = document.createElement('div');
     error.className = 'stickysites-lock-error';
-
-    async function doUnlock() {
-      if (!input.value) return;
-      var ok = await window.StickySites.Crypto.unlock(input.value);
-      if (ok) {
-        overlay.remove();
-        if (pendingTypeId) handleIconClick(pendingTypeId);
-      } else {
-        error.textContent = 'Wrong passphrase';
-        input.value = '';
-        input.focus();
-      }
-    }
-
-    btn.addEventListener('click', doUnlock);
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') doUnlock();
+    btn.addEventListener('click', async function () {
+      btn.disabled = true;
+      try {
+        var result = await chrome.runtime.sendMessage({ type: 'STICKYSITES_UNLOCK' });
+        if (!result?.ok) throw new Error('UNLOCK_WINDOW_FAILED');
+      } catch { error.textContent = 'Could not open StickySites. Use the toolbar icon to unlock.'; }
+      finally { btn.disabled = false; }
     });
-
-    overlay.append(title, input, btn, error);
+    lockedTypeId = pendingTypeId || lockedTypeId;
+    overlay.append(title, desc, btn, error);
     document.documentElement.appendChild(overlay);
-    input.focus();
+    btn.focus();
   }
 
-  async function handleIconClick(typeId) {
+  async function handleIconClick(typeId, request) {
+    if (request === undefined) request = ++selectionGeneration;
+    if (request !== selectionGeneration) return;
     if (!typeId) {
+      lockedTypeId = null;
+      var overlay = document.getElementById('stickysites-lock');
+      if (overlay) overlay.remove();
       SS.Panel.close();
       return;
     }
-    var unlocked = await checkUnlocked();
+    var unlocked;
+    try { unlocked = await checkUnlocked(); } catch { unlocked = false; }
+    if (request !== selectionGeneration) return;
     if (!unlocked) {
       showLockOverlay(typeId);
       return;
@@ -108,85 +103,11 @@
       showToast('StickySites is locked — unlock to clip');
       return;
     }
-    var key = nt.getKey(location);
-    var C = window.StickySites.Crypto;
-
-    if (nt.storagePattern === 'structured') {
-      var stored = await chrome.storage.local.get(nt.storageKey);
-      var rawMap = stored?.[nt.storageKey] || {};
-      if (C && C.isEncrypted(rawMap)) rawMap = await C.decryptValue(rawMap);
-      var map = rawMap;
-      var newId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      var nowIso = new Date().toISOString();
-
-      if (noteTypeId === 'todo') {
-        var record = map[key];
-        var items = (record && Array.isArray(record.items)) ? record.items : [];
-        items.push({ id: newId, text: text, done: false, indent: 0, priority: 0, color: '', tags: [], note: '', section: '', completedAt: '' });
-        // Preserve sections/tagColors and any other fields the panel wrote.
-        map[key] = Object.assign({}, record, {
-          key: key,
-          items: items,
-          createdAt: (record && record.createdAt) || nowIso,
-          updatedAt: nowIso
-        });
-      } else if (noteTypeId === 'outline') {
-        // Append to the active outline document (or the first in the library / a new one).
-        var prefsStored = await chrome.storage.local.get('stickysites_prefs_v1');
-        var pid = (prefsStored?.stickysites_prefs_v1 || {}).activeOutlineId;
-        var docKey = (pid && map[pid]) ? pid : Object.keys(map)[0];
-        if (!docKey) docKey = 'ol_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        var oRecord = map[docKey];
-        var oItems = (oRecord && Array.isArray(oRecord.items)) ? oRecord.items : [];
-        oItems.push({ id: newId, text: text, children: [], collapsed: false, note: '', done: false, tags: [] });
-        map[docKey] = Object.assign({}, oRecord, {
-          key: docKey,
-          name: (oRecord && (oRecord.name || docKey)) || 'My outline',
-          items: oItems,
-          createdAt: (oRecord && oRecord.createdAt) || nowIso,
-          updatedAt: nowIso
-        });
-      }
-
-      var mapToStore = map;
-      if (C && await C.isEnabled() && await C.getCachedKey()) {
-        mapToStore = await C.encryptValue(map);
-      }
-      await chrome.storage.local.set({ [nt.storageKey]: mapToStore });
-    } else {
-      var stored = await chrome.storage.local.get(nt.storageKey);
-      var raw = stored?.[nt.storageKey];
-      if (raw && C && C.isEncrypted(raw)) raw = await C.decryptValue(raw);
-      var htmlSnippet = '<p>' + text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
-
-      if (nt.storagePattern === 'single') {
-        var body = (raw && raw.body) || '';
-        var newBody = body ? body + '<p><br></p>' + htmlSnippet : htmlSnippet;
-        var record = { body: newBody, updatedAt: new Date().toISOString() };
-        var toStore = record;
-        if (C && await C.isEnabled() && await C.getCachedKey()) {
-          toStore = await C.encryptValue(record);
-        }
-        await chrome.storage.local.set({ [nt.storageKey]: toStore });
-      } else {
-        var map = raw || {};
-        var record = map[key];
-        var body = (record && record.body) || '';
-        var newBody = body ? body + '<p><br></p>' + htmlSnippet : htmlSnippet;
-        map[key] = {
-          key: key,
-          label: nt.getLabel(location),
-          body: newBody,
-          tags: (record && Array.isArray(record.tags)) ? record.tags : [],
-          createdAt: (record && record.createdAt) || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        var mapToStore = map;
-        if (C && await C.isEnabled() && await C.getCachedKey()) {
-          mapToStore = await C.encryptValue(map);
-        }
-        await chrome.storage.local.set({ [nt.storageKey]: mapToStore });
-      }
+    try {
+      await SS.Storage.request({ op: 'clip', storageKey: nt.storageKey, key: nt.getKey(location), text: text, data: { label: nt.getLabel(location) } });
+    } catch {
+      showToast('Could not save clip. Unlock StickySites and try again.');
+      return;
     }
     showToast('Added to ' + nt.label + ' ✓');
   }
@@ -213,28 +134,30 @@
     e.preventDefault();
     e.stopPropagation();
     var nt = noteTypes[idx];
+    var request = ++selectionGeneration;
     (async function () {
       try {
         var stored = await chrome.storage.local.get('stickysites_prefs_v1');
         var enabledTypes = (stored?.stickysites_prefs_v1 || {}).enabledTypes || {};
         if (enabledTypes[nt.id] === false) return;
       } catch { /* prefs unavailable — proceed */ }
+      if (request !== selectionGeneration) return;
       // Same type already open → close (toggle off)
-      if (SS.Panel.activeNoteType && SS.Panel.activeNoteType.id === nt.id) {
+      if ((SS.Panel.activeNoteType && SS.Panel.activeNoteType.id === nt.id) || SS.Cluster.activeTypeId === nt.id) {
         SS.Cluster.setActive(null);
-        SS.Panel.close();
+        handleIconClick(null, request);
         return;
       }
       // Closed or different type → ensure cluster visible then open this type
       if (SS.Cluster.hidden) SS.Cluster.toggle();
       SS.Cluster.setActive(nt.id);
-      handleIconClick(nt.id);
+      handleIconClick(nt.id, request);
     })();
   });
 
   SS.Panel.init(function () {
     SS.Cluster.setActive(null);
-    SS.Panel.close();
+    handleIconClick(null);
   });
 
   await SS.Cluster.init(noteTypes, handleIconClick);
@@ -254,10 +177,8 @@
     if (nt.id !== 'site' && nt.id !== 'page') return;
     var newKey = nt.getKey(location);
     if (newKey === SS.Panel._activeKey) return;
-    (async function () {
-      await SS.Panel.flushPendingSave();
-      SS.Panel.open(nt);
-    })();
+    // open captures its generation before flushing, so a later close or selection wins.
+    SS.Panel.open(nt);
   }
   window.addEventListener('popstate', onUrlChange);
   window.addEventListener('hashchange', onUrlChange);
@@ -266,19 +187,21 @@
   chrome.runtime.onMessage.addListener(function (msg) {
     if (msg?.type === 'STICKYSITES_TOGGLE') {
       SS.Cluster.toggle(msg.fromCommand);
-      if (SS.Cluster.hidden) SS.Panel.close();
+      if (SS.Cluster.hidden) handleIconClick(null);
     }
     if (msg?.type === 'STICKYSITES_OPEN') {
       var noteType = findNoteType(msg.noteTypeId);
       if (noteType) {
+        var request = ++selectionGeneration;
         (async function () {
           // A popup card click can target a specific outline document.
           if (msg.key && noteType.id === 'outline') {
             await window.StickySites.Prefs.write({ activeOutlineId: msg.key });
           }
+          if (request !== selectionGeneration) return;
           if (SS.Cluster.hidden) SS.Cluster.toggle();
           SS.Cluster.setActive(noteType.id);
-          handleIconClick(noteType.id);
+          handleIconClick(noteType.id, request);
         })();
       }
     }
@@ -289,6 +212,18 @@
 
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
+    if (changes.stickysites_cached_key || changes.stickysites_crypto_v1) {
+      var request = ++selectionGeneration;
+      (async function () {
+        var unlocked = await checkUnlocked();
+        if (request !== selectionGeneration) return;
+        if (!unlocked) { var pending = SS.Panel.activeNoteType?.id || SS.Cluster.activeTypeId; SS.Cluster.setActive(null); showLockOverlay(pending); }
+        else {
+          var overlay = document.getElementById('stickysites-lock');
+          if (overlay) { overlay.remove(); var pending = lockedTypeId; lockedTypeId = null; if (pending) handleIconClick(pending, request); }
+        }
+      })().catch(function () { if (request === selectionGeneration) showLockOverlay(SS.Panel.activeNoteType?.id); });
+    }
     SS.Panel.syncFromStorage(changes);
     // Live-apply cluster prefs from the popup — no page reload needed.
     if (changes.stickysites_prefs_v1 && SS.Cluster) {

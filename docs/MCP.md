@@ -1,37 +1,32 @@
 # MCP
 
-## Servers shipped by this repo
+## Shipped runtime
 
-**None.** StickySites is a Chrome extension with no server process, so it exposes no
-Model Context Protocol tools and has no MCP-facing operations registry. The
-`server/src/lib/operations-registry.js` + `tam_ops_*` tool contract from the mdb-tam
-standard does not apply here; the single out-of-browser call (native-messaging to-do
-sync) is inventoried in [external-calls.md](external-calls.md) instead.
+StickySites ships no Model Context Protocol server or MCP operation registry. Its runtime is
+an extension plus an optional Python peer daemon/CLI. The optional native host is installed
+outside this repository. Native, loopback, paired LAN, and shared-folder boundaries are
+inventoried in [external-calls.md](external-calls.md).
 
-## Servers used while developing this repo
+## Developer tooling
 
-| Server | Config | Purpose | Auth |
-|---|---|---|---|
-| `global_ai_hub` | `.mcp.json` (Claude Code), `.vscode/mcp.json` (VS Code) | Local semantic index over `~/dev/*` — `hub_search_codebase`, `hub_search_symbols`, `hub_ask`, `hub_pm_get` (project registry) | None; stdio, runs from `~/.global-ai-hub/.venv` |
+`global_ai_hub` is a machine-wide developer tool configured by `.mcp.json` and
+`.vscode/mcp.json`. It supplies semantic search (`hub_search_codebase`,
+`hub_search_symbols`, `hub_ask`) and project lookup (`hub_pm_get`). It is not shipped with
+the extension, and the build/tests do not depend on it. There is no repo-local indexer.
+Use the tool's actual schema for search filters; do not invent a `--prefix` argument.
+If the hub is unavailable, use `rg` and read the source.
 
-The hub server is the developer's machine-wide tool, not part of the extension. Both config
-files start it with the same command; neither carries environment values (the hub's Ollama
-endpoints are set in `~/.global-ai-hub/.mcp.json`, outside this public repo).
+## Project record maintenance
 
-### Usage
-
-- "Where is X / what does Y do" → `hub_search_codebase` with `--prefix /Users/mitch/dev/stickysites`
-  before grepping.
-- Project record (purpose, files, outstanding items) → `hub_pm_get stickysites`.
-- Register / refresh the record: `python3 ~/.global-ai-hub/scripts/project_manager.py upsert stickysites --path <abs path>`.
-
-If the server is unreachable, fall back to `grep`/`Read`; nothing in the build or tests
-depends on it.
-
-## Health check
+Use the installed `project_manager.py` CLI, after inspecting its help. Read the existing
+record before an update:
 
 ```bash
-"$HOME/.global-ai-hub/.venv/bin/python" "$HOME/.global-ai-hub/mcp-server/hub_mcp_server.py" --help
+python3 "$HOME/.global-ai-hub/scripts/project_manager.py" get stickysites
+python3 "$HOME/.global-ai-hub/scripts/project_manager.py" upsert stickysites --path "$PWD" --status <existing-status>
 ```
 
-A non-zero exit means the hub venv is missing on this machine; the extension is unaffected.
+Replace `<existing-status>` with the status just read. The CLI defaults to `active`; omitting
+`--status` can overwrite a preserved status. Do not initialize, delete, or recreate the hub
+registry to refresh this repository's path. Hub authentication/endpoints remain machine
+configuration outside the public repository.

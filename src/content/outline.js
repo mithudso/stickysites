@@ -33,29 +33,16 @@ window.StickySites = window.StickySites || {};
     var stored = await chrome.storage.local.get(STORAGE_KEY);
     var raw = stored?.[STORAGE_KEY] || {};
     if (raw && C && C.isEncrypted(raw)) {
-      try { raw = await C.decryptValue(raw); } catch { raw = {}; }
-      if (C.isEncrypted(raw)) raw = {}; // still locked / wrong key — treat as empty, never write back
+      raw = await C.decryptValue(raw);
+      if (C.isEncrypted(raw)) throw new Error('VAULT_UNREADABLE');
     }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('NOTE_UNREADABLE');
     return raw;
-  }
-
-  async function writeRawMap(map) {
-    var C = window.StickySites.Crypto;
-    var toStore = map;
-    if (C && await C.isEnabled()) {
-      var cachedKey = await C.getCachedKey();
-      // Locked: writing now would replace the encrypted envelope with
-      // plaintext and permanently destroy every doc inside it. Refuse.
-      if (!cachedKey) return false;
-      toStore = await C.encryptValue(map);
-    }
-    await chrome.storage.local.set({ [STORAGE_KEY]: toStore });
-    return true;
   }
 
   async function readLibrary() {
     var map = await readRawMap();
-    var docs = Object.keys(map).map(function (k) {
+    var docs = Object.keys(map).filter(function (k) { return map[k] && typeof map[k] === 'object' && !Array.isArray(map[k]); }).map(function (k) {
       var r = map[k] || {};
       return {
         key: k,
@@ -69,32 +56,12 @@ window.StickySites = window.StickySites || {};
     return { map: map, docs: docs };
   }
 
-  async function writeDoc(docKey, name, items) {
-    var map = await readRawMap();
-    var existing = map[docKey];
-    map[docKey] = {
-      key: docKey,
-      name: String(name),
-      items: items,
-      createdAt: (existing && existing.createdAt) || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    var ok = await writeRawMap(map);
-    return ok ? map[docKey] : null;
+  async function writeDoc(docKey, name, items, loadedIds) {
+    return window.StickySites.Storage.request({ op: 'record', storageKey: STORAGE_KEY, key: docKey, loadedIds: loadedIds ? Array.from(loadedIds) : undefined, data: { name: String(name), items: structuredClone(items) } });
   }
 
   async function deleteDoc(docKey) {
-    var map = await readRawMap();
-    delete map[docKey];
-    await writeRawMap(map);
-    // Tombstone so local peer sync (src/shared/peer-sync.js) deletes the doc on other machines
-    // instead of resurrecting it from their copy.
-    try {
-      var stored = await chrome.storage.local.get('stickysites_tombstones_v1');
-      var tomb = stored?.stickysites_tombstones_v1 || {};
-      tomb.stickysites_outlines_v1 = Object.assign({}, tomb.stickysites_outlines_v1, { [docKey]: new Date().toISOString() });
-      await chrome.storage.local.set({ stickysites_tombstones_v1: tomb });
-    } catch (e) { /* tombstone is best-effort */ }
+    await window.StickySites.Storage.request({ op: 'delete', storageKey: STORAGE_KEY, key: docKey });
   }
 
   function downloadText(filename, text, mime) {
@@ -118,6 +85,13 @@ window.StickySites = window.StickySites || {};
     // getKey (popout URL param) or the activeOutlineId pref wins.
     render: async function (panel, noteType, explicitKey) {
       var self = this;
+      if (panel._viewController) panel._viewController.abort();
+      panel._viewController = new AbortController();
+      var viewSignal = panel._viewController.signal;
+      var renderGeneration = (this._generation || 0) + 1;
+      this._generation = renderGeneration;
+      var panelGeneration = panel._generation;
+      function current() { return self._generation === renderGeneration && panel._generation === panelGeneration && panel.activeNoteType === noteType; }
       var Ops = window.StickySites.OutlineOps;
       var el = panel.el;
       while (el.firstChild) el.removeChild(el.firstChild);
@@ -128,7 +102,9 @@ window.StickySites = window.StickySites || {};
 
       // Locked vault: an empty read here is indistinguishable from "no
       // outlines yet" — bail instead of auto-creating (and thereby clobbering).
-      if (await isLocked()) {
+      var locked = await isLocked();
+      if (!current()) return;
+      if (locked) {
         var lockMsg = document.createElement('div');
         lockMsg.className = 'stickysites-outline-locked';
         lockMsg.textContent = 'StickySites is locked. Unlock it to use the outliner.';
@@ -141,8 +117,11 @@ window.StickySites = window.StickySites || {};
       if (!requested) {
         try { requested = noteType.getKey(location) || ''; } catch { requested = ''; }
       }
-      var lib = await readLibrary();
+      var lib;
+      try { lib = await readLibrary(); } catch { if (current()) el.textContent = 'Could not read the outline library. No changes were saved.'; return; }
+      if (!current()) return;
       var prefs = await window.StickySites.Prefs.read();
+      if (!current()) return;
       var docKey = null;
       if (requested && lib.map[requested]) docKey = requested;
       else if (prefs.activeOutlineId && lib.map[prefs.activeOutlineId]) docKey = prefs.activeOutlineId;
@@ -150,9 +129,12 @@ window.StickySites = window.StickySites || {};
       if (!docKey) {
         docKey = newDocKey();
         await writeDoc(docKey, 'My outline', []);
+        if (!current()) return;
         lib = await readLibrary();
+        if (!current()) return;
       }
       await window.StickySites.Prefs.write({ activeOutlineId: docKey });
+      if (!current()) return;
 
       var doc = null;
       for (var di = 0; di < lib.docs.length; di++) {
@@ -162,6 +144,9 @@ window.StickySites = window.StickySites || {};
       var items = Ops.normalizeItems(doc ? doc.items : []);
       if (items.length === 0) items.push(Ops.normalizeNode({ text: '' }));
       var updatedAt = doc ? doc.updatedAt : '';
+      var loadedIds = new Set();
+      function remember(arr) { arr.forEach(function (n) { loadedIds.add(String(n.id)); remember(n.children || []); }); }
+      remember(items);
 
       // The popout and drag-out read these instead of recomputing from location.
       panel._activeKey = docKey;
@@ -178,9 +163,10 @@ window.StickySites = window.StickySites || {};
 
       function rerenderDoc(key) {
         // Full re-entry: flush pending writes, then re-render with the new doc.
+        el.inert = true;
         panel.flushPendingSave().then(function () {
-          self.render(panel, noteType, key);
-        });
+          if (current()) return self.render(panel, noteType, key);
+        }).catch(function () { el.setAttribute('data-save-error', 'true'); }).finally(function () { el.inert = false; });
       }
 
       // ── Header ──────────────────────────────────────────────
@@ -289,7 +275,7 @@ window.StickySites = window.StickySites || {};
           var b = document.createElement('button');
           b.className = 'stickysites-outline-menu-item';
           b.textContent = label;
-          b.addEventListener('click', function () { menu.remove(); fn(); });
+          b.addEventListener('click', function () { menu.remove(); Promise.resolve().then(fn).catch(function () { el.inert = false; el.setAttribute('data-save-error', 'true'); }); });
           return b;
         }
 
@@ -316,7 +302,11 @@ window.StickySites = window.StickySites || {};
           }),
           item('Delete…', async function () {
             if (!confirm('Delete outline "' + docName + '"? This cannot be undone.')) return;
+            el.inert = true;
+            await panel.flushPendingSave();
             await deleteDoc(docKey);
+            clearTimeout(panel._saveTimer); panel._saveTimer = null;
+            panel._flushSave = null;
             await window.StickySites.Prefs.write({ activeOutlineId: null });
             rerenderDoc('');
           }),
@@ -342,7 +332,7 @@ window.StickySites = window.StickySites || {};
               document.removeEventListener('click', dismiss, true);
             }
           };
-          document.addEventListener('click', dismiss, true);
+          document.addEventListener('click', dismiss, { capture: true, signal: viewSignal });
         }, 0);
       }
 
@@ -458,11 +448,15 @@ window.StickySites = window.StickySites || {};
 
       // ── Saving ──────────────────────────────────────────────
       function saveNow() {
-        return writeDoc(docKey, docName, items).then(function (rec) {
-          if (rec) savedEl.textContent = formatSaved(rec.updatedAt);
-        });
+        var pending = writeDoc(docKey, docName, items, loadedIds);
+        remember(items);
+        return panel._trackSave(pending.then(function (rec) {
+          savedEl.textContent = rec ? formatSaved(rec.updatedAt) : 'Could not save';
+          return rec;
+        }).catch(function () { savedEl.textContent = 'Could not save — unlock and try again'; return null; }));
       }
       function save() {
+        if (panel._flushSave !== saveNow) return;
         if (panel._saveTimer) clearTimeout(panel._saveTimer);
         panel._saveTimer = setTimeout(function () { panel._saveTimer = null; saveNow(); }, 500);
       }
@@ -779,8 +773,8 @@ window.StickySites = window.StickySites || {};
           }
         }
 
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
+        document.addEventListener('mousemove', onMove, { signal: viewSignal });
+        document.addEventListener('mouseup', onUp, { signal: viewSignal });
       });
 
       // ── Add node ────────────────────────────────────────────

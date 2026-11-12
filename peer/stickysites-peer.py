@@ -21,8 +21,10 @@ State lives in ~/.stickysites/ (config, self-signed cert, latest snapshot).
 The pairing key and static peer list can also be set from the extension popup (Settings →
 Local Peer Sync); the daemon applies them live and writes them back to peer.json.
 """
-import argparse, errno, hashlib, hmac, http.client, json, os, secrets, socket, ssl, subprocess, sys, threading, time, urllib.request
+import argparse, errno, hashlib, hmac, http.client, json, os, secrets, socket, ssl, stat, subprocess, sys, tempfile, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
+from contextlib import contextmanager
 
 VERSION = '1.2.0'
 HOME = os.path.expanduser(os.environ.get('STICKYSITES_HOME', '~/.stickysites'))
@@ -36,6 +38,45 @@ ANNOUNCE_EVERY = 5
 PEER_TTL = 20
 IFACE_RESCAN = 60      # seconds between interface re-enumerations (VPN up/down, Wi-Fi switch)
 LAUNCHD_LABEL = 'com.stickysites.peer'
+REQUEST_TIMEOUT = 5  # bound TLS handshakes, HTTP headers, and request-body reads
+MAX_HTTP_WORKERS = 32
+MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024
+MAX_HELLO_BYTES = 16 * 1024
+PEER_RESPONSE_TIMEOUT = 8
+# A 64 MiB UTF-8 snapshot can expand threefold when the folder writer escapes Unicode.
+MAX_FOLDER_BYTES = 3 * 64 * 1024 * 1024 + 16 * 1024
+
+@contextmanager
+def socket_deadline(connection, seconds, read_only=False):
+    """Bound total read time, including a peer that continually trickles bytes."""
+    expired = threading.Event()
+    def expire():
+        expired.set()
+        try: connection.shutdown(socket.SHUT_RD if read_only else socket.SHUT_RDWR)
+        except OSError: pass
+    timer = threading.Timer(seconds, expire)
+    timer.deadline_expired = expired
+    timer.daemon = True
+    timer.start()
+    try: yield timer
+    finally: timer.cancel()
+
+def read_peer_response(response, limit):
+    try:
+        length = response.getheader('Content-Length')
+        if length is not None and (not length.isascii() or not length.isdecimal() or int(length) > limit):
+            raise ValueError('peer response too large or invalid Content-Length')
+        body = response.read(limit + 1)
+        if len(body) > limit: raise ValueError('peer response too large')
+        return body
+    finally: response.close()
+
+def load_json(body):
+    try: return json.loads(body)
+    except RecursionError as e: raise ValueError('JSON is nested too deeply') from e
+
+class ConfigurationChanged(RuntimeError):
+    pass
 
 def log(msg):
     line = time.strftime('%Y-%m-%d %H:%M:%S ') + msg
@@ -49,11 +90,19 @@ def log(msg):
 def load_config():
     with open(CONFIG) as f: return json.load(f)
 
+def atomic_write(path, body):
+    """Publish a complete private file, and remove its unique temporary file on failure."""
+    fd, tmp = tempfile.mkstemp(prefix='.%s-' % os.path.basename(path), dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, 'wb') as f: f.write(body)
+        os.replace(tmp, path)
+    finally:
+        try: os.unlink(tmp)
+        except FileNotFoundError: pass
+
 def save_config(cfg):
     os.makedirs(HOME, exist_ok=True)
-    tmp = CONFIG + '.tmp'
-    with open(tmp, 'w') as f: json.dump(cfg, f, indent=2)
-    os.chmod(tmp, 0o600); os.replace(tmp, CONFIG)
+    atomic_write(CONFIG, json.dumps(cfg, indent=2).encode())
 
 def ensure_config(pair_key=None, name=None, loop_port=None, lan_port=None, mcast_port=None, peers=None):
     cfg = load_config() if os.path.exists(CONFIG) else {}
@@ -80,7 +129,7 @@ def ensure_cert():
     os.chmod(KEY, 0o600)
 
 def cert_fingerprint():
-    der = ssl.PEM_cert_to_DER_cert(open(CERT).read())
+    with open(CERT) as f: der = ssl.PEM_cert_to_DER_cert(f.read())
     return hashlib.sha256(der).hexdigest()
 
 def sign(pair_key, *parts):
@@ -165,14 +214,13 @@ class SnapshotStore:
         self.lock = threading.Lock(); self.body = b''; self.etag = ''
         if os.path.exists(SNAPSHOT):
             try:
-                self.body = open(SNAPSHOT, 'rb').read(); self.etag = hashlib.sha256(self.body).hexdigest()
+                with open(SNAPSHOT, 'rb') as f: self.body = f.read()
+                self.etag = hashlib.sha256(self.body).hexdigest()
             except OSError: pass
     def put(self, body):
         with self.lock:
+            atomic_write(SNAPSHOT, body)
             self.body = body; self.etag = hashlib.sha256(body).hexdigest()
-            tmp = SNAPSHOT + '.tmp'
-            with open(tmp, 'wb') as f: f.write(body)
-            os.chmod(tmp, 0o600); os.replace(tmp, SNAPSHOT)
     def get(self):
         with self.lock: return self.body, self.etag
 
@@ -189,9 +237,15 @@ class Peers:
 class Daemon:
     def __init__(self, cfg):
         self.cfg = cfg; self.store = SnapshotStore(); self.peers = Peers(); self.fp = cert_fingerprint()
+        self.config_lock = threading.RLock(); self.folder_lock = threading.Lock()
+        self.config_generation = 0
         self.cache = {}  # peer id → {'etag','snapshot'}
         self.folder_cache = {}  # sync-folder file name → {'key': (mtime, size), 'doc'}
         self.stop = threading.Event()
+
+    def _check_generation(self, generation):
+        """Call while holding config_lock, immediately before trusting or publishing a result."""
+        if generation != self.config_generation: raise ConfigurationChanged('configuration changed during request')
 
     # discovery
     def announce_loop(self):
@@ -202,37 +256,40 @@ class Daemon:
                 if what not in failing: failing.add(what); log('announce %s failed: %s (broadcast/static peers still tried)' % (what, e))
             else:
                 if what in failing: failing.discard(what); log('announce %s working again' % what)
-        while not self.stop.is_set():
-            if time.time() - scanned >= IFACE_RESCAN:
-                wanted = multicast_ifaces()
-                for ip in [k for k in socks if k not in wanted]: socks.pop(ip).close()
-                for ip in wanted:
-                    if ip in socks: continue
-                    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
-                    sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                    if ip:
-                        try: sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(ip))
-                        except OSError as e: log('multicast interface %s not usable (%s)' % (ip, e)); sock.close(); continue
-                    socks[ip] = sock
-                if not socks: log('no multicast interface available; retrying in %ss' % IFACE_RESCAN)
-                scanned = time.time()
-            ts = int(time.time())
-            addrs = local_ipv4s()
-            msg = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'port': self.cfg['lan_port'], 'fp': self.fp, 'ts': ts, 'addrs': addrs}
-            msg['sig'] = sign(self.cfg['pair_key'], msg['id'], msg['name'], msg['port'], msg['fp'], ts, ','.join(addrs))
-            data = json.dumps(msg).encode(); port = self.cfg['mcast_port']
-            for ip, sock in socks.items(): send(sock, MCAST_GROUP, 'multicast on %s' % (ip or 'default'))
-            # fallbacks for networks / endpoint agents that drop multicast: subnet broadcast, then
-            # unicast to any statically configured peers (`static_peers` in peer.json)
-            if socks:
-                sock = next(iter(socks.values()))
-                for dst in broadcast_targets(): send(sock, dst, 'broadcast to %s' % dst)
-                for dst in self.cfg.get('static_peers', []):
-                    host, dport = split_host_port(str(dst))
-                    send(sock, host, 'unicast to %s' % dst, dport)
-            self.stop.wait(ANNOUNCE_EVERY)
+        try:
+            while not self.stop.is_set():
+                if time.time() - scanned >= IFACE_RESCAN:
+                    wanted = multicast_ifaces()
+                    for ip in [k for k in socks if k not in wanted]: socks.pop(ip).close()
+                    for ip in wanted:
+                        if ip in socks: continue
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
+                        sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 1)
+                        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                        if ip:
+                            try: sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton(ip))
+                            except OSError as e: log('multicast interface %s not usable (%s)' % (ip, e)); sock.close(); continue
+                        socks[ip] = sock
+                    if not socks: log('no multicast interface available; retrying in %ss' % IFACE_RESCAN)
+                    scanned = time.time()
+                ts = int(time.time())
+                addrs = local_ipv4s()
+                msg = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'port': self.cfg['lan_port'], 'fp': self.fp, 'ts': ts, 'addrs': addrs}
+                msg['sig'] = sign(self.cfg['pair_key'], msg['id'], msg['name'], msg['port'], msg['fp'], ts, ','.join(addrs))
+                data = json.dumps(msg).encode(); port = self.cfg['mcast_port']
+                for ip, sock in socks.items(): send(sock, MCAST_GROUP, 'multicast on %s' % (ip or 'default'))
+                # fallbacks for networks / endpoint agents that drop multicast: subnet broadcast, then
+                # unicast to any statically configured peers (`static_peers` in peer.json)
+                if socks:
+                    sock = next(iter(socks.values()))
+                    for dst in broadcast_targets(): send(sock, dst, 'broadcast to %s' % dst)
+                    for dst in self.cfg.get('static_peers', []):
+                        host, dport = split_host_port(str(dst))
+                        send(sock, host, 'unicast to %s' % dst, dport)
+                self.stop.wait(ANNOUNCE_EVERY)
+        finally:
+            for sock in socks.values(): sock.close()
 
     def _join_group(self, sock, joined):
         """Join the discovery group on every LAN interface (plus the kernel default); idempotent, re-run on rescan."""
@@ -244,60 +301,80 @@ class Daemon:
                 if e.errno == errno.EADDRINUSE: joined.add(ip)
                 else: log('multicast join on %s failed: %s' % (ip or 'default', e))
 
-    def listen_loop(self):
+    def listen_loop(self, bind_host='', ready=None):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        if hasattr(socket, 'SO_REUSEPORT'): sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        sock.bind(('', self.cfg['mcast_port']))
-        joined = set(); self._join_group(sock, joined); scanned = time.time()
-        sock.settimeout(1.0)
-        while not self.stop.is_set():
-            if time.time() - scanned >= IFACE_RESCAN: self._join_group(sock, joined); scanned = time.time()
-            try: data, addr = sock.recvfrom(4096)
-            except socket.timeout: continue
-            except OSError: break
-            try: msg = json.loads(data.decode())
-            except ValueError: continue
-            if not isinstance(msg, dict) or msg.get('v') != 1 or msg.get('id') == self.cfg['id']: continue
-            try:
-                addrs = [str(a) for a in msg.get('addrs', [])][:8]
-                expected = sign(self.cfg['pair_key'], msg['id'], msg['name'], msg['port'], msg['fp'], msg['ts'], ','.join(addrs))
-                if not hmac.compare_digest(expected, str(msg.get('sig', ''))): continue
-                if abs(time.time() - int(msg['ts'])) > 90: continue
-            except (KeyError, TypeError, ValueError): continue
-            live = self.peers.live(); known = msg['id'] in live
-            candidates = [addr[0]] + [a for a in addrs if a != addr[0]]
-            prev = live.get(msg['id'], {}).get('addr')
-            if prev in candidates: candidates.remove(prev); candidates.insert(0, prev)  # keep the address that worked
-            self.peers.seen(msg['id'], {'id': msg['id'], 'name': str(msg['name'])[:64], 'addr': candidates[0], 'addrs': candidates, 'port': int(msg['port']), 'fp': str(msg['fp']), 'lastSeen': time.time()})
-            if not known: log('peer up: %s (%s:%s)' % (msg['name'], addr[0], msg['port']))
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if hasattr(socket, 'SO_REUSEPORT'): sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+            sock.bind((bind_host, self.cfg['mcast_port']))
+            if self.cfg['mcast_port'] == 0: self.cfg['mcast_port'] = sock.getsockname()[1]
+            joined = set(); self._join_group(sock, joined); scanned = time.time()
+            sock.settimeout(1.0)
+            if ready is not None: ready.set()
+            while not self.stop.is_set():
+                if time.time() - scanned >= IFACE_RESCAN: self._join_group(sock, joined); scanned = time.time()
+                try: data, addr = sock.recvfrom(4096)
+                except socket.timeout: continue
+                except OSError: break
+                try: msg = load_json(data.decode())
+                except ValueError: continue
+                if not isinstance(msg, dict) or msg.get('v') != 1 or msg.get('id') == self.cfg['id']: continue
+                with self.config_lock:
+                    try:
+                        addrs = [str(a) for a in msg.get('addrs', [])][:8]
+                        expected = sign(self.cfg['pair_key'], msg['id'], msg['name'], msg['port'], msg['fp'], msg['ts'], ','.join(addrs))
+                        if not hmac.compare_digest(expected, str(msg.get('sig', ''))): continue
+                        if abs(time.time() - int(msg['ts'])) > 90: continue
+                    except (KeyError, TypeError, ValueError): continue
+                    live = self.peers.live(); known = msg['id'] in live
+                    candidates = [addr[0]] + [a for a in addrs if a != addr[0]]
+                    prev = live.get(msg['id'], {}).get('addr')
+                    if prev in candidates: candidates.remove(prev); candidates.insert(0, prev)  # keep the address that worked
+                    self.peers.seen(msg['id'], {'id': msg['id'], 'name': str(msg['name'])[:64], 'addr': candidates[0], 'addrs': candidates, 'port': int(msg['port']), 'fp': str(msg['fp']), 'lastSeen': time.time()})
+                    if not known: log('peer up: %s (%s:%s)' % (msg['name'], addr[0], msg['port']))
+        finally:
+            sock.close()
 
     # fetch a peer's snapshot over pinned TLS, trying each announced address until one connects
-    def fetch_peer(self, p):
+    def fetch_peer(self, p, generation=None):
+        with self.config_lock:
+            if generation is None: generation = self.config_generation
+            self._check_generation(generation)
+            pair_key = self.cfg['pair_key']
+            cached = self.cache.get(p['id'])
         ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
         conn = None; last = None
         for addr in p.get('addrs') or [p['addr']]:
-            try:
-                c = http.client.HTTPSConnection(addr, p['port'], timeout=2.5, context=ctx); c.connect(); conn = c
-                if addr != p['addr']:
-                    p['addr'] = addr; p['addrs'] = [addr] + [a for a in p['addrs'] if a != addr]; self.peers.seen(p['id'], p)
-                break
-            except OSError as e: last = e
+            c = http.client.HTTPSConnection(addr, p['port'], timeout=2.5, context=ctx)
+            try: c.connect()
+            except OSError as e:
+                c.close(); last = e; continue
+            conn = c
+            break
         if conn is None: raise RuntimeError('unreachable on %s (%s)' % (', '.join(p.get('addrs') or [p['addr']]), last))
-        der = conn.sock.getpeercert(binary_form=True)
-        if hashlib.sha256(der).hexdigest() != p['fp']:
-            conn.close(); raise RuntimeError('certificate fingerprint mismatch for %s' % p['name'])
-        headers = {'Authorization': 'Bearer ' + bearer(self.cfg['pair_key'])}
-        cached = self.cache.get(p['id'])
-        if cached: headers['If-None-Match'] = cached['etag']
-        conn.request('GET', '/snapshot', headers=headers)
-        r = conn.getresponse(); body = r.read(); conn.close()
-        if r.status == 304 and cached: return cached['snapshot']
-        if r.status == 204: return None
-        if r.status != 200: raise RuntimeError('peer %s answered HTTP %s' % (p['name'], r.status))
-        snap = json.loads(body.decode())
-        self.cache[p['id']] = {'etag': r.getheader('ETag', ''), 'snapshot': snap}
-        return snap
+        try:
+            der = conn.sock.getpeercert(binary_form=True)
+            if not hmac.compare_digest(hashlib.sha256(der).hexdigest(), p['fp']):
+                raise RuntimeError('certificate fingerprint mismatch for %s' % p['name'])
+            with self.config_lock: self._check_generation(generation)
+            headers = {'Authorization': 'Bearer ' + bearer(pair_key)}
+            if cached: headers['If-None-Match'] = cached['etag']
+            with socket_deadline(conn.sock, PEER_RESPONSE_TIMEOUT):
+                conn.request('GET', '/snapshot', headers=headers)
+                r = conn.getresponse(); body = read_peer_response(r, MAX_SNAPSHOT_BYTES)
+            if r.status == 304 and cached: snap = cached['snapshot']
+            elif r.status == 204: snap = None
+            elif r.status == 200: snap = load_json(body.decode())
+            else: raise RuntimeError('peer %s answered HTTP %s' % (p['name'], r.status))
+            with self.config_lock:
+                self._check_generation(generation)
+                if addr != p['addr']:
+                    p = dict(p, addr=addr, addrs=[addr] + [a for a in p['addrs'] if a != addr])
+                    self.peers.seen(p['id'], p)
+                if r.status == 200: self.cache[p['id']] = {'etag': r.getheader('ETag', ''), 'snapshot': snap}
+                return snap
+        finally:
+            conn.close()
 
     # ── sync-folder transport ─────────────────────────────────────────────────
     # A folder both laptops can see (Google Drive, iCloud, SMB share). We write our snapshot there as
@@ -317,56 +394,87 @@ class Daemon:
         extension formatted its JSON."""
         return json.dumps(obj, separators=(',', ':'), sort_keys=True, ensure_ascii=False).encode()
 
-    def folder_sig(self, pid, name, ts, snapshot_obj):
-        return sign(self.cfg['pair_key'], 'folder', pid, name, ts, hashlib.sha256(self.canon(snapshot_obj)).hexdigest())
+    def folder_sig(self, pid, name, ts, snapshot_obj, pair_key=None):
+        return sign(self.cfg['pair_key'] if pair_key is None else pair_key, 'folder', pid, name, ts, hashlib.sha256(self.canon(snapshot_obj)).hexdigest())
 
     def write_folder_snapshot(self):
-        d = self.sync_dir()
-        if not d: return None
-        body, etag = self.store.get()
-        if not body: return None
-        if getattr(self, '_folder_written_etag', None) == etag and os.path.exists(self.own_folder_file()): return 'unchanged'
-        if not os.path.isdir(d): raise RuntimeError('sync folder does not exist: %s' % d)
-        # (an OSError from the write below is caught by callers and logged; the daemon keeps serving)
-        ts = int(time.time()); snap = json.loads(body.decode())
-        doc = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'ts': ts, 'daemon': VERSION,
-               'sig': self.folder_sig(self.cfg['id'], self.cfg['name'], ts, snap), 'snapshot': snap}
-        tmp = self.own_folder_file() + '.tmp'
-        with open(tmp, 'w') as f: json.dump(doc, f, separators=(',', ':'))
-        os.replace(tmp, self.own_folder_file())
-        self._folder_written_etag = etag
-        return 'written'
+        with self.config_lock, self.folder_lock:
+            d = self.sync_dir()
+            if not d: return None
+            body, etag = self.store.get()
+            if not body: return None
+            if getattr(self, '_folder_written_etag', None) == etag and os.path.exists(self.own_folder_file()): return 'unchanged'
+            if not os.path.isdir(d): raise RuntimeError('sync folder does not exist: %s' % d)
+            # (an OSError from the write below is caught by callers and logged; the daemon keeps serving)
+            ts = int(time.time()); snap = load_json(body.decode())
+            doc = {'v': 1, 'id': self.cfg['id'], 'name': self.cfg['name'], 'ts': ts, 'daemon': VERSION,
+                   'sig': self.folder_sig(self.cfg['id'], self.cfg['name'], ts, snap), 'snapshot': snap}
+            atomic_write(self.own_folder_file(), json.dumps(doc, separators=(',', ':')).encode())
+            self._folder_written_etag = etag
+            return 'written'
 
-    def folder_peers(self):
-        """[{id, name, snapshot|error, via:'folder', age}] for every other laptop's file in the sync folder."""
-        d = self.sync_dir(); out = []
+    def _folder_result(self, generation, entries):
+        with self.config_lock:
+            return entries if generation == self.config_generation else []
+
+    def folder_peers(self, generation=None):
+        """Read bounded regular files; return only results from the current configuration."""
+        with self.config_lock:
+            if generation is None: generation = self.config_generation
+            if generation != self.config_generation: return []
+            d = self.sync_dir(); own = os.path.basename(self.own_folder_file())
+            pair_key = self.cfg['pair_key']; own_id = self.cfg['id']
+        out = []
         if not d: return out
-        if not os.path.isdir(d): return [{'id': 'folder', 'name': 'sync folder', 'error': 'sync folder does not exist: %s' % d, 'via': 'folder'}]
-        own = os.path.basename(self.own_folder_file())
+        if not os.path.isdir(d): return self._folder_result(generation, [{'id': 'folder', 'name': 'sync folder', 'error': 'sync folder does not exist: %s' % d, 'via': 'folder'}])
         try: names = sorted(os.listdir(d))
         except OSError as e:
-            # e.g. macOS refusing a cloud-storage folder to this process: report, never crash the request
-            return [{'id': 'folder', 'name': 'sync folder', 'via': 'folder', 'error': 'cannot read sync folder: %s — allow "StickySites Peer" (or python3) under System Settings → Privacy & Security → Files and Folders, or pick a folder outside ~/Library/CloudStorage (e.g. an SMB share)' % e}]
+            return self._folder_result(generation, [{'id': 'folder', 'name': 'sync folder', 'via': 'folder', 'error': 'cannot read sync folder: %s — allow "StickySites Peer" (or python3) under System Settings → Privacy & Security → Files and Folders, or pick a folder outside ~/Library/CloudStorage (e.g. an SMB share)' % e}])
         for fn in names:
             if not fn.startswith(self.FOLDER_PREFIX) or not fn.endswith('.json') or fn == own: continue
             path = os.path.join(d, fn)
             try:
-                st = os.stat(path); key = (st.st_mtime, st.st_size)
-                cached = self.folder_cache.get(fn)
-                if cached and cached['key'] == key: doc = cached['doc']
-                else:
-                    with open(path) as f: doc = json.load(f)
-                    self.folder_cache[fn] = {'key': key, 'doc': doc}
-                pid, name, ts = str(doc.get('id')), str(doc.get('name', ''))[:64], doc.get('ts')
-                expected = self.folder_sig(pid, name, ts, doc.get('snapshot'))
+                before = os.lstat(path)
+                if stat.S_ISLNK(before.st_mode): raise ValueError('folder entry must not be a symlink')
+                if not stat.S_ISREG(before.st_mode): raise ValueError('folder entry must be a regular file')
+                flags = os.O_RDONLY | os.O_NONBLOCK | getattr(os, 'O_NOFOLLOW', 0)
+                descriptor = os.open(path, flags)
+                try:
+                    st = os.fstat(descriptor)
+                    if not stat.S_ISREG(st.st_mode): raise ValueError('folder entry must be a regular file')
+                    if (before.st_dev, before.st_ino) != (st.st_dev, st.st_ino): raise ValueError('folder entry changed while opening')
+                    if st.st_size > MAX_FOLDER_BYTES: raise ValueError('folder file too large')
+                    key = (st.st_dev, st.st_ino, st.st_mtime_ns, st.st_ctime_ns, st.st_size)
+                    with self.config_lock:
+                        self._check_generation(generation)
+                        cached = self.folder_cache.get(fn)
+                    if cached and cached['key'] == key: doc = cached['doc']
+                    else:
+                        with os.fdopen(descriptor, 'rb', closefd=False) as stream: body = stream.read(MAX_FOLDER_BYTES + 1)
+                        if len(body) > MAX_FOLDER_BYTES: raise ValueError('folder file too large')
+                        doc = load_json(body.decode())
+                        if not isinstance(doc, dict): raise ValueError('folder document must be an object')
+                        with self.config_lock:
+                            self._check_generation(generation)
+                            self.folder_cache[fn] = {'key': key, 'doc': doc}
+                finally:
+                    os.close(descriptor)
+                pid, signed_name, ts = str(doc.get('id')), str(doc.get('name', '')), doc.get('ts')
+                name = signed_name[:64]
+                signature = doc.get('sig')
+                if not isinstance(signature, str) or len(signature) != 64 or any(c not in '0123456789abcdef' for c in signature):
+                    raise ValueError('invalid folder signature')
+                expected = self.folder_sig(pid, signed_name, ts, doc.get('snapshot'), pair_key=pair_key)
                 age = int(time.time() - st.st_mtime)
-                if not hmac.compare_digest(expected, str(doc.get('sig', ''))):
+                if not hmac.compare_digest(expected, signature):
                     out.append({'id': pid, 'name': name or fn, 'error': 'signature mismatch — that laptop uses a different pairing key', 'via': 'folder', 'age': age}); continue
-                if pid == self.cfg['id']: continue
+                if pid == own_id: continue
                 out.append({'id': pid, 'name': name or pid, 'snapshot': doc.get('snapshot'), 'via': 'folder', 'age': age})
-            except (OSError, ValueError) as e:
+            except ConfigurationChanged:
+                return self._folder_result(generation, out)
+            except (OSError, ValueError, RecursionError) as e:
                 out.append({'id': fn, 'name': fn, 'error': 'unreadable: %s' % e, 'via': 'folder'})
-        return out
+        return self._folder_result(generation, out)
 
     def folder_status(self):
         d = self.sync_dir()
@@ -381,15 +489,19 @@ class Daemon:
         return info
 
     def peers_snapshots(self):
+        with self.config_lock: generation = self.config_generation
         try:
             self.write_folder_snapshot()
         except Exception as e:
             log('sync folder write failed: %s' % e)
-        folder = {f['id']: f for f in self.folder_peers()}
+        folder = {f['id']: f for f in self.folder_peers(generation=generation)}
+        with self.config_lock:
+            if generation != self.config_generation: return []
+            peers = list(self.peers.live().values())
         out = []
-        for p in self.peers.live().values():
+        for p in peers:
             try:
-                snap = self.fetch_peer(p)
+                snap = self.fetch_peer(p, generation=generation)
                 entry = {'id': p['id'], 'name': p['name'], 'snapshot': snap}
             except Exception as e:
                 log('fetch from %s failed: %s' % (p['name'], e))
@@ -402,7 +514,8 @@ class Daemon:
                 else: entry = dict(ff, lanError=entry.get('error'))
             out.append(entry)
         out.extend(folder.values())  # folder-only peers (and signature/unreadable reports)
-        return out
+        with self.config_lock:
+            return out if generation == self.config_generation else []
 
     # Loopback-only config view/update (popup Settings). Mutates self.cfg in place so the announce,
     # listen and fetch loops pick the new pairing key / static peers up on their next iteration.
@@ -412,48 +525,58 @@ class Daemon:
                 'discoveryPort': self.cfg['mcast_port'], 'addrs': local_ipv4s(), 'syncDir': str(self.cfg.get('sync_dir') or '')}
 
     def update_config(self, body):
-        changed = []
-        if 'pairKey' in body:
-            key = str(body['pairKey']).strip()
-            if len(key) < 8 or len(key) > 128 or any(c.isspace() for c in key): raise ValueError('pairKey must be 8-128 characters without spaces')
-            if key != self.cfg['pair_key']: self.cfg['pair_key'] = key; changed.append('pairKey')
-        if 'staticPeers' in body:
-            raw = body['staticPeers']
-            if isinstance(raw, str): raw = raw.split(',')
-            if not isinstance(raw, list): raise ValueError('staticPeers must be a list or a comma-separated string')
-            peers = []
-            for p in raw:
-                p = str(p).strip()
-                if not p: continue
-                host, dport = split_host_port(p)
-                if ':' in host: raise ValueError('use IP or IP:port, e.g. 192.168.1.20 or 192.168.1.20:%d: %s' % (self.cfg['mcast_port'], p))
-                try: socket.inet_aton(host)
-                except OSError:
-                    try: socket.getaddrinfo(host, None, socket.AF_INET)
-                    except OSError: raise ValueError('not an IPv4 address or resolvable host: %s' % host)
-                if p not in peers: peers.append(p)
-            if len(peers) > 32: raise ValueError('at most 32 static peers')
-            if peers != list(self.cfg.get('static_peers', [])): self.cfg['static_peers'] = peers; changed.append('staticPeers')
-        if 'name' in body:
-            name = str(body['name']).strip()[:64]
-            if name and name != self.cfg['name']: self.cfg['name'] = name; changed.append('name')
-        if 'syncDir' in body:
-            d = str(body['syncDir']).strip()
-            if len(d) > 1024: raise ValueError('syncDir too long')
-            if d and not os.path.isdir(os.path.expanduser(d)): raise ValueError('sync folder does not exist: %s' % d)
-            if d != str(self.cfg.get('sync_dir') or ''):
-                self.cfg['sync_dir'] = d; self._folder_written_etag = None; self.folder_cache.clear(); changed.append('syncDir')
-        if changed:
-            save_config(self.cfg)
-            if 'pairKey' in changed:
-                with self.peers.lock: self.peers.peers.clear()   # peers seen under the old key are no longer trusted
-                self.cache.clear()
-            log('config updated via loopback: %s' % ', '.join(changed))
-        return changed
+        with self.config_lock, self.folder_lock:
+            candidate = dict(self.cfg)
+            changed = []
+            if 'pairKey' in body:
+                key = str(body['pairKey']).strip()
+                if len(key) < 8 or len(key) > 128 or any(c.isspace() for c in key): raise ValueError('pairKey must be 8-128 characters without spaces')
+                if key != candidate['pair_key']: candidate['pair_key'] = key; changed.append('pairKey')
+            if 'staticPeers' in body:
+                raw = body['staticPeers']
+                if isinstance(raw, str): raw = raw.split(',')
+                if not isinstance(raw, list): raise ValueError('staticPeers must be a list or a comma-separated string')
+                peers = []
+                for p in raw:
+                    p = str(p).strip()
+                    if not p: continue
+                    host, dport = split_host_port(p)
+                    if ':' in host: raise ValueError('use IP or IP:port, e.g. 192.168.1.20 or 192.168.1.20:%d: %s' % (candidate['mcast_port'], p))
+                    try: socket.inet_aton(host)
+                    except OSError:
+                        try: socket.getaddrinfo(host, None, socket.AF_INET)
+                        except OSError: raise ValueError('not an IPv4 address or resolvable host: %s' % host)
+                    if p not in peers: peers.append(p)
+                if len(peers) > 32: raise ValueError('at most 32 static peers')
+                if peers != list(candidate.get('static_peers', [])): candidate['static_peers'] = peers; changed.append('staticPeers')
+            if 'name' in body:
+                name = str(body['name']).strip()[:64]
+                if name and name != candidate['name']: candidate['name'] = name; changed.append('name')
+            if 'syncDir' in body:
+                d = str(body['syncDir']).strip()
+                if len(d) > 1024: raise ValueError('syncDir too long')
+                if d and not os.path.isdir(os.path.expanduser(d)): raise ValueError('sync folder does not exist: %s' % d)
+                if d != str(candidate.get('sync_dir') or ''):
+                    candidate['sync_dir'] = d; changed.append('syncDir')
+            if changed:
+                save_config(candidate)
+                self.cfg.update(candidate)
+                self.config_generation += 1
+                if any(field in changed for field in ('pairKey', 'syncDir', 'name')):
+                    self._folder_written_etag = None
+                    self.folder_cache.clear()
+                if 'pairKey' in changed:
+                    with self.peers.lock: self.peers.peers.clear()   # peers seen under the old key are no longer trusted
+                    self.cache.clear()
+                log('config updated via loopback: %s' % ', '.join(changed))
+            return changed
 
     # Definitive connectivity test to one peer address: TCP → TLS (cert fingerprint) → GET /hello with
     # the bearer token. Each step reports ok/fail + elapsed ms; the first failing step names the cause.
     def test_peer(self, target):
+        with self.config_lock:
+            generation = self.config_generation; pair_key = self.cfg['pair_key']
+            trusted = list(self.peers.live().values())
         host, dport = split_host_port(str(target))
         port = dport if dport and dport != self.cfg['mcast_port'] else self.cfg['lan_port']
         res = {'target': str(target), 'host': host, 'port': port, 'steps': [], 'ok': False}
@@ -476,21 +599,34 @@ class Daemon:
                 step('tcp', False, '%s%s' % (e, hint)); return res
             step('tcp', True, 'connected')
             fp = hashlib.sha256(conn.sock.getpeercert(binary_form=True)).hexdigest()
-            known = [q for q in self.peers.live().values() if q.get('fp') == fp]
-            step('tls', True, 'cert %s%s' % (fp[:12], ' (matches announced peer %s)' % known[0]['name'] if known else ''))
-            conn.request('GET', '/hello', headers={'Authorization': 'Bearer ' + bearer(self.cfg['pair_key'])})
-            r = conn.getresponse(); body = r.read()
+            known = [q for q in trusted if q.get('fp') == fp]
+            if not known:
+                step('tls', False, 'cert %s is not authenticated by signed discovery; verify the pairing key and wait for an announcement' % fp[:12])
+                return res
+            with self.config_lock: self._check_generation(generation)
+            step('tls', True, 'cert %s (matches announced peer %s)' % (fp[:12], known[0]['name']))
+            with socket_deadline(conn.sock, PEER_RESPONSE_TIMEOUT):
+                conn.request('GET', '/hello', headers={'Authorization': 'Bearer ' + bearer(pair_key)})
+                r = conn.getresponse(); body = read_peer_response(r, MAX_HELLO_BYTES)
+            with self.config_lock: self._check_generation(generation)
             if r.status == 401:
                 step('pairing', False, 'HTTP 401 — the other laptop has a DIFFERENT pairing key'); return res
             if r.status != 200:
                 step('pairing', False, 'HTTP %s' % r.status); return res
-            try: hello = json.loads(body.decode())
+            try: hello = load_json(body.decode())
             except ValueError: hello = {}
-            step('pairing', True, 'key accepted by %s' % hello.get('name', host))
-            res.update({'ok': True, 'peerName': hello.get('name'), 'peerId': hello.get('id'), 'peerVersion': hello.get('version')})
-            heard = next((q for q in self.peers.live().values() if q.get('id') == hello.get('id')), None)
-            res['heardFrom'] = int(time.time() - heard['lastSeen']) if heard else None
-            return res
+            if not isinstance(hello, dict): hello = {}
+            with self.config_lock:
+                self._check_generation(generation)
+                step('pairing', True, 'key accepted by %s' % hello.get('name', host))
+                res.update({'ok': True, 'peerName': hello.get('name'), 'peerId': hello.get('id'), 'peerVersion': hello.get('version')})
+                heard = next((q for q in self.peers.live().values() if q.get('id') == hello.get('id')), None)
+                res['heardFrom'] = int(time.time() - heard['lastSeen']) if heard else None
+                return res
+        except ConfigurationChanged as e:
+            step('pairing', False, str(e)); return res
+        except (OSError, ValueError, http.client.HTTPException):
+            step('pairing', False, 'peer response invalid or timed out'); return res
         finally:
             try: conn.close()
             except Exception: pass
@@ -502,13 +638,49 @@ class Daemon:
                 'hasSnapshot': bool(self.store.get()[0]),
                 'peers': [{'id': p['id'], 'name': p['name'], 'addr': p['addr'], 'port': p['port'], 'lastSeen': int(time.time() - p['lastSeen'])} for p in self.peers.live().values()]}
 
+class PeerRequestHandler(BaseHTTPRequestHandler):
+    def handle(self):
+        # The idle socket timeout alone resets for each arriving header byte.
+        with socket_deadline(self.connection, self.server.request_timeout) as timer:
+            self._header_deadline = timer
+            super().handle()
+    def parse_request(self):
+        try: return super().parse_request()
+        finally:
+            # Body reads receive their own deadline. Request handling may perform
+            # bounded peer I/O after all headers have already arrived.
+            self._header_deadline.cancel()
+
 def make_handlers(d):
-    class LoopHandler(BaseHTTPRequestHandler):
+    class LoopHandler(PeerRequestHandler):
         """Loopback API for the extension. CORS-open to chrome-extension:// origins only."""
         def log_message(self, *a): pass
+        @staticmethod
+        def _extension_origin(origin):
+            try:
+                parsed = urlsplit(origin)
+                return (parsed.scheme in ('chrome-extension', 'moz-extension') and bool(parsed.hostname)
+                        and parsed.netloc == parsed.hostname and not parsed.path and not parsed.query and not parsed.fragment)
+            except ValueError: return False
+        def _allowed(self):
+            # A DNS-rebound web page must not read secrets or trigger diagnostic connections.
+            try:
+                hosts = self.headers.get_all('Host', [])
+                host = urlsplit('http://' + hosts[0]) if len(hosts) == 1 else None
+                valid_host = (host is not None and host.hostname in ('127.0.0.1', 'localhost', '::1')
+                              and host.username is None and host.password is None and not host.path
+                              and not host.query and not host.fragment and host.port in (None, self.server.server_port))
+            except ValueError: valid_host = False
+            origins = self.headers.get_all('Origin', [])
+            valid_origin = (not origins or (len(origins) == 1 and self._extension_origin(origins[0])))
+            browser_get = (not origins and (self.headers.get('Sec-Fetch-Site') in ('cross-site', 'same-site')
+                                           or self.headers.get('Sec-Fetch-Mode') == 'navigate'))
+            if valid_host and valid_origin and not browser_get: return True
+            self._json(403, {'error': 'loopback Host and extension Origin required'})
+            return False
         def _cors(self):
             origin = self.headers.get('Origin', '')
-            if origin.startswith('chrome-extension://') or origin.startswith('moz-extension://'):
+            if self._extension_origin(origin):
                 self.send_header('Access-Control-Allow-Origin', origin)
                 self.send_header('Vary', 'Origin')
             self.send_header('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS')
@@ -517,9 +689,35 @@ def make_handlers(d):
         def _json(self, code, obj):
             body = json.dumps(obj).encode()
             self.send_response(code); self._cors(); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(body))); self.end_headers(); self.wfile.write(body)
+        def _read_body(self, limit):
+            lengths = self.headers.get_all('Content-Length', [])
+            if self.headers.get('Transfer-Encoding') is not None or len(lengths) > 1:
+                self._json(400, {'error': 'ambiguous request length'}); return None
+            if not lengths:
+                self._json(411, {'error': 'Content-Length required'}); return None
+            value = lengths[0].strip()
+            if not value or any(c not in '0123456789' for c in value):
+                self._json(400, {'error': 'invalid Content-Length'}); return None
+            try: n = int(value)
+            except ValueError:
+                self._json(400, {'error': 'invalid Content-Length'}); return None
+            if n > limit:
+                self._json(413, {'error': 'too large'}); return None
+            try:
+                with socket_deadline(self.connection, self.server.request_timeout, read_only=True) as deadline:
+                    body = self.rfile.read(n)
+                    if deadline.deadline_expired.is_set():
+                        self._json(408, {'error': 'request body timed out'}); return None
+            except socket.timeout:
+                self._json(408, {'error': 'request body timed out'}); return None
+            if len(body) != n:
+                self._json(400, {'error': 'incomplete request body'}); return None
+            return body
         def do_OPTIONS(self):
+            if not self._allowed(): return
             self.send_response(204); self._cors(); self.end_headers()
         def do_GET(self):
+            if not self._allowed(): return
             if self.path == '/status': return self._json(200, d.status())
             if self.path == '/config': return self._json(200, d.get_config())
             if self.path.startswith('/test'):
@@ -538,29 +736,35 @@ def make_handlers(d):
             if self.path == '/peers/snapshots': return self._json(200, {'peers': d.peers_snapshots()})
             self._json(404, {'error': 'not found'})
         def do_PUT(self):
+            if not self._allowed(): return
             if self.path == '/config':
-                n = int(self.headers.get('Content-Length', '0'))
-                if n > 16 * 1024: return self._json(413, {'error': 'too large'})
+                raw = self._read_body(16 * 1024)
+                if raw is None: return
                 try:
-                    body = json.loads(self.rfile.read(n).decode())
+                    body = load_json(raw.decode())
                     if not isinstance(body, dict): raise ValueError('body must be an object')
                     changed = d.update_config(body)
                 except ValueError as e: return self._json(400, {'error': str(e)})
+                except OSError as e:
+                    log('config persistence failed: %s' % e)
+                    return self._json(500, {'error': 'could not save configuration'})
                 return self._json(200, {'ok': True, 'changed': changed, 'config': d.get_config()})
             if self.path != '/snapshot': return self._json(404, {'error': 'not found'})
-            n = int(self.headers.get('Content-Length', '0'))
-            if n > 64 * 1024 * 1024: return self._json(413, {'error': 'snapshot too large'})
-            body = self.rfile.read(n)
+            body = self._read_body(MAX_SNAPSHOT_BYTES)
+            if body is None: return
             try:
-                snap = json.loads(body.decode())
+                snap = load_json(body.decode())
                 if not isinstance(snap, dict) or snap.get('version') != 1 or 'notes' not in snap: raise ValueError('bad snapshot')
             except ValueError as e: return self._json(400, {'error': str(e)})
-            d.store.put(body)
+            try: d.store.put(body)
+            except OSError as e:
+                log('snapshot persistence failed: %s' % e)
+                return self._json(500, {'error': 'could not save snapshot'})
             try: d.write_folder_snapshot()
             except Exception as e: log('sync folder write failed: %s' % e)
             self._json(200, {'ok': True, 'etag': d.store.get()[1]})
 
-    class LanHandler(BaseHTTPRequestHandler):
+    class LanHandler(PeerRequestHandler):
         """LAN API for peers. Bearer token derived from the pairing key; TLS with a pinned cert."""
         def log_message(self, *a): pass
         def do_GET(self):
@@ -578,14 +782,56 @@ def make_handlers(d):
             self.send_response(404); self.end_headers()
     return LoopHandler, LanHandler
 
+class PeerHTTPServer(ThreadingHTTPServer):
+    """Accept promptly; perform each bounded TLS handshake in its request worker."""
+    daemon_threads = True
+    def __init__(self, *args, tls_context=None, max_workers=MAX_HTTP_WORKERS, request_timeout=REQUEST_TIMEOUT, **kwargs):
+        self.tls_context = tls_context
+        self.max_workers = max_workers
+        self.request_timeout = request_timeout
+        self._worker_slots = threading.BoundedSemaphore(max_workers)
+        super().__init__(*args, **kwargs)
+    def get_request(self):
+        request, address = super().get_request()
+        request.settimeout(self.request_timeout)
+        return request, address
+    def process_request(self, request, address):
+        if not self._worker_slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try: super().process_request(request, address)
+        except BaseException:
+            self._worker_slots.release()
+            raise
+    def handle_error(self, request, address):
+        if isinstance(sys.exc_info()[1], (ConnectionResetError, BrokenPipeError)): return
+        super().handle_error(request, address)
+    def process_request_thread(self, request, address):
+        try:
+            if self.tls_context is not None:
+                try: request = self.tls_context.wrap_socket(request, server_side=True)
+                except OSError:
+                    self.shutdown_request(request)
+                    return
+            super().process_request_thread(request, address)
+        finally:
+            self._worker_slots.release()
+
+def make_servers(d, lan_host='0.0.0.0'):
+    cfg = d.cfg
+    LoopHandler, LanHandler = make_handlers(d)
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(CERT, KEY)
+    loop = PeerHTTPServer(('127.0.0.1', cfg['loop_port']), LoopHandler)
+    try: lan = PeerHTTPServer((lan_host, cfg['lan_port']), LanHandler, tls_context=ctx)
+    except BaseException:
+        loop.server_close()
+        raise
+    return loop, lan
+
 def run(cfg):
     ensure_cert()
     d = Daemon(cfg)
-    LoopHandler, LanHandler = make_handlers(d)
-    loop = ThreadingHTTPServer(('127.0.0.1', cfg['loop_port']), LoopHandler); loop.daemon_threads = True
-    lan = ThreadingHTTPServer(('0.0.0.0', cfg['lan_port']), LanHandler); lan.daemon_threads = True
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER); ctx.load_cert_chain(CERT, KEY)
-    lan.socket = ctx.wrap_socket(lan.socket, server_side=True)
+    loop, lan = make_servers(d)
     for target in (d.announce_loop, d.listen_loop, loop.serve_forever, lan.serve_forever):
         threading.Thread(target=target, daemon=True).start()
     log('stickysites-peer %s "%s" up: loopback http://127.0.0.1:%d, lan https://0.0.0.0:%d, mcast %s:%d' % (VERSION, cfg['name'], cfg['loop_port'], cfg['lan_port'], MCAST_GROUP, cfg['mcast_port']))
@@ -595,7 +841,7 @@ def run(cfg):
     except KeyboardInterrupt:
         pass
     finally:
-        d.stop.set(); loop.shutdown(); lan.shutdown()
+        d.stop.set(); loop.shutdown(); lan.shutdown(); loop.server_close(); lan.server_close()
 
 # ── install ──────────────────────────────────────────────────────────────────
 APP_DIR = os.path.expanduser('~/Applications/StickySites Peer.app')

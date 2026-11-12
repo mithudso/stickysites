@@ -14,7 +14,8 @@ Open a **private security advisory** on this repository
 
 ## Scope
 
-StickySites is a local-only Chrome extension: no servers, no network calls, no telemetry.
+StickySites stores notes locally and has no hosted telemetry service. Optional integrations
+use a native-messaging host, loopback HTTP, paired LAN peers, or a user-selected shared/cloud folder.
 The interesting surfaces are the AES-256-GCM vault (`src/content/crypto-content.js`), the
 content scripts injected into every page, and the optional native-messaging to-do sync.
 

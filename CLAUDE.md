@@ -12,12 +12,12 @@ Before grepping, query the machine-wide `global_ai_hub` MCP server (`hub_search_
 ## Repository shape
 
 Chrome Extension (Manifest V3), vanilla JavaScript, no build step, single package.
-Version: **1.13.0** (`manifest.json` is canonical; `package.json` must match — `npm run lint` checks).
+The current version is in `manifest.json`; `package.json` must match (`npm run lint` checks).
 
 ```
 stickysites/
   manifest.json            # MV3 manifest — permissions, content scripts (load order!), SW, command
-  package.json             # Dev tooling only (vitest, canvas) + npm scripts
+  package.json             # Development tooling only (Vitest, jsdom, ESLint, canvas) + npm scripts
   vitest.config.mjs        # Vitest config (node environment, globals)
   popup.html / .js / .css  # Browser action popup: Quick-Open, search, sort, filter, export, settings
   popout.html / .js / .css # Standalone popout window: loads note type from URL params, Panel full-page
@@ -25,7 +25,9 @@ stickysites/
     background/
       service-worker.js    # ES module: context menus, Alt+S command, popout window, to-do sync
     content/               # Classic scripts, loaded in manifest order (no ES modules)
-      crypto-content.js    # window.StickySites.Crypto — AES-GCM namespace (loaded first)
+      storage-content.js   # window.StickySites.Storage — mutation IPC to the service worker
+      safe-html.js         # window.StickySites.Html — inert parsing and HTML filtering
+      crypto-content.js    # window.StickySites.Crypto — AES-GCM namespace after storage/safety helpers
       note-types.js        # window.StickySites.noteTypes — 6 type descriptors, identity icons
       prefs.js             # window.StickySites.Prefs — read/write stickysites_prefs_v1
       cluster.js           # window.StickySites.Cluster — floating pill, drag, reorder, layout
@@ -36,15 +38,19 @@ stickysites/
       panel.js             # window.StickySites.Panel — panel, rich text, find/replace, to-do UI
       sticky-inject.js     # Orchestrator: wiring, lock overlay, clip, F-key shortcuts, SPA watch
       sticky-inject.css    # All injected styles (z-index near INT32_MAX)
-    shared/                # ES modules — service worker + vitest
+    shared/                # service-worker modules plus portable classic helpers
+      settings.js          # classic shared preference normalization and timeout defaults
+      network.js           # classic shared fetch deadlines, including JSON response bodies
+      note-writer.js       # service-worker mutation queue: fresh reads, guarded commits, verification
       todo-bridge.js       # Native-messaging to-do sync (used by the SW; unit-tested)
       peer-sync.js         # Local peer sync: snapshot build + LWW merge + daemon round-trip (SW; unit-tested)
       crypto.js            # AES-GCM primitives (ES duplicate of crypto-content.js; tests)
       notes-storage.js     # Storage CRUD reference implementation (tests only today)
-  tests/                   # 5 vitest files, 125 tests
+  tests/                   # pure modules, actual-script jsdom regressions, tooling, compatibility
   peer/
     stickysites-peer.py    # Local peer daemon (stdlib Python): LAN discovery + snapshot relay; install/uninstall/status/pair
-    test_peer.py           # Two-daemon end-to-end test (npm run test:peer)
+    test_peer.py           # Actual-module loopback integration/regression suite
+    peer_fixture.py        # isolated homes and dynamic loopback sockets
     README.md              # Design, install, encryption rules, security model
   scripts/
     check-syntax.mjs       # npm run lint — node --check + manifest/package version agreement
@@ -66,13 +72,15 @@ stickysites/
 ## Commands
 
 ```bash
-npm install                 # dev deps only
-npm run lint                # syntax gate for every .js/.mjs + version agreement (CI step 1)
-npm test                    # vitest run — 125 tests, node env, chrome mocked (CI step 2)
-npm run test:peer           # two peer daemons on ephemeral ports discover + exchange a snapshot (CI step 3)
+npm ci                      # locked development dependencies only
+npm run lint                # syntax, ESLint, and manifest/package version agreement
+npm test                    # Vitest: pure modules and actual runtime scripts with jsdom
+npm run test:peer           # actual daemon modules: isolated homes, loopback discovery and pinned TLS
 npm run test:watch          # watch mode
 npx vitest run tests/outline-ops.test.js   # one file
-npm run docs:check-indexes  # docs/high_signal_file_index.json + llms.txt links resolve (CI step 3)
+npm run docs:generate       # regenerate public retrieval docs from tracked sources
+npm run docs:check-generated # fail on stale generated documentation
+npm run docs:check-indexes  # validate retrieval and wiki links
 npm run docs:check-indexes -- --prune      # drop dead index entries
 npm run logs:rotate         # rotate memory.md / prompts.md when > ~200 KB
 npm run icons               # regenerate icons/
@@ -82,7 +90,8 @@ npm run store:screenshots   # regenerate store/screenshots/*.png (same prerequis
 npm run store:promo         # regenerate store/promo/*.png
 ```
 
-Loading: `chrome://extensions` → Developer mode → Load unpacked → repo root → ↻ after changes.
+For an explicitly requested live smoke, loading is: `chrome://extensions` → Developer mode → Load unpacked → repo root → ↻ after changes.
+Use an isolated test profile; automated maintenance does not reload active user sessions.
 Manifest changes also need every test tab closed and reopened. Runbook:
 `docs/runbooks/load-and-reload-extension.md`.
 
@@ -90,9 +99,9 @@ Manifest changes also need every test tab closed and reopened. Runbook:
 
 ```
  host page tab ──────────────────────────────────┐
-   content scripts (10, classic, window.StickySites.*)
+   content scripts (classic, window.StickySites.*)
    ├─ Cluster (floating pill)  ─ click ─▶ Panel.open(type)
-   ├─ Panel (editor / to-do / outliner) ─ 500 ms debounce ─▶ chrome.storage.local
+   ├─ Panel (editor / to-do / outliner) ─ 500 ms debounce ─▶ queued mutation IPC
    └─ sticky-inject: lock overlay, clip, Ctrl/Cmd+F1..F6, SPA re-key,
         chrome.runtime.onMessage (TOGGLE / OPEN / CLIP), storage.onChanged → Panel.syncFromStorage
                      ▲ tabs.sendMessage                  │ runtime.sendMessage(POPOUT)
@@ -104,22 +113,30 @@ Manifest changes also need every test tab closed and reopened. Runbook:
  chrome.storage.local: stickysites_*_v1 keys, stickysites_cached_key (JWK)
 ```
 
-No internet calls. Out-of-browser boundaries: the optional native-messaging to-do host and the
-optional loopback peer daemon (`docs/external-calls.md`).
+No hosted service or telemetry. Optional boundaries include native messaging, loopback HTTP,
+paired LAN transport, and a shared/cloud folder selected by the user (`docs/external-calls.md`).
 
 ### Module system split
 - **Content scripts** (`src/content/`) are classic scripts in `manifest.json` order; they
   cannot `import`. All logic hangs off `window.StickySites.*`. `mentions.js` and `panel.js`
   depend on namespaces set up by earlier scripts. `popout.html` loads the same files with
-  `<script>` tags (minus `cluster.js` and `sticky-inject.js`); `popup.html` loads only
-  `crypto-content.js` + `popup.js`.
+  `<script>` tags (minus `cluster.js` and `sticky-inject.js`); `popup.html` also loads shared settings/network, mutation IPC, HTML filtering, crypto, and prefs helpers.
 - **Service worker** is `"type": "module"` and imports `src/shared/todo-bridge.js`,
-  `src/shared/peer-sync.js`, `src/shared/crypto.js`.
-- **Shared modules** (`src/shared/`) are ES modules. `crypto-content.js` is the
+  `src/shared/peer-sync.js`, `src/shared/crypto.js`, and `src/shared/note-writer.js`.
+- **Shared modules** (`src/shared/`) include ES modules and portable classic `settings.js` /
+  `network.js` helpers. `crypto-content.js` is the
   namespace-style duplicate of `crypto.js` — same algorithm, different packaging; change
-  both together. `notes-storage.js` is a reference CRUD layer exercised by tests; the
-  extension's runtime reads/writes storage directly in `panel.js`, `outline.js`,
-  `sticky-inject.js`, `popup.js`.
+  both together. `notes-storage.js` is a reference CRUD layer exercised by tests; runtime
+  mutations go through `storage-content.js` to the service worker's `note-writer.js` queue.
+
+### Runtime mutation ownership
+
+`src/shared/note-writer.js` owns the service worker's single mutation queue. Content and
+extension pages send `STICKYSITES_WRITE` through `src/content/storage-content.js`. Record,
+clip, preference, and deletion/tombstone writes read fresh state and verify the persisted
+values. Long native/peer calls stay outside the queue and use guarded commits; `STATE_CHANGED`
+rejects a stale result. Vault enable/disable stage every bucket before a guarded commit.
+Imported rich HTML passes through `safe-html.js`; an open panel remains in the host page DOM.
 
 ### Canonical record schema
 Map-pattern records (site/page/daily) store `key` + `label`. Readers must fall back to the
@@ -147,7 +164,7 @@ stickysites_pages_v1      # origin+path → { key, label, body, tags, ... }
 stickysites_todos_v1      # { __global__: { key, items, sections, tagColors, ... } }
 stickysites_outlines_v1   # ol_<id> → { key, name, items, ... } (legacy hostname keys adapt at read)
 stickysites_daily_v1      # YYYY-MM-DD → { key, body, ... }
-stickysites_prefs_v1      # { clusterPosition, clusterLayout, iconOrder, enabledTypes,
+stickysites_prefs_v1      # { clusterPosition, clusterLayout, collapseToCircle, iconOrder, enabledTypes,
                           #   panelSize, panelPosition, activeOutlineId, panelMode (unused) }
 stickysites_crypto_v1     # { enabled, salt (base64), verify (AES envelope) }
 stickysites_cached_key    # JWK of the derived AES-GCM key — persists until Lock Now
@@ -163,7 +180,7 @@ stickysites_peer_v1       # { deviceId, enabled, lastSync, lastResult } — peer
 ### Encryption (opt-in, AES-256-GCM)
 - Enabled from the popup Settings panel.
 - On enable: random 16-byte salt, PBKDF2 (600,000 iterations, SHA-256) → AES-GCM-256 key,
-  encrypts a verify string, re-encrypts all 6 note keys.
+  stages encrypted buckets, the verify string, config, and cached key before a guarded commit.
 - The key is exported as JWK into `stickysites_cached_key`. It persists until **Lock Now**
   in the popup or `StickySites.Crypto.clearCachedKey()`.
 - Encrypted values are `{ iv: string, data: string }`. `isEncrypted()` requires that shape
@@ -274,7 +291,7 @@ with 10 s Undo. `outline-ops.js` holds the pure tree ops (vitest with a stubbed 
 Quick-Open row (6 buttons, respects `enabledTypes`; falls back to a popout on `chrome://`),
 search, sort (Recent / Oldest / A–Z), type tabs, tag filter, Markdown export, Settings
 (encryption Enable / Disable / Lock Now, note-type visibility, cluster layout), lock screen.
-Writes prefs directly with `chrome.storage.local` (it does not load `prefs.js`).
+Uses the shared preference normalizer and queued preference writes (`prefs.js`, `settings.js`).
 
 ### SPA navigation
 `sticky-inject.js` watches `popstate`/`hashchange` + a 1 s `href` poll; on change it refreshes
@@ -287,7 +304,7 @@ cluster icons and re-opens an open site/page note under the new key (flushing fi
 - All injected DOM uses the `stickysites-` prefix; z-index near INT32_MAX.
 - Storage keys versioned (`_v1`); adapt legacy shapes at read time, never bulk-migrate.
 - Debounce auto-save at 500 ms; flush before close / switch / popout / re-key.
-- `chrome.storage.local` only (no size limit); never `chrome.storage.sync`.
+- `chrome.storage.local` only (subject to Chrome storage limits); never `chrome.storage.sync`.
 - Logging: `console.warn('[stickysites] <subsystem>', {...})` on integration failure paths
   only; never log note content or key material (`docs/logging.md`).
 - 2-space indent, LF (`.editorconfig`); content scripts use `var` in the namespace IIFEs.
@@ -295,6 +312,7 @@ cluster icons and re-opens an open site/page note under the new key (flushing fi
 ## Message types
 | Type                  | Direction                | Purpose |
 |-----------------------|--------------------------|---------|
+| `STICKYSITES_WRITE` | content / popup / popout → SW | Queue a record, clip, prefs, lock, or guarded mutation |
 | `STICKYSITES_TOGGLE`  | SW / popup → content     | Toggle cluster visibility |
 | `STICKYSITES_OPEN`    | popup → content          | Open a note type (`noteTypeId`, optional `key` for an outline doc) |
 | `STICKYSITES_CLIP`    | SW → content             | Clip selected text into a note |

@@ -47,7 +47,7 @@ describe('cryptoCompatibility', () => {
 });
 
 describe('mergeNotes', () => {
-  it('newer remote record wins, older remote record loses, ties keep local', () => {
+  it('newer remote record wins, older remote record loses, equal-time records use canonical order', () => {
     const local = { notes: { stickysites_sites_v1: { a: site('a', 'local-a', '2026-01-02T00:00:00Z'), b: site('b', 'local-b', '2026-01-05T00:00:00Z'), c: site('c', 'local-c', '2026-01-03T00:00:00Z') } } };
     const remote = { notes: { stickysites_sites_v1: { a: site('a', 'remote-a', '2026-01-03T00:00:00Z'), b: site('b', 'remote-b', '2026-01-04T00:00:00Z'), c: site('c', 'remote-c', '2026-01-03T00:00:00Z') } } };
     const m = mergeNotes(local, [remote]);

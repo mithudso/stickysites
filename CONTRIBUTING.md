@@ -11,7 +11,7 @@ and coding conventions.
 
 1. Fork the repo and create a feature branch
 2. Make your changes, following the conventions in DEVELOPMENT.md
-3. Run `npm test` and ensure all tests pass
+3. Run `npm run lint`, `npm test`, `npm run test:peer`, and both documentation checks; see DEVELOPMENT.md for safe integration fixtures
 4. Submit a PR using the [PR template](.github/PULL_REQUEST_TEMPLATE.md)
 
 ## Code style

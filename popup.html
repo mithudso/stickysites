@@ -18,7 +18,7 @@
     <div id="quick-open"></div>
 
     <div id="search-bar">
-      <input type="text" id="search-input" placeholder="Search notes...">
+      <input type="text" id="search-input" aria-label="Search notes" placeholder="Search notes...">
     </div>
 
     <div id="filters">
@@ -42,6 +42,11 @@
       <button id="save-all-btn" class="footer-btn">Save all as .md</button>
     </footer>
   </div>
+  <script src="src/shared/settings.js"></script>
+  <script src="src/shared/network.js"></script>
+  <script src="src/content/storage-content.js"></script>
+  <script src="src/content/safe-html.js"></script>
+  <script src="src/content/prefs.js"></script>
   <script src="src/content/crypto-content.js"></script>
   <script src="popup.js"></script>
 </body>

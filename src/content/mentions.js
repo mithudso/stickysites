@@ -47,15 +47,24 @@ window.StickySites = window.StickySites || {};
     flatItems: [],
 
     attach: function (editorEl) {
+      if (this._controller) this._controller.abort();
+      this.hide();
+      this._controller = new AbortController();
+      var signal = this._controller.signal;
       this.editorEl = editorEl;
+      this._composing = false;
       var self = this;
 
+      editorEl.addEventListener('compositionstart', function () { self._composing = true; self.hide(); }, { signal: signal });
+      editorEl.addEventListener('compositionend', function () { self._composing = false; self._checkForTrigger(); }, { signal: signal });
+
       editorEl.addEventListener('input', function () {
-        self._checkForTrigger();
-      });
+        if (!self._composing) self._checkForTrigger();
+      }, { signal: signal });
 
       editorEl.addEventListener('keydown', function (e) {
-        if (!self.visible) return;
+        if (e.isComposing || self._composing || !self.visible) return;
+        if (!self._validSelection()) { self.hide(); return; }
         if (e.key === 'ArrowDown') {
           e.preventDefault();
           self.selectedIndex = (self.selectedIndex + 1) % self.flatItems.length;
@@ -73,13 +82,21 @@ window.StickySites = window.StickySites || {};
           e.preventDefault();
           self.hide();
         }
-      });
+      }, { signal: signal });
 
       document.addEventListener('click', function (e) {
         if (self.dropdown && !self.dropdown.contains(e.target) && e.target !== editorEl) {
           self.hide();
         }
-      });
+      }, { signal: signal });
+    },
+
+    detach: function () { if (this._controller) this._controller.abort(); this.hide(); this.editorEl = null; },
+
+    _validSelection: function () {
+      var position = this.atPosition, selection = window.getSelection();
+      var range = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+      return !!(position && range && range.collapsed && position.node.isConnected && range.startContainer === position.node && range.startOffset === position.end && position.node.textContent === position.text);
     },
 
     _checkForTrigger: function () {
@@ -101,7 +118,7 @@ window.StickySites = window.StickySites || {};
       if (beforeAt !== ' ' && beforeAt !== '\n' && atIdx !== 0) { this.hide(); return; }
 
       this.query = text.substring(atIdx + 1, offset).toLowerCase();
-      this.atPosition = { node: textNode, offset: atIdx };
+      this.atPosition = { node: textNode, offset: atIdx, end: offset, text: text };
       this._buildFlatItems();
       this.selectedIndex = 0;
 
@@ -115,21 +132,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _buildFlatItems: function () {
-      var q = this.query;
-      var flat = [];
-      MENTION_ITEMS.forEach(function (cat) {
-        var matchedItems = cat.items.filter(function (item) {
-          if (!q) return true;
-          return item.label.toLowerCase().includes(q) || cat.category.toLowerCase().includes(q);
-        });
-        if (matchedItems.length > 0) {
-          flat.push({ type: 'header', label: cat.icon + ' ' + cat.category });
-          matchedItems.forEach(function (item) {
-            flat.push({ type: 'item', label: item.label, data: item });
-          });
-        }
-      });
-      this.flatItems = flat.filter(function (f) { return f.type === 'item'; });
+      this.flatItems = this._getAllDisplayItems().filter(function (f) { return f.type === 'item'; });
     },
 
     _getAllDisplayItems: function () {
@@ -205,7 +208,13 @@ window.StickySites = window.StickySites || {};
     _selectItem: function (flatItem) {
       var item = flatItem.data;
       var self = this;
+      var atPosition = this.atPosition;
+      var selection = window.getSelection();
+      var selected = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+      var currentOffset = selected ? selected.startOffset : -1;
+      var valid = this._validSelection();
       this.hide();
+      if (!valid) return;
 
       var insertText = '';
 
@@ -223,12 +232,11 @@ window.StickySites = window.StickySites || {};
         insertText = val;
       }
 
-      if (!insertText || !self.atPosition) return;
+      if (!insertText || !valid || !atPosition.node.isConnected || atPosition.node.textContent !== atPosition.text) return;
 
-      var node = self.atPosition.node;
-      var atOff = self.atPosition.offset;
+      var node = atPosition.node;
+      var atOff = atPosition.offset;
       var sel = window.getSelection();
-      var currentOffset = sel.getRangeAt(0).startOffset;
 
       var before = node.textContent.substring(0, atOff);
       var after = node.textContent.substring(currentOffset);

@@ -99,7 +99,8 @@
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: 450px;
+  width: min(450px, calc(100vw - 40px));
+  box-sizing: border-box;
   height: min(400px, 50vh);
   display: flex;
   flex-direction: column;

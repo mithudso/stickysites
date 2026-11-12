@@ -1,6 +1,8 @@
 # Runbook: load, reload, and verify the unpacked extension
 
-**Precondition**: repo checked out; `npm run lint && npm test` green.
+**Precondition**: an explicitly requested live browser check, a checked-out repo, and
+passing automated checks. This runbook is not a requirement to activate an extension during
+automated maintenance; use an isolated test profile and preserve active user sessions.
 
 ## Steps
 

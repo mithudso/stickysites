@@ -10,9 +10,14 @@
   var SORT_LABELS = { recent: 'Recent ▾', oldest: 'Oldest ▾', alpha: 'A–Z ▾' };
 
   var Crypto = window.StickySites?.Crypto || null;
+  var Prefs = window.StickySites.Prefs;
+  var controlsBound = false;
+  var unlockOnly = new URLSearchParams(location.search).get('unlock') === '1';
 
   var state = {
     allNotes: [],
+    locked: false,
+    generation: 0,
     typeFilter: 'all',
     sortMode: 'recent',
     searchQuery: '',
@@ -32,11 +37,21 @@
   }
 
   function showPopupLock() {
+    state.locked = true;
+    state.generation++;
+    state.allNotes = [];
+    state.searchQuery = '';
+    state.activeTags = [];
+    document.getElementById('notes-list').replaceChildren();
+    document.getElementById('tag-filters').replaceChildren();
+    document.getElementById('quick-open').replaceChildren();
+    document.getElementById('search-input').value = '';
+    document.getElementById('popup-settings')?.remove();
     var app = document.getElementById('app');
     app.style.display = 'none';
 
     var existing = document.getElementById('popup-lock');
-    if (existing) existing.remove();
+    if (existing) return;
 
     var lock = document.createElement('div');
     lock.id = 'popup-lock';
@@ -62,18 +77,26 @@
     error.className = 'popup-lock-error';
 
     async function doUnlock() {
-      if (!input.value) return;
+      if (!input.value || btn.disabled) return;
       btn.disabled = true;
       btn.textContent = 'Unlocking...';
-      var ok = await Crypto.unlock(input.value);
-      if (ok) {
-        lock.remove();
-        app.style.display = '';
-        await initPopup();
-      } else {
-        error.textContent = 'Wrong passphrase';
+      error.textContent = '';
+      try {
+        var ok = await Crypto.unlock(input.value);
+        input.value = '';
+        if (ok) {
+          if (unlockOnly) { window.close(); return; }
+          await initPopup();
+          if (!state.locked) { lock.remove(); app.style.display = ''; }
+        } else {
+          error.textContent = 'Wrong passphrase';
+          input.focus();
+        }
+      } catch {
+        error.textContent = 'Could not unlock notes. Please try again.';
         input.value = '';
         input.focus();
+      } finally {
         btn.disabled = false;
         btn.textContent = 'Unlock';
       }
@@ -91,6 +114,8 @@
 
   // --- Settings panel ---
   async function showSettings() {
+    if (!await checkAndShowLock()) return;
+    var generation = ++state.generation;
     var app = document.getElementById('app');
     app.style.display = 'none';
 
@@ -108,9 +133,11 @@
     var backBtn = document.createElement('button');
     backBtn.className = 'header-btn';
     backBtn.textContent = 'Back';
-    backBtn.addEventListener('click', function () {
+    backBtn.addEventListener('click', async function () {
+      if (state.locked || !await checkAndShowLock()) return;
       panel.remove();
-      app.style.display = '';
+      await initPopup();
+      if (!state.locked) app.style.display = '';
     });
     header.append(title, backBtn);
 
@@ -158,31 +185,27 @@
       }
     }
 
-    toggleBtn.addEventListener('click', async function () {
-      if (!Crypto) return;
-      var enabled = await Crypto.isEnabled();
-      if (enabled) {
-        // Disable encryption
-        toggleBtn.disabled = true;
-        toggleBtn.textContent = 'Disabling...';
-        await Crypto.disable();
+    async function convertVault(enabling, passphrase) {
+      if (toggleBtn.disabled) return;
+      toggleBtn.disabled = true;
+      toggleBtn.textContent = enabling ? 'Enabling...' : 'Disabling...';
+      try {
+        if (enabling) await Crypto.enable(passphrase); else await Crypto.disable();
         await updateToggleState();
         await updateLockBtnState();
-        toggleBtn.disabled = false;
-        var form = panel.querySelector('.settings-passphrase-form');
-        if (form) form.remove();
-      } else {
-        // Show passphrase setup form
-        showPassphraseForm(section, async function (passphrase) {
-          toggleBtn.disabled = true;
-          toggleBtn.textContent = 'Enabling...';
-          await Crypto.enable(passphrase);
-          await updateToggleState();
-          toggleBtn.disabled = false;
-          var form = panel.querySelector('.settings-passphrase-form');
-          if (form) form.remove();
-        });
-      }
+        panel.querySelector('.settings-passphrase-form')?.remove();
+      } catch {
+        await updateToggleState().catch(function () {});
+        statusMsg.textContent = 'Could not change encryption. Your notes were retained; try again.';
+        throw new Error('VAULT_CONVERSION_FAILED');
+      } finally { toggleBtn.disabled = false; }
+    }
+    toggleBtn.addEventListener('click', async function () {
+      if (!Crypto || toggleBtn.disabled) return;
+      try {
+        if (await Crypto.isEnabled()) await convertVault(false);
+        else showPassphraseForm(section, function (passphrase) { return convertVault(true, passphrase); });
+      } catch { statusMsg.textContent = 'Could not change encryption. Your notes were retained; try again.'; }
     });
 
     var lockBtn = document.createElement('button');
@@ -199,10 +222,11 @@
     }
 
     lockBtn.addEventListener('click', async function () {
-      await Crypto.clearCachedKey();
-      lockBtn.style.display = 'none';
-      statusMsg.textContent = 'Locked. Re-enter passphrase to unlock.';
-      statusMsg.style.color = '#fbbf24';
+      lockBtn.disabled = true;
+      showPopupLock();
+      try { await Crypto.clearCachedKey(); }
+      catch { document.querySelector('#popup-lock .popup-lock-error').textContent = 'Could not finish locking notes. Please try again.'; }
+      finally { lockBtn.disabled = false; }
     });
 
     toggleRow.append(toggleLabel, toggleBtn, lockBtn);
@@ -221,8 +245,8 @@
     var typesContainer = document.createElement('div');
     typesContainer.className = 'settings-types';
 
-    var prefs = await chrome.storage.local.get('stickysites_prefs_v1');
-    var prefsData = prefs?.stickysites_prefs_v1 || {};
+    var prefsData = await Prefs.read();
+    if (generation !== state.generation || state.locked) return;
     var enabledTypes = prefsData.enabledTypes || { global: true, site: true, page: true, todo: true, outline: true, daily: true };
 
     var typeNames = {
@@ -242,11 +266,8 @@
       cb.type = 'checkbox';
       cb.checked = enabledTypes[typeId] !== false;
       cb.addEventListener('change', async function () {
-        enabledTypes[typeId] = cb.checked;
-        var stored = await chrome.storage.local.get('stickysites_prefs_v1');
-        var p = stored?.stickysites_prefs_v1 || {};
-        p.enabledTypes = enabledTypes;
-        await chrome.storage.local.set({ stickysites_prefs_v1: p });
+        var patch = {}; patch[typeId] = cb.checked;
+        await Prefs.write({ enabledTypes: patch });
       });
 
       var label = document.createElement('span');
@@ -270,10 +291,7 @@
     vertBtn.className = 'settings-layout-btn' + (currentLayout === 'vertical' ? ' active' : '');
     vertBtn.textContent = 'Vertical';
     vertBtn.addEventListener('click', async function () {
-      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
-      var p = stored?.stickysites_prefs_v1 || {};
-      p.clusterLayout = 'vertical';
-      await chrome.storage.local.set({ stickysites_prefs_v1: p });
+      await Prefs.write({ clusterLayout: 'vertical' });
       vertBtn.classList.add('active');
       horizBtn.classList.remove('active');
     });
@@ -282,10 +300,7 @@
     horizBtn.className = 'settings-layout-btn' + (currentLayout === 'horizontal' ? ' active' : '');
     horizBtn.textContent = 'Horizontal';
     horizBtn.addEventListener('click', async function () {
-      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
-      var p = stored?.stickysites_prefs_v1 || {};
-      p.clusterLayout = 'horizontal';
-      await chrome.storage.local.set({ stickysites_prefs_v1: p });
+      await Prefs.write({ clusterLayout: 'horizontal' });
       horizBtn.classList.add('active');
       vertBtn.classList.remove('active');
     });
@@ -313,12 +328,10 @@
     collapseToggle.textContent = isCollapsedPref ? 'On' : 'Off';
 
     collapseToggle.addEventListener('click', async function () {
-      var stored = await chrome.storage.local.get('stickysites_prefs_v1');
-      var p = stored?.stickysites_prefs_v1 || {};
-      p.collapseToCircle = !p.collapseToCircle;
-      await chrome.storage.local.set({ stickysites_prefs_v1: p });
-      collapseToggle.classList.toggle('is-on', p.collapseToCircle);
-      collapseToggle.textContent = p.collapseToCircle ? 'On' : 'Off';
+      isCollapsedPref = !isCollapsedPref;
+      await Prefs.write({ collapseToCircle: isCollapsedPref });
+      collapseToggle.classList.toggle('is-on', isCollapsedPref);
+      collapseToggle.textContent = isCollapsedPref ? 'On' : 'Off';
     });
 
     collapseRow.append(collapseText, collapseToggle);
@@ -497,9 +510,8 @@
       testBtn.disabled = true; testOut.textContent = 'Testing\u2026';
       try {
         var params = ipsInput.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { return 'peer=' + encodeURIComponent(x); }).join('&');
-        var r = await fetch(PEER_DAEMON + '/test' + (params ? '?' + params : ''));
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        renderTestResults(await r.json());
+        var result = await window.StickySites.request(fetch, PEER_DAEMON + '/test' + (params ? '?' + params : ''), {}, true);
+        renderTestResults(result);
       } catch (e) {
         testOut.textContent = '';
         var line = document.createElement('div');
@@ -516,9 +528,7 @@
 
     async function loadPeerConfig() {
       try {
-        var r = await fetch(PEER_DAEMON + '/config');
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        cfgLoaded = await r.json();
+        cfgLoaded = await window.StickySites.request(fetch, PEER_DAEMON + '/config', {}, true);
         keyInput.value = cfgLoaded.pairKey || '';
         ipsInput.value = (cfgLoaded.staticPeers || []).join(', ');
         dirInput.value = cfgLoaded.syncDir || '';
@@ -546,9 +556,7 @@
       if (body.pairKey.length < 8) { cfgStatus.textContent = 'Pairing key must be at least 8 characters.'; cfgStatus.style.color = '#f87171'; return; }
       saveBtn.disabled = true; cfgStatus.textContent = 'Saving…'; cfgStatus.style.color = '#94a3b8';
       try {
-        var r = await fetch(PEER_DAEMON + '/config', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-        var res = await r.json();
-        if (!r.ok) throw new Error(res.error || ('HTTP ' + r.status));
+        var res = await window.StickySites.request(fetch, PEER_DAEMON + '/config', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, true);
         cfgLoaded = res.config;
         ipsInput.value = (res.config.staticPeers || []).join(', ');
         dirInput.value = res.config.syncDir || '';
@@ -594,12 +602,16 @@
     confirmBtn.className = 'popup-lock-btn';
     confirmBtn.textContent = 'Set Passphrase';
 
-    confirmBtn.addEventListener('click', function () {
+    confirmBtn.addEventListener('click', async function () {
+      if (confirmBtn.disabled) return;
       if (!input1.value) { error.textContent = 'Passphrase required'; return; }
       if (input1.value.length < 4) { error.textContent = 'At least 4 characters'; return; }
       if (input1.value !== input2.value) { error.textContent = 'Passphrases do not match'; return; }
       error.textContent = '';
-      onSubmit(input1.value);
+      confirmBtn.disabled = true;
+      try { await onSubmit(input1.value); input1.value = ''; input2.value = ''; }
+      catch { error.textContent = 'Could not enable encryption. Try again.'; }
+      finally { confirmBtn.disabled = false; }
     });
 
     input2.addEventListener('keydown', function (e) {
@@ -611,17 +623,8 @@
     input1.focus();
   }
 
-  // Note: body may contain HTML from the rich text editor.
-  // All note content is user-authored from chrome.storage.local (per-extension isolated storage).
-  function stripHtml(html) {
-    if (!html) return '';
-    var tmp = document.createElement('div');
-    tmp.textContent = ''; // clear
-    // Parse user-authored HTML from local storage to extract text
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(html, 'text/html');
-    return (doc.body.textContent || '').trim();
-  }
+  // The shared inert sanitizer preserves block and BR boundaries when extracting text.
+  function stripHtml(html) { return window.StickySites.Html.text(html); }
 
   function getSubject(body, fallbackLabel) {
     if (!body || !body.trim()) return fallbackLabel;
@@ -678,6 +681,8 @@
       }
     }
     var notes = [];
+    function record(value) { return value && typeof value === 'object' && !Array.isArray(value); }
+    function entries(value) { return record(value) ? Object.entries(value).filter(function (entry) { return record(entry[1]); }) : []; }
 
     var global = stored[GLOBAL_KEY];
     if (global && global.body) {
@@ -690,9 +695,9 @@
     }
 
     var sites = stored[SITES_KEY] || {};
-    Object.values(sites).forEach(function (r) {
-      r = r || {};
-      var sk = String(r.key || r.siteKey || '');
+    entries(sites).forEach(function (entry) {
+      var k = entry[0], r = entry[1];
+      var sk = String(r.key || r.siteKey || k);
       notes.push({
         type: 'site', key: sk, label: 'Site note — ' + sk,
         body: String(r.body || ''), tags: Array.isArray(r.tags) ? r.tags : [],
@@ -702,9 +707,9 @@
     });
 
     var pages = stored[PAGES_KEY] || {};
-    Object.values(pages).forEach(function (r) {
-      r = r || {};
-      var pk = String(r.key || r.pageKey || '');
+    entries(pages).forEach(function (entry) {
+      var k = entry[0], r = entry[1];
+      var pk = String(r.key || r.pageKey || k);
       var pathLabel = '';
       try { pathLabel = new URL(pk).pathname; } catch { pathLabel = pk; }
       notes.push({
@@ -717,35 +722,35 @@
 
     var todos = stored[TODOS_KEY] || {};
     var globalTodo = todos['__global__'];
-    if (globalTodo) {
-      var items = Array.isArray(globalTodo.items) ? globalTodo.items : [];
+    if (record(globalTodo)) {
+      var items = Array.isArray(globalTodo.items) ? globalTodo.items.filter(record) : [];
       var firstItem = items.length ? items[0].text : '';
       var preview = items.slice(0, 4).map(function (i) { return (i.done ? '✓ ' : '☐ ') + i.text; }).join('\n');
       notes.push({
         type: 'todo', key: '__global__', label: 'To-do list',
-        body: firstItem + '\n' + preview, tags: [],
+        body: firstItem + '\n' + preview, structured: globalTodo, tags: [],
         createdAt: String(globalTodo.createdAt || ''), updatedAt: String(globalTodo.updatedAt || ''),
         borderClass: 'border-purple', sectionClass: 'is-purple', noteTypeId: 'todo'
       });
     }
 
     var outlines = stored[OUTLINES_KEY] || {};
-    Object.keys(outlines).forEach(function (k) {
-      var r = outlines[k] || {};
-      var items = Array.isArray(r.items) ? r.items : [];
+    entries(outlines).forEach(function (entry) {
+      var k = entry[0], r = entry[1];
+      var items = Array.isArray(r.items) ? r.items.filter(record) : [];
       var firstNode = items.length ? items[0].text : '';
       var preview = items.slice(0, 4).map(function (n) { return '• ' + n.text; }).join('\n');
       notes.push({
         type: 'outline', key: String(r.key || k), label: 'Outline — ' + String(r.name || k),
-        body: firstNode + '\n' + preview, tags: [],
+        body: firstNode + '\n' + preview, structured: r, tags: [],
         createdAt: String(r.createdAt || ''), updatedAt: String(r.updatedAt || ''),
         borderClass: 'border-orange', sectionClass: 'is-orange', noteTypeId: 'outline'
       });
     });
 
     var dailies = stored[DAILY_KEY] || {};
-    Object.keys(dailies).forEach(function (k) {
-      var r = dailies[k] || {};
+    entries(dailies).forEach(function (entry) {
+      var k = entry[0], r = entry[1];
       var dk = String(r.key || r.dateKey || k);
       notes.push({
         type: 'daily', key: dk, label: 'Daily — ' + dk,
@@ -766,7 +771,7 @@
     if (state.searchQuery) {
       var q = state.searchQuery.toLowerCase();
       filtered = filtered.filter(function (n) {
-        return (n.body || '').toLowerCase().includes(q);
+        return (n.structured ? structuredMarkdown(n) : stripHtml(n.body)).toLowerCase().includes(q);
       });
     }
     if (state.activeTags.length > 0) {
@@ -808,9 +813,34 @@
     return groups.filter(function (g) { return g.notes.length > 0; });
   }
 
+  function structuredMarkdown(note) {
+    var raw = note.structured || {};
+    var items = Array.isArray(raw.items) ? raw.items : [];
+    var lines = [];
+    function itemLine(item, indent) {
+      if (!item || typeof item !== 'object') return;
+      var prefix = '  '.repeat(indent);
+      lines.push(prefix + '- [' + (item.done ? 'x' : ' ') + '] ' + String(item.text || ''));
+      if (item.note) lines.push(prefix + '  ' + stripHtml(item.note).replace(/\n/g, '\n' + prefix + '  '));
+      if (Array.isArray(item.tags) && item.tags.length) lines.push(prefix + '  Tags: ' + item.tags.join(' '));
+      if (item.priority) lines.push(prefix + '  Priority: ' + item.priority);
+      if (Array.isArray(item.children)) item.children.forEach(function (child) { itemLine(child, indent + 1); });
+    }
+    if (note.type === 'todo') {
+      var sections = Array.isArray(raw.sections) ? raw.sections.filter(function (section) { return section && typeof section === 'object'; }) : [];
+      var known = new Set(sections.map(function (section) { return section.id; }));
+      items.filter(function (item) { return item && (!item.section || !known.has(item.section)); }).forEach(function (item) { itemLine(item, Math.max(0, Math.min(3, Number(item.indent) || 0))); });
+      sections.forEach(function (section) {
+        lines.push('', '#### ' + String(section.name || section.id), '');
+        items.filter(function (item) { return item && item.section === section.id; }).forEach(function (item) { itemLine(item, Math.max(0, Math.min(3, Number(item.indent) || 0))); });
+      });
+    } else items.forEach(function (item) { itemLine(item, 0); });
+    return lines.join('\n');
+  }
+
   function noteToMarkdown(note) {
-    var subject = getSubject(note.body, note.label);
-    var preview = getPreview(note.body);
+    var subject = note.structured ? note.label : getSubject(note.body, note.label);
+    var preview = note.structured ? structuredMarkdown(note) : getPreview(note.body);
     var lines = ['# ' + subject, ''];
     if (preview) lines.push(preview, '');
     lines.push('---');
@@ -826,8 +856,8 @@
     groupByType(notes).forEach(function (g) {
       lines.push('## ' + g.label, '');
       g.notes.forEach(function (n) {
-        var subject = getSubject(n.body, n.label);
-        var preview = getPreview(n.body);
+        var subject = n.structured ? n.label : getSubject(n.body, n.label);
+        var preview = n.structured ? structuredMarkdown(n) : getPreview(n.body);
         lines.push('### ' + subject, '');
         if (n.type !== 'global') lines.push('*' + n.key + '*', '');
         if (preview) lines.push(preview, '');
@@ -925,7 +955,8 @@
     copyBtn.textContent = '\u{1F4CB} Copy';
     copyBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      navigator.clipboard.writeText(note.body).then(function () {
+      if (state.locked) return;
+      navigator.clipboard.writeText(note.type === 'todo' || note.type === 'outline' ? structuredMarkdown(note) : stripHtml(note.body)).then(function () {
         copyBtn.textContent = '✓ Copied';
         setTimeout(function () { copyBtn.textContent = '\u{1F4CB} Copy'; }, 1500);
       });
@@ -937,6 +968,7 @@
     saveBtn.textContent = '\u{1F4BE} .md';
     saveBtn.addEventListener('click', function (e) {
       e.stopPropagation();
+      if (state.locked) return;
       var filename = getSubject(note.body, note.type + '-note').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.md';
       downloadMarkdown(filename, noteToMarkdown(note));
     });
@@ -972,6 +1004,7 @@
   }
 
   function render() {
+    if (state.locked) return;
     var filtered = filterNotes(state.allNotes);
     var sorted = sortNotes(filtered);
     var groups = groupByType(sorted);
@@ -1032,6 +1065,7 @@
   }
 
   async function openNoteType(typeId, tab) {
+    if (state.locked) return;
     if (tab && tab.id && tab.url && /^https?:/.test(tab.url)) {
       try {
         await chrome.tabs.sendMessage(tab.id, { type: 'STICKYSITES_OPEN', noteTypeId: typeId });
@@ -1071,66 +1105,81 @@
   }
 
   async function initPopup() {
+    var generation = ++state.generation;
     var tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     state.currentTabUrl = (tabs[0] && tabs[0].url) || '';
-    state.allNotes = await loadAllNotes();
+    var notes = await loadAllNotes();
 
     // Filter by enabled types from prefs
-    var prefsStored = await chrome.storage.local.get('stickysites_prefs_v1');
-    var enabledTypes = (prefsStored?.stickysites_prefs_v1 || {}).enabledTypes || {};
-    state.allNotes = state.allNotes.filter(function (n) {
+    var prefsData = await Prefs.read();
+    if (generation !== state.generation) return;
+    if (!await checkAndShowLock()) return;
+    if (generation !== state.generation) return;
+    state.locked = false;
+    var enabledTypes = prefsData.enabledTypes || {};
+    state.allNotes = notes.filter(function (n) {
       return enabledTypes[n.type] !== false; // default to enabled
     });
 
     renderQuickOpen(tabs[0], enabledTypes);
 
-    document.getElementById('search-input').addEventListener('input', function (e) {
-      state.searchQuery = e.target.value;
-      render();
-    });
-
-    document.querySelectorAll('.type-pill').forEach(function (pill) {
-      pill.addEventListener('click', function () {
-        document.querySelectorAll('.type-pill').forEach(function (p) { p.classList.remove('active'); });
-        pill.classList.add('active');
-        state.typeFilter = pill.dataset.type;
+    if (!controlsBound) {
+      controlsBound = true;
+      document.getElementById('search-input').addEventListener('input', function (e) {
+        state.searchQuery = e.target.value;
         render();
       });
-    });
 
-    var sortBtn = document.getElementById('sort-btn');
-    sortBtn.addEventListener('click', function () {
-      var idx = SORT_MODES.indexOf(state.sortMode);
-      state.sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length];
-      sortBtn.textContent = SORT_LABELS[state.sortMode];
-      render();
-    });
-
-    document.getElementById('toggle-cluster-btn').addEventListener('click', function () {
-      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        if (tabs[0] && tabs[0].id) {
-          chrome.tabs.sendMessage(tabs[0].id, { type: 'STICKYSITES_TOGGLE' });
-        }
+      document.querySelectorAll('.type-pill').forEach(function (pill) {
+        pill.addEventListener('click', function () {
+          document.querySelectorAll('.type-pill').forEach(function (p) { p.classList.remove('active'); });
+          pill.classList.add('active');
+          state.typeFilter = pill.dataset.type;
+          render();
+        });
       });
-      var btn = document.getElementById('toggle-cluster-btn');
-      btn.textContent = btn.textContent === 'Hide cluster' ? 'Show cluster' : 'Hide cluster';
-    });
 
-    document.getElementById('save-all-btn').addEventListener('click', function () {
-      downloadMarkdown('stickysites-export.md', allNotesToMarkdown(state.allNotes));
-    });
+      var sortBtn = document.getElementById('sort-btn');
+      sortBtn.addEventListener('click', function () {
+        var idx = SORT_MODES.indexOf(state.sortMode);
+        state.sortMode = SORT_MODES[(idx + 1) % SORT_MODES.length];
+        sortBtn.textContent = SORT_LABELS[state.sortMode];
+        render();
+      });
 
+      document.getElementById('toggle-cluster-btn').addEventListener('click', function () {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+          if (tabs[0] && tabs[0].id) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: 'STICKYSITES_TOGGLE' });
+          }
+        });
+        var btn = document.getElementById('toggle-cluster-btn');
+        btn.textContent = btn.textContent === 'Hide cluster' ? 'Show cluster' : 'Hide cluster';
+      });
+
+      document.getElementById('save-all-btn').addEventListener('click', function () {
+        if (!state.locked) downloadMarkdown('stickysites-export.md', allNotesToMarkdown(state.allNotes));
+      });
+
+    }
     render();
   }
 
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'local' && changes.stickysites_cached_key && !changes.stickysites_cached_key.newValue) {
+      checkAndShowLock().catch(function () { showPopupLock(); });
+    }
+  });
+
   // Settings button (always available)
   document.getElementById('settings-btn').addEventListener('click', function () {
-    showSettings();
+    showSettings().catch(function () { showPopupLock(); });
   });
 
   // Check lock state before initializing
   var unlocked = await checkAndShowLock();
   if (unlocked) {
+    if (unlockOnly) { window.close(); return; }
     await initPopup();
   }
 })();

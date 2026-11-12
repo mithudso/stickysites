@@ -45,8 +45,12 @@
   service worker
 - All injected DOM prefixed `stickysites-`; z-index near INT32_MAX
 - Storage keys versioned `_v1`; legacy shapes adapted at read time
-- Data never leaves the device except the optional local to-do host
-- Unit tests for every shared/pure module; CI: lint, test, index check, manifest validation
+- No hosted telemetry. Optional sync may send data to a local host, paired LAN computers,
+  or a user-selected shared/cloud folder; metadata remains plaintext even with the vault on.
+- Runtime mutations use one service-worker queue with fresh reads, guarded commits, and
+  persisted-value verification. Vault transitions stage all buckets before a commit.
+- Imported rich HTML is filtered before display; an open panel remains visible to host-page scripts.
+- Behavioral tests for shared/pure code and actual-script DOM paths; CI gates follow `.github/workflows/ci.yml`
 - 2-space indent, LF line endings
 
 ## Dependencies
@@ -55,11 +59,15 @@
 
 | Dev package | Purpose |
 |---|---|
-| vitest 5.x | Unit test runner (node environment) |
+| Vitest | Unit/regression runner |
+| jsdom | Actual-script DOM fixtures |
+| ESLint | JavaScript static checks |
 | canvas 3.x | `npm run icons` |
 | puppeteer-core (not in `package.json`; `npm i --no-save`) | `npm run verify:live` |
 
-**External (optional)**: Python 3 + `~/.claude/skills/todo/` for the native-messaging host.
+**External (optional)**: Python 3 + `~/.claude/skills/todo/` for native messaging;
+Python 3.9+ and OpenSSL for the peer daemon. A cloud/shared-folder provider is user-selected,
+not a runtime dependency of the extension.
 
 ## Browser requirements
 
@@ -73,5 +81,5 @@
 | `storage` | Notes, prefs, crypto config, cached key |
 | `activeTab` | Message the active tab from the SW and popup |
 | `contextMenus` | Clip submenu |
-| `alarms` | 2-minute to-do sync schedule |
+| `alarms` | To-do and peer sync schedules |
 | `nativeMessaging` | To-do sync host |

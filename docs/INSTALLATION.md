@@ -6,7 +6,7 @@
 
 - Chrome or a Chromium-based browser (Edge, Brave, Arc, Chrome Beta) with Manifest V3 support
 - Git
-- Node.js ≥ 22 — only for running tests and tooling
+- Node.js matching `.nvmrc` and `package.json` engines — only for tests and tooling
 
 ### Steps
 
@@ -15,7 +15,7 @@
    git clone https://github.com/mithudso/stickysites.git
    cd stickysites
    ```
-2. (Optional, tests/tooling) `npm install && npm run lint && npm test`
+2. (Optional, tests/tooling) `npm ci && npm run lint && npm test`
 3. Load: `chrome://extensions` → **Developer mode** on → **Load unpacked** → select the
    `stickysites/` directory (the one containing `manifest.json`)
 4. Verify: the StickySites icon appears in the toolbar; on any `http(s)` page a floating
@@ -43,7 +43,9 @@ python3 peer/stickysites-peer.py install                 # first laptop — prin
 python3 peer/stickysites-peer.py install --pair-key KEY  # the others
 ```
 
-Then popup → Settings → Local Peer Sync shows the peers it can see.
+Then enable Local Peer Sync in popup Settings and use **Sync now**. A user-selected
+shared/cloud folder is an alternative to direct LAN transport; your provider then stores
+and transfers the snapshot files. See `peer/README.md` for security and setup.
 
 ### Updating
 
@@ -57,6 +59,8 @@ close and reopen the tabs you use.
 
 - `chrome://extensions` → **Remove** on the StickySites card (this deletes the extension's
   `chrome.storage.local`, i.e. all notes — export first from the popup if you want them)
+- If installed, `python3 peer/stickysites-peer.py uninstall` removes the helper job. It
+  retains `~/.stickysites/`; clear any shared-folder files separately if you want to purge them.
 - Delete the cloned directory
 - If installed, remove the native host manifest
   `~/Library/Application Support/<Browser>/NativeMessagingHosts/com.mitch.todo_bridge.json`

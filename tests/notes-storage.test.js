@@ -5,11 +5,11 @@ globalThis.chrome = {
   storage: {
     local: {
       get: async (keys) => {
-        if (typeof keys === 'string') return { [keys]: store[keys] };
-        if (Array.isArray(keys)) return Object.fromEntries(keys.map(k => [k, store[k]]));
-        return { ...store };
+        if (typeof keys === 'string') return structuredClone({ [keys]: store[keys] });
+        if (Array.isArray(keys)) return structuredClone(Object.fromEntries(keys.map(k => [k, store[k]])));
+        return structuredClone(store);
       },
-      set: async (items) => { Object.assign(store, items); },
+      set: async (items) => { Object.assign(store, structuredClone(items)); },
       remove: async (keys) => { for (const k of [].concat(keys)) delete store[k]; }
     }
   }
@@ -380,5 +380,43 @@ describe('legacy record fallback', () => {
     expect(o.key).toBe('old.com');
     expect(o.name).toBe('old.com');
     expect(o.items).toHaveLength(1);
+  });
+});
+
+
+describe('storage isolation and serialized reference mutations', () => {
+  beforeEach(() => { store = {}; });
+  it('clones nested values at both mock storage boundaries', async () => {
+    const original = { nested: { value: 'keep' } };
+    await chrome.storage.local.set({ fixture: original });
+    original.nested.value = 'outside mutation';
+    const read = await chrome.storage.local.get('fixture');
+    expect(read.fixture.nested.value).toBe('keep');
+    read.fixture.nested.value = 'read mutation';
+    expect((await chrome.storage.local.get('fixture')).fixture.nested.value).toBe('keep');
+  });
+  it('keeps valid records visible alongside malformed collection entries', async () => {
+    for (const [storageKey, read] of [
+      ['stickysites_sites_v1', readAllSiteNotes], ['stickysites_pages_v1', readAllPageNotes],
+      ['stickysites_daily_v1', readAllDailyNotes], ['stickysites_outlines_v1', readAllOutlines]
+    ]) {
+      store[storageKey] = { good: { key: 'good', body: 'keep', items: [] }, null: null, primitive: 3, list: [] };
+      const notes = await read(); expect(notes).toHaveLength(1); expect(notes[0].key).toBe('good');
+    }
+  });
+  it('serializes concurrent writes and a delete with an unrelated write per storage key', async () => {
+    for (const [write, remove, read] of [
+      [writeSiteNote, deleteSiteNote, readAllSiteNotes], [writePageNote, deletePageNote, readAllPageNotes],
+      [writeDailyNote, deleteDailyNote, readAllDailyNotes], [writeOutline, deleteOutline, readAllOutlines]
+    ]) {
+      await Promise.all([write('a', { body: 'a' }), write('b', { body: 'b' })]);
+      expect((await read()).map(n => n.key).sort()).toEqual(['a', 'b']);
+      await Promise.all([remove('a'), write('c', { body: 'c' })]);
+      expect((await read()).map(n => n.key).sort()).toEqual(['b', 'c']);
+    }
+  });
+  it('merges concurrent preference patches including nested enabledTypes', async () => {
+    await Promise.all([writePrefs({ enabledTypes: { todo: false } }), writePrefs({ clusterLayout: 'horizontal', enabledTypes: { page: false } })]);
+    expect(await readPrefs()).toMatchObject({ clusterLayout: 'horizontal', enabledTypes: { todo: false, page: false, global: true } });
   });
 });

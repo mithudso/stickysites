@@ -9,8 +9,9 @@
 ## Tests
 
 - [ ] `npm run lint && npm test` pass locally
-- [ ] Extension reloaded at `chrome://extensions` and the changed surface exercised on a real page
-- [ ] (If storage or crypto changed) `npm run verify:live` run, or manual check of encrypt → lock → unlock
+- [ ] Changed surface exercised with relevant actual-runtime fixtures; validation and limits recorded
+- [ ] (If storage or crypto changed) encrypt → lock → unlock and failure preservation covered
+- [ ] Browser/manual validation recorded when run; no live activation implied by automated tests
 
 ## Risk
 
