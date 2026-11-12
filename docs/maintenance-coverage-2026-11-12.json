@@ -3,8 +3,8 @@
   "date": "2026-11-12",
   "baseline": "a4dc8246a9faa9743539ddbf20dd2810113b9e11",
   "profile": "standard; full default, not quick/changed-only",
-  "inventory_count": 157,
-  "maintained_review_target_count": 68,
+  "inventory_count": 158,
+  "maintained_review_target_count": 69,
   "passes": {
     "per_file": [
       "C1",
@@ -33,8 +33,11 @@
   },
   "blind_gate": {
     "status": "PENDING",
-    "blind": "in progress",
-    "final_medium_plus": null
+    "blind": "First blind gate:68/68 complete hash-matched reports. Its44 findings plus2 parent cross-file harness findings were repaired in iteration3. Second and final blind gate:in progress over69 maintained targets; no extra attempt is implied by quota continuation.",
+    "final_medium_plus": null,
+    "final_critical": null,
+    "final_high": null,
+    "final_medium": null
   },
   "files": [
     {
@@ -84,7 +87,7 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/.github__FUNDING.yml.messages.md",
+      "evidence": "blind2/.github__FUNDING.yml.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -134,13 +137,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/.github__dependabot.yml.messages.md",
+      "evidence": "blind2/.github__dependabot.yml.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": ".github/workflows/ci.yml",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "55ea8e5096fadb22d56242aae1a5df37077ebd06491f03bd25b269dbf9f5c43a",
+      "sha256": "78bf3c143032caf409e248ccf5e30bdf50f24885926b702a2dc252509da6d456",
       "passes": [
         "C1",
         "C2",
@@ -159,7 +162,7 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/.github__workflows__ci.yml.messages.md",
+      "evidence": "blind2/.github__workflows__ci.yml.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -245,7 +248,7 @@
     {
       "path": "docs/ARCHITECTURE.md",
       "classification": "maintained documentation/configuration: source-backed parent/bootstrap review",
-      "sha256": "a48194264685e8d700547c3da7cc3b6cd51e44069d38f01ce81df47d6468eacb"
+      "sha256": "bba5ef13e0c0a23d57993636f4100b3526c1461e5644e5ec40e8a18589fdbb0d"
     },
     {
       "path": "docs/COMPONENTS.md",
@@ -340,7 +343,7 @@
     {
       "path": "docs/repo-bootstrap-audit-2026-11-12.md",
       "classification": "audit record: validation/coverage metadata, excluded from public guide concatenation",
-      "sha256": "575e0c77a7531e09147d00d7a9d8f46e93d5b23f43fda743be36214a05bbfda9"
+      "sha256": "eaa79023ca1a7435e3608ef6bb4e16e92900a1df50669b90c9a09c419698ba01"
     },
     {
       "path": "docs/requirements.md",
@@ -464,7 +467,7 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/eslint.config.mjs.messages.md",
+      "evidence": "blind2/eslint.config.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -524,7 +527,7 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/manifest.json.messages.md",
+      "evidence": "blind2/manifest.json.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -558,19 +561,19 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/package.json.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/package.json.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "peer/README.md",
       "classification": "maintained documentation/configuration: source-backed parent/bootstrap review",
-      "sha256": "955573e402cdbf3ca15eb77d45b6c6fb4e0926c6bd7fefface6f33231c2ffca5"
+      "sha256": "9e72e5b384f23e6711852d62d529152eda3332ea5a69e537c251e6e90888e22d"
     },
     {
       "path": "peer/peer_fixture.py",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "5f35ada10b56b3dd8d148c4b6a57ffc0087d9bb50d25b3ed8cba0dc85ca80ccd",
+      "sha256": "4eff8b333b1fc90906868b974b0a79385ca27df73685999092d1fcf167ef450c",
       "passes": [
         "C1",
         "C2",
@@ -588,14 +591,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/peer__peer_fixture.py.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "peer/stickysites-peer.py",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "bfaea8f7753c801be7f5e4811b0c03877cdf9b3a640d54170aee52b2fedef5f2",
+      "sha256": "0f2ea774ea81159d72e76f95d98058417136de0d478118ec9c70bbc9f6e4829d",
       "passes": [
         "C1",
         "C2",
@@ -613,14 +616,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/peer__stickysites-peer.py.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "peer/test_peer.py",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "a29e6a0d017ad47612ccfe95a854926fb1a8bf59a148be0c22b7ba59a90d953f",
+      "sha256": "05cd812f084fb1dddbbc13b732d749bfd5352e242e20fcfdbbcaa617f2f7bff2",
       "passes": [
         "C1",
         "C2",
@@ -638,9 +641,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/peer__test_peer.py.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "popout.css",
@@ -663,8 +666,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/popout.css.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/popout.css.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -688,14 +691,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/popout.html.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "popout.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "abe28408c3ae846212480c358a019d60f40ea4d64197dca13ad7b2b638ff069b",
+      "sha256": "c478da4b6454a537d86f2a5ed9918399974d9f31f876de8706a17ee6210a4c13",
       "passes": [
         "C1",
         "C2",
@@ -713,14 +716,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/popout.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "popup.css",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "a9ad81e0f43477f70e862dd9285ecfb4fdcbe4889acf7cb37add921973fce232",
+      "sha256": "d8633d90f83dfeb24f8cf64d9deca9cc8dd3c9e979e6822b78b367f0a52db8e5",
       "passes": [
         "C1",
         "C2",
@@ -738,9 +741,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/popup.css.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "popup.html",
@@ -763,9 +766,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/popup.html.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "popup.js",
@@ -788,9 +791,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/popup.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "prompts.md",
@@ -800,7 +803,7 @@
     {
       "path": "scripts/browser-checks.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "1294279bb9e1c2d9b6cc4a0b8a28bc765e6d42f7d1e7df482060ca7802e33355",
+      "sha256": "2560b42d4af3199e23db96b7f0f17c8c1e21b8019db66ea57d3284da031b2db4",
       "passes": [
         "C1",
         "C2",
@@ -819,13 +822,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__browser-checks.mjs.messages.md",
+      "evidence": "blind2/scripts__browser-checks.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/build-store-zip.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "d9863fd443dd0bfafd764bd3e42ca17618f32e8e33bb2be7a399074dc1cc1a5b",
+      "sha256": "87d280a97197c61baa716d6d0f840685f4d33b28f2b972c5d55e9bef6b9e73bc",
       "passes": [
         "C1",
         "C2",
@@ -844,13 +847,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__build-store-zip.mjs.messages.md",
+      "evidence": "blind2/scripts__build-store-zip.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/check-doc-indexes.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "93fbceb4c031c10550fde874c789d4340dea77346a8f78b657daf9042535cafc",
+      "sha256": "c82f4894b2f027f90fa1d877a8828090f0153194ca343fcbf9487716a0270971",
       "passes": [
         "C1",
         "C2",
@@ -869,13 +872,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__check-doc-indexes.mjs.messages.md",
+      "evidence": "blind2/scripts__check-doc-indexes.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/check-syntax.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "362280862399442d08c874b6b5b0a64addbc114acc02f2a0e8f0d0242f1c2c21",
+      "sha256": "bc8f8ea0a04255aebd830e410c46079a7adafe9e43ddac2b43baf93cc38e9873",
       "passes": [
         "C1",
         "C2",
@@ -894,13 +897,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__check-syntax.mjs.messages.md",
+      "evidence": "blind2/scripts__check-syntax.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/generate-docs.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "edde3298011436d95b5ef0ea90fec13cce752518d9ee46cf25800ce938a16395",
+      "sha256": "fa5304c794f67b9096e2954cb12a1c8d89effac05499126d527440801eeb6c06",
       "passes": [
         "C1",
         "C2",
@@ -919,7 +922,7 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__generate-docs.mjs.messages.md",
+      "evidence": "blind2/scripts__generate-docs.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -944,13 +947,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__generate-icons.js.messages.md",
+      "evidence": "blind2/scripts__generate-icons.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/harness-resources.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "be52f718d751b1d783e0963848364fd93203ecbf3144cb943899e3d58b6e728a",
+      "sha256": "fc33979be3c39fb20ea6d52c49a2421eec26de535c4bf8c927b7d7a7059c9b1d",
       "passes": [
         "C1",
         "C2",
@@ -969,13 +972,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__harness-resources.mjs.messages.md",
+      "evidence": "blind2/scripts__harness-resources.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/rotate-workflow-logs.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "3d7379a06bf8379a8033f769c113d6ee47906477bd8015ae5f3fa8ea4a05bd2c",
+      "sha256": "117f9a810c71fab1344a563f8d7c15a34adc6f27606132fa4f53dc5177b5e0a4",
       "passes": [
         "C1",
         "C2",
@@ -994,7 +997,7 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__rotate-workflow-logs.mjs.messages.md",
+      "evidence": "blind2/scripts__rotate-workflow-logs.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1019,13 +1022,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__store-promo.mjs.messages.md",
+      "evidence": "blind2/scripts__store-promo.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/store-screenshots.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "d2e0b8d61e67c6419bc16093bdcf1b4915c7d7582ffc7aa138e41843b7aa9dab",
+      "sha256": "553053caa4522966119f35261e5b718e028287fe35d93f1940e2cd6c68f19b46",
       "passes": [
         "C1",
         "C2",
@@ -1044,13 +1047,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__store-screenshots.mjs.messages.md",
+      "evidence": "blind2/scripts__store-screenshots.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "scripts/verify-live.mjs",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "793e40fbf42bf9c5df9cbdb6528f84770e41eb2c12687db91c72b664637e2314",
+      "sha256": "8ddeca03101730086c4db941578b42276f15db66ff4c051f68a57783fe77e7de",
       "passes": [
         "C1",
         "C2",
@@ -1069,13 +1072,13 @@
         "T4"
       ],
       "review_status": "complete final-source receipt",
-      "evidence": "blind1/scripts__verify-live.mjs.messages.md",
+      "evidence": "blind2/scripts__verify-live.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/background/service-worker.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "888b9939e35d2a428a7becf8630b60b3c994b6330c590f8095b064137cf0a0a4",
+      "sha256": "932dca02eb64032fdfc5d9b707f6cd2b8acb35de2379cd55942d20127e5fbd58",
       "passes": [
         "C1",
         "C2",
@@ -1093,14 +1096,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__background__service-worker.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/cluster.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "99cc4458a7eaf5591bbe943d77d66ad6e242d43fae2d21dd6a7679b975ce34ba",
+      "sha256": "c76a667d940851f76da9bf88a1c740a01792ed57bd3f43ed82d4953ad9046560",
       "passes": [
         "C1",
         "C2",
@@ -1118,9 +1121,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__content__cluster.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/crypto-content.js",
@@ -1143,14 +1146,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__content__crypto-content.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/mentions.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "12996e9fdf3de7e09aea732282d812b7b6e6d5d4bff4c92b03b76684c6d4332a",
+      "sha256": "0c2cccc3c703ecbab389945bf88ec16f6e0e508c398f62eff1e18f4e390da51f",
       "passes": [
         "C1",
         "C2",
@@ -1168,9 +1171,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__content__mentions.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/note-types.js",
@@ -1193,14 +1196,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/src__content__note-types.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__content__note-types.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/outline-ops.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "f05217338ab4f7c80e957494a88400b25c25429820c4e4582770253a4cab0e3f",
+      "sha256": "9994c99c9ace0b31470c8fff29f2c25aa064ff2c972a234e713f7365521c09e7",
       "passes": [
         "C1",
         "C2",
@@ -1218,9 +1221,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__content__outline-ops.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/outline.js",
@@ -1243,14 +1246,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__content__outline.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/panel.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "2925d2cc5c37342116d7435ee0aa56d76e0477f33fc205d19c421513faed498b",
+      "sha256": "1bc4f9c1787fcc88ff87eb32beed56ddc8192edd787ad6bc549ab69161f5afaa",
       "passes": [
         "C1",
         "C2",
@@ -1268,9 +1271,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind2/src__content__panel.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/prefs.js",
@@ -1293,8 +1296,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/src__content__prefs.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/src__content__prefs.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1318,14 +1321,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/src__content__safe-html.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/sticky-inject.css",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "b6528cee80c76e68a72940fb96f966c7c4e672d97842eb71a2147ba01745821b",
+      "sha256": "2fd42ebaff53e51728071b91be533a823e7cb6b8fd31c2d6e8301b38d522d1a1",
       "passes": [
         "C1",
         "C2",
@@ -1344,13 +1347,13 @@
         "T4"
       ],
       "review_status": "pending final gate",
-      "evidence": "iteration2/src__content__sticky-inject.css.messages.md",
-      "all_jsonl_agent_messages_collected": true
+      "evidence": null,
+      "all_jsonl_agent_messages_collected": false
     },
     {
       "path": "src/content/sticky-inject.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "6b9e8f91de10bf9efa6b251b453357aaabe1792d3b0f28b336537b613b434c0f",
+      "sha256": "e09033c8b4661104a73371445109cb0b7146fa8bbccecb5769058e7db424b3cb",
       "passes": [
         "C1",
         "C2",
@@ -1393,14 +1396,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/src__content__storage-content.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/src__content__storage-content.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/content/todo.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "b5480886193ee0383010ef9a64179729ea346fb7d73dfb130f6a65d48a439216",
+      "sha256": "bec5ab468de7b4e36a4725d266abf6dbc71a3c4f5e5dc7dcd26e09b5ccf14d6f",
       "passes": [
         "C1",
         "C2",
@@ -1443,8 +1446,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/src__shared__crypto.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/src__shared__crypto.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1468,8 +1471,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/src__shared__network.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/src__shared__network.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1493,14 +1496,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/src__shared__note-writer.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/shared/notes-storage.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "2d1c0847586afd0adc28182fb0182157ca3d2ae7bc5f1963a6227cdcbf18da71",
+      "sha256": "5db68ad0cde2916f51fea42b6a5e7fbf25349e5c80e9d17bd6978e817d1f23f3",
       "passes": [
         "C1",
         "C2",
@@ -1519,13 +1522,13 @@
         "T4"
       ],
       "review_status": "pending final gate",
-      "evidence": "iteration2/src__shared__notes-storage.js.messages.md",
-      "all_jsonl_agent_messages_collected": true
+      "evidence": null,
+      "all_jsonl_agent_messages_collected": false
     },
     {
       "path": "src/shared/peer-sync.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "eff360dcd63c2906d23aae1691af17387e2f33b0ad3502675cd9f732b2814436",
+      "sha256": "dc6125bbff149a4fd922038c51798f62e37d25891a318647d93baf5221056531",
       "passes": [
         "C1",
         "C2",
@@ -1568,14 +1571,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/src__shared__settings.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/src__shared__settings.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "src/shared/todo-bridge.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "fe64f8385fb5484df9568a84338cf59aed60661dea714f5ade340494fb546e48",
+      "sha256": "f16dcaebce9ec6d1701d0b2e3a1e9f719cc9f4242e755ed68ee8bb61321f6dfa",
       "passes": [
         "C1",
         "C2",
@@ -1653,9 +1656,9 @@
       "sha256": "239ee1abeab7a491d365af4195d16bcf5baf52ee3075f831a1df869af886f950"
     },
     {
-      "path": "tests/browser-integration.test.js",
+      "path": "tests/blind-regressions.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "eb6c7d99c4e0301c4427cb2512ce5a1afbf4979aee6d6776853ac535d2b4e957",
+      "sha256": "c0c646f75e8b84242ecaaf8729a3d8fe101980a5080e5be81516960422d61b3f",
       "passes": [
         "C1",
         "C2",
@@ -1678,6 +1681,31 @@
       "all_jsonl_agent_messages_collected": false
     },
     {
+      "path": "tests/browser-integration.test.js",
+      "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
+      "sha256": "eb6c7d99c4e0301c4427cb2512ce5a1afbf4979aee6d6776853ac535d2b4e957",
+      "passes": [
+        "C1",
+        "C2",
+        "C3",
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "P1",
+        "P2",
+        "M1",
+        "M2",
+        "M4",
+        "T1",
+        "T4"
+      ],
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__browser-integration.test.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
+    },
+    {
       "path": "tests/crypto-vault-compat.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
       "sha256": "1104009fad60364ecce8fbcc072b4412cc072a076aff74bdbc7cdac450e506bf",
@@ -1698,8 +1726,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__crypto-vault-compat.test.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__crypto-vault-compat.test.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1723,8 +1751,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__crypto.test.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__crypto.test.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1748,8 +1776,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__fixtures__gen-legacy-crypto-fixtures.mjs.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__fixtures__gen-legacy-crypto-fixtures.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1760,7 +1788,7 @@
     {
       "path": "tests/helpers/runtime.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "3ec0e7c68940d6fe80ab13c605872bc072facbde8bf4bbc5f560ad5c0bf69df2",
+      "sha256": "bc60ab9abfa302898d781d58f3b08a52a0ec5ea28e740b67f84e178d4196f063",
       "passes": [
         "C1",
         "C2",
@@ -1803,8 +1831,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__notes-storage.test.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__notes-storage.test.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -1828,14 +1856,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__outline-ops.test.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__outline-ops.test.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "tests/peer-sync.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "d0658cb89017456a4d15ca3f9759be57c64f743c7176039eaaf99b5e7e3994a5",
+      "sha256": "26b1d217da442b88e0033933ad27ae44903d866c2a3b32ff0fd996eb6daa04fc",
       "passes": [
         "C1",
         "C2",
@@ -1854,13 +1882,13 @@
         "T4"
       ],
       "review_status": "pending final gate",
-      "evidence": "iteration2/tests__peer-sync.test.js.messages.md",
-      "all_jsonl_agent_messages_collected": true
+      "evidence": null,
+      "all_jsonl_agent_messages_collected": false
     },
     {
       "path": "tests/popup-regressions.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "070b10807238e60598b018d3b0bb2a3494b496b8a7a88414bf35e8d7863a869e",
+      "sha256": "cbd3d83a6b39a5afa4d685c0c726c96a65f2664e8066f3c09d925a7ad40e3c33",
       "passes": [
         "C1",
         "C2",
@@ -1885,7 +1913,7 @@
     {
       "path": "tests/runtime-regressions.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "57ba7db2a92db2728c6057e2783ac076587dc8531dd27a2200fd202ba651af54",
+      "sha256": "764a3cabecd5a4e9ec4baa527019684806e7e7be17abb53d79d4ee03cf3bc344",
       "passes": [
         "C1",
         "C2",
@@ -1910,7 +1938,7 @@
     {
       "path": "tests/service-worker.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "76c8bd30b138ffa86739dc3f234ebc074f7a4c0914198fe0058134ba73b0c95a",
+      "sha256": "32cf95694233042337039d0a49e4a6e9570461b134de4295b2ea26425abb19b5",
       "passes": [
         "C1",
         "C2",
@@ -1935,7 +1963,7 @@
     {
       "path": "tests/sync-regressions.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "30b8a57565b0a8a36b8bf21fade1ab47861b1d84f929ea8bc19728ce18539e37",
+      "sha256": "b23663db186d4ab295b609c3b45ddbbe323507cf0b81d7f0216704bc8414bdd6",
       "passes": [
         "C1",
         "C2",
@@ -1978,14 +2006,14 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__todo-bridge.test.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__todo-bridge.test.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "tests/tooling-browser.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "b51d7782a8e544a329f9d8574f3d0f3efef1b0e63e31de9fa9008a92d70e60a2",
+      "sha256": "7fac68b82995849bcc4d4b40d791af7dc523410d3ddb0902179d2bc84e8e84eb",
       "passes": [
         "C1",
         "C2",
@@ -2010,7 +2038,7 @@
     {
       "path": "tests/tooling-docs.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "b4a407c32c0e7b8faed9210ad3b180ee3fc0bb2d5105654eee5523b7019fe470",
+      "sha256": "05935c16149b4b08cbd1e7c7b698b4b4fcf9d000f90ccb2a938b68291372dd06",
       "passes": [
         "C1",
         "C2",
@@ -2035,7 +2063,7 @@
     {
       "path": "tests/tooling-harness.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "6ee5875d31689baa3c15ba4a6a38423c47dbf00b843c959da74ec194f881f459",
+      "sha256": "9045f04235140fc34453db8407d835858f2587bcb9576f7922faabcdfa0df66b",
       "passes": [
         "C1",
         "C2",
@@ -2060,7 +2088,7 @@
     {
       "path": "tests/tooling.test.js",
       "classification": "maintained executable/UI/test/CI source: complete fresh per-file review",
-      "sha256": "0062e125527ef870354364b10c0d5b901026212c79d533ebb4aeac0803ab8fd8",
+      "sha256": "f549a6e9eb2efe5e6f65944e5887355f4b396f4684681e000d8b3e666e36e4a3",
       "passes": [
         "C1",
         "C2",
@@ -2103,9 +2131,9 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": null,
-      "all_jsonl_agent_messages_collected": false
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__ui-boundaries.test.js.messages.md",
+      "all_jsonl_agent_messages_collected": true
     },
     {
       "path": "tests/vault-import.test.js",
@@ -2128,8 +2156,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__vault-import.test.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__vault-import.test.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -2153,8 +2181,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/tests__vault-legacy.test.js.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/tests__vault-legacy.test.js.messages.md",
       "all_jsonl_agent_messages_collected": true
     },
     {
@@ -2178,8 +2206,8 @@
         "T1",
         "T4"
       ],
-      "review_status": "pending final gate",
-      "evidence": "iteration2/vitest.config.mjs.messages.md",
+      "review_status": "complete final-source receipt",
+      "evidence": "blind1/vitest.config.mjs.messages.md",
       "all_jsonl_agent_messages_collected": true
     }
   ],
@@ -3420,11 +3448,706 @@
       "pass": "C1/C3/S1/P2/T1",
       "trigger": "An open popout keeps decrypted DOM visible after another context locks.",
       "fix_requested": "Conceal on a current locked state and reopen after unlock."
+    },
+    {
+      "id": "B01",
+      "file": "scripts/browser-checks.mjs",
+      "anchor": "restoredNoteContent",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Dropped TODO sections and tag colors pass restoration verification",
+      "fix_requested": "Compare TODO sections and tagColors as part of restored user content.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B02",
+      "file": "scripts/build-store-zip.mjs",
+      "anchor": "runtimeFiles / required paths",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Missing manifest assets can produce a passing broken upload ZIP",
+      "fix_requested": "Validate referenced manifest scripts, CSS, icons and pages against the approved regular-file list before zip.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B03",
+      "file": "scripts/check-doc-indexes.mjs",
+      "anchor": "markdownTargets inline destinations",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/T1",
+      "trigger": "Balanced parentheses in valid Markdown links are misparsed",
+      "fix_requested": "Parse inline destinations with balanced parentheses and escaped characters.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B04",
+      "file": "scripts/check-doc-indexes.mjs",
+      "anchor": "markdownTargets indentation",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/T1",
+      "trigger": "List continuation links evade dead-link checking",
+      "fix_requested": "Keep list continuation prose while excluding indented code blocks.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B05",
+      "file": "scripts/check-syntax.mjs",
+      "anchor": "HTML comment replacement",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/T1",
+      "trigger": "Script string comment markers conceal invalid JavaScript",
+      "fix_requested": "Parse HTML inertly with the existing jsdom development dependency; keep script raw text.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B06",
+      "file": "scripts/check-syntax.mjs",
+      "anchor": "script regex",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/S4/T1",
+      "trigger": "Quoted attributes and inert textarea content produce false syntax failures",
+      "fix_requested": "Use HTML nodes to respect quoted attributes and inert raw-text containers.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B07",
+      "file": "scripts/check-syntax.mjs",
+      "anchor": "script MIME types",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Executable ECMAScript MIME types evade syntax validation",
+      "fix_requested": "Recognize the full JavaScript/ECMAScript classic MIME set.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B08",
+      "file": "scripts/generate-docs.mjs",
+      "anchor": "privateBody / guides",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S1/S5/T1",
+      "trigger": "Nested workflow and memory bodies enter public guide exports",
+      "fix_requested": "Exclude nested memory, prompts and workflow-log bodies before reading or guide selection.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B09",
+      "file": "scripts/harness-resources.mjs",
+      "anchor": "cleanup servers.clear",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S2/P2/T1",
+      "trigger": "Timed-out server shutdown forgets a live socket and can keep the process alive",
+      "fix_requested": "Close owned HTTP connections and retain failed server ownership/directories for retry.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B10",
+      "file": "scripts/rotate-workflow-logs.mjs",
+      "anchor": "finishTransaction",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/P2/T1",
+      "trigger": "Archive replacement after publication is ignored before deleting live sections and journal",
+      "fix_requested": "Recheck the archive before live-file commit and recheck both files before deleting the journal.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B11",
+      "file": "scripts/store-screenshots.mjs",
+      "anchor": "popup capture",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/P2/T1",
+      "trigger": "Fixed delay can publish empty popup screenshot",
+      "fix_requested": "Wait for named seeded popup cards with a bounded DOM predicate.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B12",
+      "file": "scripts/verify-live.mjs",
+      "anchor": "S7j",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "P2/T1",
+      "trigger": "Successful delayed downloads fail fixed-delay verification",
+      "fix_requested": "Await Browser download completion/cancellation with bounded listeners, using allowAndName GUID paths.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B13",
+      "file": "scripts/verify-live.mjs",
+      "anchor": "SHOT_DIR",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S1/P2/T1",
+      "trigger": "Shared predictable screenshot directory permits collision and symlink overwrite",
+      "fix_requested": "Allocate private unique preserved screenshot directories through owned resources.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B14",
+      "file": "peer/stickysites-peer.py",
+      "anchor": "folder_peers compare_digest",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Unsigned non-ASCII signature raises TypeError and aborts folder aggregation",
+      "fix_requested": "Validate ASCII hexadecimal signature shape before comparison; verify full signed names before display truncation.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B15",
+      "file": "peer/stickysites-peer.py",
+      "anchor": "fetch_peer / test_peer response read",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S2/T1",
+      "trigger": "Trusted endpoint can stream an unbounded response into memory",
+      "fix_requested": "Bound declared and streamed snapshot/hello bodies, close responses, and apply a total response deadline.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B16",
+      "file": "peer/stickysites-peer.py",
+      "anchor": "PeerHTTPServer",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S2/P2/T1",
+      "trigger": "Unbounded request workers and trickled headers evade idle timeouts",
+      "fix_requested": "Cap each listener at32 request workers; bound trickled headers and body reads; release slots on all exits.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B17",
+      "file": "peer/test_peer.py",
+      "anchor": "ThreadPoolExecutor contexts",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S2/T1/T4",
+      "trigger": "Future timeout is followed by blocking executor shutdown on a deadlocked worker",
+      "fix_requested": "Supervise the three deadlock-prone concurrency cases in children with group kill/reap deadlines.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B18",
+      "file": "popout.js",
+      "anchor": "storage listener",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/P2/T1",
+      "trigger": "Idle popout ignores external note changes and can overwrite newer content",
+      "fix_requested": "Forward note storage changes to the panel with its existing dirty/focus guards.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B19",
+      "file": "popout.js",
+      "anchor": "refreshLock",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S1/S2/T1",
+      "trigger": "Rejected vault state read leaves plaintext visible and rejects an unconsumed promise",
+      "fix_requested": "Clear on lock-state failures, show a generic retry state and consume asynchronous failures.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B20",
+      "file": "popup.css",
+      "anchor": "sort default color",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S4/T1",
+      "trigger": "Small default sort text has insufficient contrast against the dark background",
+      "fix_requested": "Use readable sort text; actual synthetic Chrome contrast improves2.36to6.96.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B21",
+      "file": "src/content/cluster.js",
+      "anchor": "_updateCollapseState",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/S4/T1",
+      "trigger": "Expansion near an edge leaves controls outside the viewport",
+      "fix_requested": "Clamp expanded geometry immediately and after sizing transitions.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B22",
+      "file": "src/content/cluster.js",
+      "anchor": "clampPosition",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/T1",
+      "trigger": "Hidden zero-size geometry destroys the saved position",
+      "fix_requested": "Skip hidden geometry and clamp after showing without resetting stored coordinates.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B23",
+      "file": "src/content/mentions.js",
+      "anchor": "keydown",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/T1",
+      "trigger": "Stale dropdown consumes Enter and Tab after the caret moves away",
+      "fix_requested": "Validate the current trigger selection before canceling dropdown key events.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B24",
+      "file": "src/content/mentions.js",
+      "anchor": "composition handling",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S4/T1",
+      "trigger": "IME confirmation Enter can become mention insertion",
+      "fix_requested": "Suspend mention processing during composition and ignore composing keydown.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B25",
+      "file": "src/content/outline-ops.js",
+      "anchor": "autoGroup / normalizeItems",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/S3/T1",
+      "trigger": "Duplicate IDs can cause regrouping to discard an unrelated node",
+      "fix_requested": "Normalize globally unique IDs and track assigned node objects during regrouping.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B26",
+      "file": "src/content/outline-ops.js",
+      "anchor": "escXml",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Forbidden XML characters make exported OPML unreadable",
+      "fix_requested": "Replace forbidden XML1.0 code points while preserving valid Unicode and hierarchy.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B27",
+      "file": "src/content/panel.js",
+      "anchor": "syncFromStorage absent record",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/P2/T1",
+      "trigger": "Remote deletion leaves stale visible content that can be resurrected",
+      "fix_requested": "Clear body/tags for an absent map record so later edits cannot resurrect the old content.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B28",
+      "file": "src/content/panel.js",
+      "anchor": "syncFromStorage tag input",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/P2/T1",
+      "trigger": "Remote tags are overwritten by the next local body save",
+      "fix_requested": "Refresh editable tags with the body; compare rendered HTML without a body-only echo shortcut.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B29",
+      "file": "src/content/panel.js",
+      "anchor": "TODO autofocus",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/T1",
+      "trigger": "Opening populated TODO adds and persists an empty task",
+      "fix_requested": "Focus an existing empty input or Add button without creating a task.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B30",
+      "file": "src/content/sticky-inject.css",
+      "anchor": "collapsed focus",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S4/T1",
+      "trigger": "Invisible collapsed buttons remain in sequential keyboard focus",
+      "fix_requested": "Expand the cluster on keyboard focus and include focus in its collapse state.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B31",
+      "file": "src/content/sticky-inject.css",
+      "anchor": "default panel width",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S4/T1",
+      "trigger": "Fresh panel extends outside a narrow viewport",
+      "fix_requested": "Bound panel width/max-width to viewport space and include borders.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B32",
+      "file": "src/content/sticky-inject.js",
+      "anchor": "handleIconClick",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "P2/T1",
+      "trigger": "Delayed unlock selection reopens a dismissed panel or selects an older request",
+      "fix_requested": "Order selection, shortcut, message, close and lock-cache requests across awaits.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B33",
+      "file": "src/content/todo.js",
+      "anchor": "normalizeData sections",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Duplicate and empty section IDs render tasks more than once",
+      "fix_requested": "Retain only first unique nonempty TODO section IDs.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B34",
+      "file": "src/shared/notes-storage.js",
+      "anchor": "writePrefs",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S2/T1",
+      "trigger": "Failed preference read turns a partial write into default-value overwrite in the test-only reference API",
+      "fix_requested": "Abort preference mutation if its fresh read fails; keep defaults only for public reads.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B35",
+      "file": "src/shared/peer-sync.js",
+      "anchor": "equal updatedAt winner",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C1/P2/T1",
+      "trigger": "Equal timestamps keep conflicting peer records divergent indefinitely",
+      "fix_requested": "Choose the first canonical record for equal-time conflicts; ignore timestamp spelling for identical records.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B36",
+      "file": "src/shared/peer-sync.js",
+      "anchor": "cryptoApi / captured stored snapshot",
+      "severity_reported": "Medium",
+      "severity": "High",
+      "iteration": 3,
+      "pass": "S1/P2/T1",
+      "trigger": "An adapter created for vault A can encrypt imported notes committed under newer vault B",
+      "fix_requested": "Construct the production crypto adapter from the same captured storage snapshot used by guarded commits.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B37",
+      "file": "src/shared/todo-bridge.js",
+      "anchor": "reply validation",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Incomplete host items erase previously stored text, notes and completion",
+      "fix_requested": "Require complete native item fields before merging; retain explicit clearing and supported coercions.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B38",
+      "file": "tests/helpers/runtime.js",
+      "anchor": "storage listener delivery",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S2/T1",
+      "trigger": "Throwing observer rejects an already-persisted write and interrupts multi-key removal in the synthetic Chrome fixture",
+      "fix_requested": "Isolate observer exceptions from persistence; collect diagnostics and fail cleanup if unacknowledged.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B39",
+      "file": "tests/popup-regressions.test.js",
+      "anchor": "immediate Lock Now assertions",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S1/T1",
+      "trigger": "Waiting for lock completion before privacy assertions can miss a delayed plaintext clearing regression",
+      "fix_requested": "Assert private DOM removal synchronously before awaiting lock completion.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B40",
+      "file": "tests/runtime-regressions.test.js",
+      "anchor": "sanitizer assertion",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S1/T1",
+      "trigger": "Hostile CSS resource URL fixture lacks a rejection assertion",
+      "fix_requested": "Assert hostile CSS resource styles are absent and permitted color remains.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B41",
+      "file": "tests/service-worker.test.js",
+      "anchor": "HTTP vault enable assertion",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S1/T1",
+      "trigger": "Plaintext passthrough can satisfy the vault-enable test without encryption at rest",
+      "fix_requested": "Assert persisted HTTP-fallback notes are ciphertext without plaintext fields.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B42",
+      "file": "tests/tooling-browser.test.js",
+      "anchor": "panel identity readiness assertion",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S3/T1",
+      "trigger": "Body and identity arrive together, leaving wrong-identity screenshot capture untested",
+      "fix_requested": "Stagger wrong identity/right body to verify screenshot identity rejection.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B43",
+      "file": "tests/tooling.test.js",
+      "anchor": "competing rotator termination",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "T1",
+      "trigger": "Unrelated contender crash can satisfy the recovery serialization test",
+      "fix_requested": "Require the competing child to report the expected refusal and exit code; reap cleanup children.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B44",
+      "file": "tests/tooling.test.js",
+      "anchor": "interruption subprocess",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "S2/T4",
+      "trigger": "Unbounded spawnSync can hang the test worker beyond Vitest timeout",
+      "fix_requested": "Bound the synchronous interruption child and check spawn errors/signals explicitly.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B45",
+      "file": "scripts/verify-live.mjs",
+      "anchor": "S9c locked popout selector",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C2/T3/T1",
+      "trigger": "Verification waits for an outliner notice that the popout lock gate never renders",
+      "fix_requested": "Wait for the popout lock-state marker exposed by its actual lock gate.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
+    },
+    {
+      "id": "B46",
+      "file": "scripts/verify-live.mjs",
+      "anchor": "S9d secure unlock action",
+      "severity_reported": "Medium",
+      "severity": "Medium",
+      "iteration": 3,
+      "pass": "C2/T3/T1",
+      "trigger": "Verification waits for an unlock page without clicking the required in-page Unlock button",
+      "fix_requested": "Click the actual in-page unlock control before awaiting the secure extension target.",
+      "test_requested": "Actual-module regression, preserved-source red replay or controlled mutation evidence; see iteration3 verification matrix. Opt-in MV3 harness execution remains unverified.",
+      "status": "applied",
+      "corroboration": "Source second read plus bounded synthetic evidence retained outside repository.",
+      "verification_pending": "Final isolated CI and second blind gate."
     }
   ],
   "scope_notes": [
     "One unreachable eleven-icon proposal rejected. F48 calibrated Medium because it is a test-only reference, not runtime.",
     "Parent additions and second-wave observations are counted once by distinct trigger. Low observations are tracked separately and do not alter Medium+ math.",
+    "First blind attempt completed68/68 current-source reports after quota continuation. It supplied44 corroborated findings; parent cross-file harness review supplied2 further interface mismatches. All46 were repaired in the one permitted additional iteration.",
+    "The equal-timestamp policy deliberately changes from local wins to deterministic canonical-record order to repair demonstrated permanent peer divergence. Query/hash page-key behavior remains unchanged by explicit requirements.",
+    "One proposed generic network cancellation extension is Low because no current production caller supplies options.signal. Two outline drag findings were expressly withdrawn by the reviewer.",
+    "Second blind gate is bounded to one final attempt over69 maintained targets. No extra blind attempt or iteration reset is authorized by capacity resume.",
+    "Earlier guarded discover=False fixtures still created a receive-only UDP listener. Outbound UDP was denied. The later explicit STICKYSITES_TEST_DISABLE_UDP control removes even that listener in local runs; actual UDP discovery remains isolated CI evidence.",
     "All maintained sources, tools, tests, UI and CI are included. No 50-file cap or source truncation.",
     "Raw reviewer JSONL and local fault-injection receipts remain outside the repository. Each final review source SHA is checked.",
     "Generated text/report hashes are intentionally null to avoid self-reference. Git/remote blob comparison verifies delivered content.",

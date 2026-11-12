@@ -1814,7 +1814,7 @@ window.StickySites = window.StickySites || {};
         for (var fi = 0; fi < inputs.length; fi++) {
           if (!inputs[fi].value) { inputs[fi].focus(); return; }
         }
-        addTaskBtn.click();
+        addTaskBtn.focus();
       }, 0);
     },
 
@@ -1849,24 +1849,26 @@ window.StickySites = window.StickySites || {};
       }
 
       if (generation !== this._generation || this._saveTimer || this._saves.size || this._saveFailed) return;
-      var body;
+      var body, tags;
       if (nt.storagePattern === 'single') {
         body = newValue ? String(newValue.body ?? '') : '';
+        tags = newValue?.tags;
       } else {
         var record = (newValue || {})[this._activeKey];
-        if (!record) return;
-        body = String(record.body ?? '');
+        body = String(record?.body ?? '');
+        tags = record?.tags;
       }
-
-      // Self-echo guard — our own debounced save round-tripping through onChanged.
-      if (body === this._lastSavedBody) return;
 
       // Re-check focus: the guard at the top may be stale after the encrypted
       // path's awaits, and a rewrite mid-keystroke is exactly what we prevent.
       var activeNow = document.activeElement;
       if (activeNow && this.el.contains(activeNow)) return;
 
-      if (ed.innerHTML !== body) ed.innerHTML = bodyToHtml(body); // nosec
+      var html = bodyToHtml(body);
+      if (ed.innerHTML !== html) ed.innerHTML = html; // nosec
+      var tagInput = this.el.querySelector('.stickysites-panel-tags');
+      if (tagInput) tagInput.value = Array.isArray(tags) ? tags.filter(function (tag) { return typeof tag === 'string'; }).join(', ') : '';
+      this._lastSavedBody = body;
     }
   };
 })();

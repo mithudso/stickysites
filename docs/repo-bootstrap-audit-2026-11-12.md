@@ -47,8 +47,9 @@ a file cap. It labels generated assets, frozen compatibility data, historical pl
 operator context. It generates the high-signal index, codebase overview, llms index, complete
 selected public-guide text, separate abstracts, and source-derived configuration facts.
 `--check` detects drift; path checks reject repository escapes and missing required indexes.
-Private workflow logs, archives, and agent/MCP configuration bodies are excluded from the
-concatenated public guides. No semantic indexing or embedding operation was requested or intentionally invoked. Earlier
+The currently inventoried private workflow logs, archives, and agent/MCP configuration bodies
+are excluded from the concatenated public guides. The final optimizer gate retains any
+remaining classification limitations explicitly. No semantic indexing or embedding operation was requested or intentionally invoked. Earlier
 pre-control fixture runs remain unverified for inherited configuration effects. The optimizer
 report records their source-bound paths/time window and the later hostile-hook isolation test.
 
@@ -95,7 +96,11 @@ Apple Python passed with cleanup warnings. The replacement fixture imports the a
 uses temporary homes and ephemeral loopback HTTP/TLS/UDP ports, and exercises signed unicast
 discovery. Before the guard update, it passed under both installed interpreters and simultaneous runs.
 Later guarded verification covers exact inherited TCP fixtures and injected UDP parsing.
-The batch guard has no UDP fixture allowance; full actual discovery remains a CI gate.
+The batch guard has no UDP fixture allowance. Earlier guarded TCP fixtures still created a
+receive-only UDP listener; the later explicit fixture control disables even that listener.
+The final guarded subset passes 30 tests on each installed interpreter with resource warnings
+as errors. The checkpoint CI passed all 32 then-current Python tests. The final 39-test suite
+and real stalled-HTTP cleanup case require the final loopback-only CI run.
 
 The final command matrix, exact counts, independent gate result, and residual Low findings
 are recorded in the optimizer report. Optional private-vault package tests remain skipped

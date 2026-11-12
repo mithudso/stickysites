@@ -40,6 +40,8 @@ function fixture(ambient = process.env) {
   put(root, '.codex/config.toml', 'PRIVATE_CONFIG_SENTINEL');
   put(root, '.mcp.json', 'PRIVATE_MCP_SENTINEL');
   put(root, 'docs/archive/memory.md', 'PRIVATE_ARCHIVE_SENTINEL');
+  put(root, 'docs/memory.md', '# Nested context\n\nPRIVATE_NESTED_SENTINEL');
+  put(root, 'docs/workflow-log.md', '# Workflow\n\nPRIVATE_WORKFLOW_LOG_SENTINEL');
   put(root, 'ignored/private.md', 'IGNORED_SENTINEL');
   put(root, 'tests/fixtures/legacy-crypto-envelopes.json', '{}');
   put(root, 'docs/superpowers/plans/old.md', '# Old plan');

@@ -5,7 +5,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { listen, resolveChrome, withHarnessResources } from './harness-resources.mjs';
-import { encryptedNoteBuckets, persistedSiteBody, populatedNoteBuckets, restoredNoteContent } from './browser-checks.mjs';
+import { completedDownload, encryptedNoteBuckets, persistedSiteBody, populatedNoteBuckets, restoredNoteContent } from './browser-checks.mjs';
 
 import { fileURLToPath } from 'node:url';
 
@@ -14,8 +14,8 @@ const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Branded Chrome 137+ ignores --load-extension; use Chrome for Testing / Chromium.
 // Override with SS_CHROME=/path/to/binary. Requires: npm i --no-save puppeteer-core
 const CHROME = resolveChrome();
-const SHOT_DIR = '/tmp/stickysites-verify';
-fs.mkdirSync(SHOT_DIR, { recursive: true });
+// Keep synthetic screenshots for inspection, in a private unique output directory.
+const SHOT_DIR = resources.tempDir('ss-verify-shots-', { preserve: true });
 const DOWNLOAD_DIR = resources.tempDir('ss-dl-');
 
 const results = [];
@@ -319,11 +319,10 @@ let expectedSiteBody = '';
   record(backRows.includes('buy milk #errands') ? '✅' : '❌', 'S7i switch docs', backRows.join(' | '));
 
   // Export Markdown (capture the download)
-  const cdp = await page.createCDPSession();
-  await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: DOWNLOAD_DIR, eventsEnabled: true });
-  await menuItem('Export Markdown');
-  await sleep(1200);
-  const files = fs.readdirSync(DOWNLOAD_DIR).filter(f => f.endsWith('.md'));
+  const cdp = await browser.target().createCDPSession();
+  await cdp.send('Browser.setDownloadBehavior', { behavior: 'allowAndName', downloadPath: DOWNLOAD_DIR, eventsEnabled: true });
+  const filename = await completedDownload(cdp, () => menuItem('Export Markdown'));
+  const files = [filename];
   let mdOk = false, mdHead = '';
   if (files.length) {
     mdHead = fs.readFileSync(path.join(DOWNLOAD_DIR, files[0]), 'utf8').split('\n')[0];
@@ -432,7 +431,7 @@ let expectedSiteBody = '';
   const pop = await browser.newPage();
   await pop.bringToFront();
   await pop.goto(`chrome-extension://${EXT_ID}/popout.html?type=outline&label=Outliner`, { waitUntil: 'networkidle2' });
-  const lockedNotice = await pop.waitForSelector('.stickysites-outline-locked', { timeout: 5000 })
+  const lockedNotice = await pop.waitForSelector('#stickysites-panel.is-open[data-lock-state="locked"]', { timeout: 5000 })
     .then(() => true).catch(() => false);
   await sleep(1500); // give any (buggy) auto-create write a chance to land
   const after = await pop.evaluate(() => chrome.storage.local.get('stickysites_outlines_v1'));
@@ -454,8 +453,9 @@ let expectedSiteBody = '';
     document.querySelectorAll('#stickysites-cluster .stickysites-cluster-icon')
       .forEach(b => { if (b.dataset.typeId === 'outline') b.click(); });
   });
-  // The actual in-page request must open a secure extension page. The host-page
-  // main world never receives the passphrase or decrypted storage.
+  await tab.waitForSelector('#stickysites-lock .stickysites-lock-btn', { timeout: 5000 });
+  await tab.click('#stickysites-lock .stickysites-lock-btn');
+  // Exercise the user action that requests the fixed extension unlock page.
   const unlockTarget = await unlockTargetReady;
   const unlockPage = unlockTarget && await unlockTarget.page();
   if (!unlockPage) throw new Error('Secure unlock request did not open an extension page.');

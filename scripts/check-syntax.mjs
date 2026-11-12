@@ -8,6 +8,7 @@ import { readFileSync, readdirSync, lstatSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Script } from 'node:vm';
+import { JSDOM } from 'jsdom';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SKIP_DIRS = new Set(['node_modules', '.git', 'docs', 'icons', '.remember', 'coverage', 'dist']);
@@ -50,28 +51,28 @@ try {
   for (const file of manifest.background?.scripts ?? []) classicFile(file, 'manifest.json');
 } catch (error) { problem('manifest.json / package.json', error); }
 
-function attribute(attributes, name) {
-  const match = attributes.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
-  return match ? match[1] ?? match[2] ?? match[3] : null;
-}
+const scriptTypes = new Set(['application/ecmascript', 'application/javascript', 'application/x-ecmascript', 'application/x-javascript', 'text/ecmascript', 'text/javascript', 'text/javascript1.0', 'text/javascript1.1', 'text/javascript1.2', 'text/javascript1.3', 'text/javascript1.4', 'text/javascript1.5', 'text/jscript', 'text/livescript', 'text/x-ecmascript', 'text/x-javascript']);
 for (const file of htmlFiles.sort()) {
   const owner = path.relative(repoRoot, file);
-  const html = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  // Parse inertly with the existing development DOM dependency. A regular
+  // expression cannot distinguish quoted attributes, raw text, and comments.
+  const document = JSDOM.fragment(readFileSync(file, 'utf8'));
   let index = 0;
-  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+  for (const script of document.querySelectorAll('script')) {
+    if (script.closest('noscript')) continue;
     index++;
-    const type = (attribute(match[1], 'type') ?? '').trim().toLowerCase();
-    if (type && !['module', 'text/javascript', 'application/javascript'].includes(type)) continue;
-    const src = attribute(match[1], 'src');
+    const type = (script.getAttribute('type') ?? '').trim().toLowerCase();
+    if (type && type !== 'module' && !scriptTypes.has(type)) continue;
+    const src = script.getAttribute('src');
     try {
       if (src !== null) {
         if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(src)) continue;
         const resolved = new URL(src, 'https://repository.invalid/' + owner.replaceAll(path.sep, '/'));
         if (type !== 'module') classicFile(decodeURIComponent(resolved.pathname.slice(1)), owner);
-      } else if (match[2].trim()) {
+      } else if (script.textContent.trim()) {
         const filename = `${owner}:inline-script-${index}`;
-        if (type === 'module') execFileSync(process.execPath, ['--check', '--input-type=module'], { input: match[2], stdio: ['pipe', 'ignore', 'pipe'] });
-        else new Script(match[2], { filename });
+        if (type === 'module') execFileSync(process.execPath, ['--check', '--input-type=module'], { input: script.textContent, stdio: ['pipe', 'ignore', 'pipe'] });
+        else new Script(script.textContent, { filename });
       }
     } catch (error) { problem(owner, error); }
   }

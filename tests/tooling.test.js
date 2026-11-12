@@ -12,6 +12,7 @@ function fixture(script) {
   fixtures.push(root);
   mkdirSync(path.join(root, 'scripts'));
   copyFileSync(path.join(repo, 'scripts', script), path.join(root, 'scripts', script));
+  if (script === 'check-syntax.mjs') symlinkSync(path.join(repo, 'node_modules'), path.join(root, 'node_modules'), 'dir');
   return root;
 }
 function put(root, file, text = '') {
@@ -144,7 +145,8 @@ it('recovers an actual process interruption only after explicit dead-owner recov
   const root = fixture('rotate-workflow-logs.mjs');
   mkdirSync(path.join(root, '.git'));
   put(root, 'memory.md', '# Log\n## New\n' + 'n'.repeat(80) + '\n## Old\n' + 'o'.repeat(80) + '\n');
-  const interrupted = spawnSync(process.execPath, ['--input-type=module', '-e', `import { rotateLogs } from './scripts/rotate-workflow-logs.mjs'; rotateLogs({repoRoot: process.cwd(), threshold: 100, hooks: { afterArchive() { process.exit(23); } }});`], { cwd: root, encoding: 'utf8' });
+  const interrupted = spawnSync(process.execPath, ['--input-type=module', '-e', `import { rotateLogs } from './scripts/rotate-workflow-logs.mjs'; rotateLogs({repoRoot: process.cwd(), threshold: 100, hooks: { afterArchive() { process.exit(23); } }});`], { cwd: root, encoding: 'utf8', timeout: 5000 });
+  expect(interrupted.error).toBeUndefined(); expect(interrupted.signal).toBeNull();
   expect(interrupted.status).toBe(23);
   expect(run(root, 'rotate-workflow-logs.mjs', ['--threshold=100']).status).toBe(1);
   const resumed = run(root, 'rotate-workflow-logs.mjs', ['--threshold=100', '--recover']);
@@ -249,11 +251,16 @@ it('serializes simultaneous dead-owner recovery before either process can replac
     put(root, 'entered-A.go'); put(root, 'entered-B.go');
     await until(() => has('A', 'exit') && has('B', 'exit'));
     expect([...owners]).toEqual(['A']);
+    expect(messages).toContainEqual(expect.objectContaining({ id: 'B', phase: 'refused', error: expect.stringMatching(/acquisition\.guard|still active/) }));
+    expect(messages).toContainEqual({ id: 'B', phase: 'exit', code: 1 });
     const combined = readFileSync(path.join(root, 'memory.md'), 'utf8') + readFileSync(path.join(root, 'docs/archive/memory.md'), 'utf8');
     expect(combined.match(/^## New$/gm)).toHaveLength(1);
     expect(combined.match(/^## Old$/gm)).toHaveLength(1);
   } finally {
-    for (const process of children) if (process.exitCode === null) process.kill('SIGKILL');
+    await Promise.all(children.map(process => new Promise(resolve => {
+      if (process.exitCode !== null || process.signalCode !== null) return resolve();
+      process.once('close', resolve); process.kill('SIGKILL');
+    })));
   }
 }, 10000);
 it('preserves a stale acquisition guard instead of force-recovering it', () => {
@@ -264,4 +271,48 @@ it('preserves a stale acquisition guard instead of force-recovering it', () => {
   expect(result.status).toBe(1);
   expect(result.stderr).toContain('manual review');
   expect(readFileSync(path.join(root, file), 'utf8')).toBe('uncertain guard owner');
+});
+
+it('refuses missing or symlinked manifest runtime assets before producing a ZIP', () => {
+  for (const invalid of ['script', 'icon']) {
+    const root = fixture('build-store-zip.mjs');
+    put(root, 'manifest.json', JSON.stringify({ version: '1.0.0', content_scripts: [{ js: ['src/required.js'] }], icons: { 16: 'icons/required.png' } }));
+    put(root, 'package.json', '{"version":"1.0.0"}');
+    for (const file of ['popup.html', 'popup.js', 'popup.css', 'popout.html', 'popout.js', 'popout.css', 'src/main.js', 'icons/icon16.png']) put(root, file);
+    if (invalid === 'script') put(root, 'icons/required.png');
+    else { put(root, 'src/required.js'); put(root, 'outside.png'); symlinkSync('../outside.png', path.join(root, 'icons/required.png')); }
+    const result = run(root, 'build-store-zip.mjs');
+    expect(result.status).toBe(1); expect(result.stderr).toContain('Manifest runtime asset');
+    expect(spawnSync('unzip', ['-Z1', path.join(root, 'dist/stickysites-1.0.0.zip')]).status).not.toBe(0);
+  }
+});
+
+it('checks balanced destinations and indented list continuation links', () => {
+  const root = fixture('check-doc-indexes.mjs');
+  put(root, 'docs/high_signal_file_index.json', '[]'); put(root, 'docs/wiki/index.md', '# Wiki');
+  put(root, 'docs/a(b).md', '# Present'); put(root, 'llms.txt', '[valid](docs/a(b).md)\n\n- Guide\n\n    [missing](absent.md)');
+  const invalid = run(root, 'check-doc-indexes.mjs');
+  expect(invalid.status).toBe(1); expect(invalid.stderr).toContain('absent.md'); expect(invalid.stderr).not.toContain('docs/a(b');
+  put(root, 'absent.md', '# Present'); expect(run(root, 'check-doc-indexes.mjs').status).toBe(0);
+});
+
+for (const [name, html, expected] of [
+  ['comment markers in script strings', '<script>const marker="<!--";const broken=;</script><script>const end="-->";</script>', 1],
+  ['quoted greater-than attribute', '<script data-label="a>b">const valid=1;</script>', 0],
+  ['inert textarea script text', '<textarea><script>const broken=;</script></textarea>', 0],
+  ['classic ECMAScript MIME', '<script type="text/ecmascript">const broken=;</script>', 1],
+]) {
+  it(`uses HTML parsing for ${name}`, () => {
+    const root = fixture('check-syntax.mjs'); put(root, 'manifest.json', '{"version":"1"}'); put(root, 'package.json', '{"version":"1"}'); put(root, 'popup.html', html);
+    const result = run(root, 'check-syntax.mjs'); expect(result.status, result.stderr).toBe(expected);
+  });
+}
+
+it('retains live sections and the journal when an editor replaces the archive before commit', async () => {
+  const root = fixture('rotate-workflow-logs.mjs'); mkdirSync(path.join(root, '.git'));
+  const original = '# Log\n## New\n' + 'n'.repeat(80) + '\n## Old\n' + 'o'.repeat(80) + '\n'; put(root, 'memory.md', original);
+  const { rotateLogs } = await import('../scripts/rotate-workflow-logs.mjs');
+  expect(() => rotateLogs({ repoRoot: root, threshold: 100, hooks: { afterArchive() { put(root, 'docs/archive/memory.md', '# External edit\n'); } } })).toThrow('archive changed');
+  expect(readFileSync(path.join(root, 'memory.md'), 'utf8')).toBe(original);
+  expect(readFileSync(path.join(root, '.git/stickysites-workflow-rotation/memory.md.journal.json'), 'utf8')).toContain('liveBefore');
 });

@@ -9,18 +9,20 @@ import tempfile
 import threading
 import time
 import urllib.request
+import functools
+import signal
+import subprocess
+import sys
 from contextlib import ExitStack
 from unittest.mock import patch
 
-SCRIPT = os.path.join(os.path.dirname(__file__), 'stickysites-peer.py')
+SCRIPT = os.environ.get('STICKYSITES_TEST_DAEMON_SOURCE', os.path.join(os.path.dirname(__file__), 'stickysites-peer.py'))
 PAIR_KEY = 'test-pair-key-123'
 _reserved_tcp = None
 
 
-def _reserved_server_type(server_type):
-    """Adopt exact test-owned listeners supplied by an optional process-tree guard launcher."""
+def _load_reserved_tcp():
     global _reserved_tcp
-    if 'STICKYSITES_TEST_TCP_LISTENERS' not in os.environ: return server_type
     if _reserved_tcp is None:
         listeners = []
         try:
@@ -37,9 +39,16 @@ def _reserved_server_type(server_type):
             for listener in listeners: listener.close()
             raise
         _reserved_tcp = listeners
+    return _reserved_tcp
+
+
+def _reserved_server_type(server_type):
+    """Adopt exact test-owned listeners supplied by an optional process-tree guard launcher."""
+    if 'STICKYSITES_TEST_TCP_LISTENERS' not in os.environ: return server_type
+    listeners = _load_reserved_tcp()
     def make_server(address, handler, **options):
-        if not _reserved_tcp: raise RuntimeError('guarded fixture TCP listener pool exhausted')
-        listener = _reserved_tcp.pop(0)
+        if not listeners: raise RuntimeError('guarded fixture TCP listener pool exhausted')
+        listener = listeners.pop(0)
         try:
             server = server_type(address, handler, bind_and_activate=False, **options)
             server.socket.close()
@@ -51,6 +60,45 @@ def _reserved_server_type(server_type):
             listener.close()
             raise
     return make_server
+
+
+def run_supervised(command, timeout=20, **options):
+    """Kill and reap this exact child process group if a test deadlocks."""
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, start_new_session=True, **options)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+    except BaseException as error:
+        try: os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError: pass
+        process.communicate()
+        if isinstance(error, subprocess.TimeoutExpired): error.pid = process.pid
+        raise
+
+
+def needs_supervision(test):
+    method = getattr(type(test), test._testMethodName)
+    return getattr(method, '_supervised', False) and os.environ.get('STICKYSITES_SUPERVISED_TEST') != test.id()
+
+
+def supervised_test(method):
+    @functools.wraps(method)
+    def wrapper(test):
+        if not needs_supervision(test): return method(test)
+        env = dict(os.environ, STICKYSITES_SUPERVISED_TEST=test.id(), STICKYSITES_TEST_DAEMON_SOURCE=SCRIPT)
+        selected = []
+        try:
+            if 'STICKYSITES_TEST_TCP_LISTENERS' in env:
+                pool = _load_reserved_tcp()
+                if len(pool) < 4: raise RuntimeError('guarded fixture listener pool exhausted before supervised test')
+                selected = [pool.pop(0) for _ in range(4)]
+                env['STICKYSITES_TEST_TCP_LISTENERS'] = json.dumps([listener.fileno() for listener in selected])
+            result = run_supervised([sys.executable, '-m', 'unittest', test.id()], env=env, pass_fds=tuple(listener.fileno() for listener in selected))
+            test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        finally:
+            for listener in selected: listener.close()
+    wrapper._supervised = True
+    return wrapper
 
 
 def http(method, url, body=None, origin='chrome-extension://abc'):
@@ -66,6 +114,9 @@ class PeerFixture:
     def __init__(self, register_cleanup, count=2, discover=True):
         self.stack = ExitStack()
         register_cleanup(self.close)  # setup failures run the same cleanup as success
+        disable_udp = os.environ.get('STICKYSITES_TEST_DISABLE_UDP') == '1'
+        if disable_udp and discover:
+            raise RuntimeError('UDP discovery is disabled for this guarded run; use isolated CI for discovery tests')
         if shutil.which('openssl') is None:
             raise RuntimeError('openssl is required for the peer integration tests')
         self.peers = []
@@ -96,10 +147,11 @@ class PeerFixture:
             cfg['loop_port'], cfg['lan_port'] = [server.server_port for server in servers]
             for server in servers:
                 state['server_threads'][server] = self._start(state, lambda s=server: s.serve_forever(poll_interval=0.05))
-            ready = threading.Event()
-            self._start(state, lambda d=daemon, r=ready: d.listen_loop('127.0.0.1', r))
-            if not ready.wait(3):
-                raise RuntimeError('discovery listener did not start: %s' % self.diagnostics())
+            if not disable_udp:
+                ready = threading.Event()
+                self._start(state, lambda d=daemon, r=ready: d.listen_loop('127.0.0.1', r))
+                if not ready.wait(3):
+                    raise RuntimeError('discovery listener did not start: %s' % self.diagnostics())
         for index, state in enumerate(self.peers):
             state['daemon'].cfg['static_peers'] = [
                 '127.0.0.1:%d' % other['daemon'].cfg['mcast_port']

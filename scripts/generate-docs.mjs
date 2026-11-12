@@ -12,7 +12,7 @@ const check = process.argv.includes('--check');
 const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const escapeCell = (text) => String(text).replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
 const link = (file) => file.split('/').map(encodeURIComponent).join('/');
-const privateBody = (file) => /^(memory\.md|prompts\.md|\.env(?:\.|$)|\.mcp\.json$|\.codex\/|\.stele\/|\.vscode\/.*mcp|docs\/archive\/)/.test(file);
+const privateBody = (file) => /(?:^|\/)(?:memory\.md|prompts\.md|workflow[-_]logs?\.md|\.env(?:\.[^/]*)?|\.mcp\.json)$/.test(file) || /(?:^|\/)(?:\.codex|\.stele)\//.test(file) || /^(\.vscode\/.*mcp|docs\/archive\/)/.test(file);
 function safeFile(file) {
   if (path.isAbsolute(file) || file.split('/').some((part) => part === '..') || /[\\\x00-\x1f]/.test(file)) return false;
   let full = root;
@@ -64,7 +64,7 @@ const purposeOverrides = {
   'scripts/check-syntax.mjs': 'Check JavaScript syntax without following symlinks and enforce manifest/package version agreement.',
   'scripts/rotate-workflow-logs.mjs': 'Rotate whole Markdown sections with a cooperating lock, recoverable journal, and changed-snapshot refusal.',
   'scripts/harness-resources.mjs': 'Discover testing Chrome and manage owned browser, server, and temporary-directory resources with bounded shutdown.',
-  'scripts/browser-checks.mjs': 'Side-effect-free screenshot readiness, persisted site-body, and whole-bucket encryption/restoration checks.',
+  'scripts/browser-checks.mjs': 'Screenshot readiness, owned UI actions, persisted site-body, and whole-bucket encryption/restoration checks.',
   'scripts/generate-docs.mjs': 'Generate and check deterministic text inventories, guide concatenation, abstracts, and source-backed facts.',
   'docs/external-calls.md': 'Document optional native messaging and loopback peer-daemon boundaries.',
   'docs/codebase-overview.md': 'Generated complete repository inventory grouped by directory.',

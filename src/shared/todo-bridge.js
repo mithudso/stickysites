@@ -124,7 +124,7 @@ export async function syncTodosWithHost({ storage, sendNativeMessage, extId, com
     return { error: err?.message || 'native messaging failed' };
   }
   if (!reply?.ok) return { error: reply?.error || 'no reply from host' };
-  if (!Array.isArray(reply.items) || reply.items.some(i => !i || typeof i !== 'object' || Array.isArray(i) || !['string', 'number'].includes(typeof i.id) || !String(i.id).trim()) || new Set(reply.items.map(i => String(i.id))).size !== reply.items.length) return { error: 'malformed reply from host' };
+  if (!Array.isArray(reply.items) || reply.items.some(i => !i || typeof i !== 'object' || Array.isArray(i) || !['string', 'number'].includes(typeof i.id) || !String(i.id).trim() || !['text', 'done', 'note', 'section'].every(field => Object.hasOwn(i, field))) || new Set(reply.items.map(i => String(i.id))).size !== reply.items.length) return { error: 'malformed reply from host' };
   let merged;
   try {
     merged = applyHostResult(record, reply.items);

@@ -20,6 +20,7 @@
   }
 
   var lockedTypeId = null;
+  var selectionGeneration = 0;
   function showLockOverlay(pendingTypeId) {
     SS.Panel.close(true);
     var overlay = document.getElementById('stickysites-lock');
@@ -53,12 +54,19 @@
     btn.focus();
   }
 
-  async function handleIconClick(typeId) {
+  async function handleIconClick(typeId, request) {
+    if (request === undefined) request = ++selectionGeneration;
+    if (request !== selectionGeneration) return;
     if (!typeId) {
+      lockedTypeId = null;
+      var overlay = document.getElementById('stickysites-lock');
+      if (overlay) overlay.remove();
       SS.Panel.close();
       return;
     }
-    var unlocked = await checkUnlocked();
+    var unlocked;
+    try { unlocked = await checkUnlocked(); } catch { unlocked = false; }
+    if (request !== selectionGeneration) return;
     if (!unlocked) {
       showLockOverlay(typeId);
       return;
@@ -126,28 +134,30 @@
     e.preventDefault();
     e.stopPropagation();
     var nt = noteTypes[idx];
+    var request = ++selectionGeneration;
     (async function () {
       try {
         var stored = await chrome.storage.local.get('stickysites_prefs_v1');
         var enabledTypes = (stored?.stickysites_prefs_v1 || {}).enabledTypes || {};
         if (enabledTypes[nt.id] === false) return;
       } catch { /* prefs unavailable — proceed */ }
+      if (request !== selectionGeneration) return;
       // Same type already open → close (toggle off)
-      if (SS.Panel.activeNoteType && SS.Panel.activeNoteType.id === nt.id) {
+      if ((SS.Panel.activeNoteType && SS.Panel.activeNoteType.id === nt.id) || SS.Cluster.activeTypeId === nt.id) {
         SS.Cluster.setActive(null);
-        SS.Panel.close();
+        handleIconClick(null, request);
         return;
       }
       // Closed or different type → ensure cluster visible then open this type
       if (SS.Cluster.hidden) SS.Cluster.toggle();
       SS.Cluster.setActive(nt.id);
-      handleIconClick(nt.id);
+      handleIconClick(nt.id, request);
     })();
   });
 
   SS.Panel.init(function () {
     SS.Cluster.setActive(null);
-    SS.Panel.close();
+    handleIconClick(null);
   });
 
   await SS.Cluster.init(noteTypes, handleIconClick);
@@ -177,19 +187,21 @@
   chrome.runtime.onMessage.addListener(function (msg) {
     if (msg?.type === 'STICKYSITES_TOGGLE') {
       SS.Cluster.toggle(msg.fromCommand);
-      if (SS.Cluster.hidden) SS.Panel.close();
+      if (SS.Cluster.hidden) handleIconClick(null);
     }
     if (msg?.type === 'STICKYSITES_OPEN') {
       var noteType = findNoteType(msg.noteTypeId);
       if (noteType) {
+        var request = ++selectionGeneration;
         (async function () {
           // A popup card click can target a specific outline document.
           if (msg.key && noteType.id === 'outline') {
             await window.StickySites.Prefs.write({ activeOutlineId: msg.key });
           }
+          if (request !== selectionGeneration) return;
           if (SS.Cluster.hidden) SS.Cluster.toggle();
           SS.Cluster.setActive(noteType.id);
-          handleIconClick(noteType.id);
+          handleIconClick(noteType.id, request);
         })();
       }
     }
@@ -200,14 +212,17 @@
 
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
-    if (changes.stickysites_cached_key) {
+    if (changes.stickysites_cached_key || changes.stickysites_crypto_v1) {
+      var request = ++selectionGeneration;
       (async function () {
-        if (!await checkUnlocked()) { var pending = SS.Panel.activeNoteType?.id; SS.Cluster.setActive(null); showLockOverlay(pending); }
+        var unlocked = await checkUnlocked();
+        if (request !== selectionGeneration) return;
+        if (!unlocked) { var pending = SS.Panel.activeNoteType?.id || SS.Cluster.activeTypeId; SS.Cluster.setActive(null); showLockOverlay(pending); }
         else {
           var overlay = document.getElementById('stickysites-lock');
-          if (overlay) { overlay.remove(); var pending = lockedTypeId; lockedTypeId = null; if (pending) handleIconClick(pending); }
+          if (overlay) { overlay.remove(); var pending = lockedTypeId; lockedTypeId = null; if (pending) handleIconClick(pending, request); }
         }
-      })().catch(function () { showLockOverlay(SS.Panel.activeNoteType?.id); });
+      })().catch(function () { if (request === selectionGeneration) showLockOverlay(SS.Panel.activeNoteType?.id); });
     }
     SS.Panel.syncFromStorage(changes);
     // Live-apply cluster prefs from the popup — no page reload needed.

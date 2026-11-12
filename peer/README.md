@@ -157,3 +157,14 @@ Config and snapshot updates preserve the last successful state if disk replaceme
 Folder publications serialize and use unique private temporary files; key/name changes
 republish unchanged notes. Daemon read/handshake waits are finite, and diagnostic bearers
 are sent only after the certificate matches signed discovery.
+
+Each HTTP listener admits at most 32 request workers. Extra connections close promptly.
+TLS has an idle timeout; header and body reads have separate five-second total deadlines.
+Outgoing peer responses have an eight-second read deadline, a 64 MiB snapshot limit, and a
+16 KiB hello limit. These are resource limits, not service-level guarantees.
+
+Guarded task runs set `STICKYSITES_TEST_DISABLE_UDP=1`: TCP-only fixtures do not start even
+a receive-only UDP listener. The parser case uses an injected datagram double. Actual
+discovery and the real stalled-HTTP cleanup case run in CI with only loopback enabled in a
+fresh network namespace. Concurrency tests that could deadlock run in supervised children;
+a timeout kills and reaps their owned process group.

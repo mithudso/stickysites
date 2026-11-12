@@ -1,7 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import vm from 'node:vm';
+import { EventEmitter } from 'node:events';
 
-import { closePanel, openNoteForScreenshot as openNote, encryptedNoteBuckets, persistedSiteBody, restoredNoteContent } from '../scripts/browser-checks.mjs';
+import { closePanel, completedDownload, openNoteForScreenshot as openNote, encryptedNoteBuckets, persistedSiteBody, popupReady, restoredNoteContent } from '../scripts/browser-checks.mjs';
 
 function mockPage() {
   const state = { open: true, title: 'Page note — /old', body: 'old body' };
@@ -62,4 +63,35 @@ it('times out without capturing if requested seeded content never renders', asyn
   const opening = openNote(page, 'todo', { ...expected, bodyText: 'never rendered' }).catch(error => { caught = error; });
   await vi.advanceTimersByTimeAsync(5100); await opening;
   expect(caught.message).toContain('readiness timeout');
+});
+
+it('does not capture the right body under the wrong identity', async () => {
+  vi.useFakeTimers(); const { page, state, expected } = mockPage(); let captured;
+  const opening = openNote(page, 'todo', expected).then(() => { captured = true; });
+  setTimeout(() => Object.assign(state, { open: true, title: 'Wrong note', body: expected.bodyText }), 200);
+  await vi.advanceTimersByTimeAsync(500); expect(captured).toBeUndefined();
+  await vi.advanceTimersByTimeAsync(800); await opening; expect(captured).toBe(true);
+});
+it('requires all seeded popup cards and all TODO section metadata', () => {
+  const cards = [{ textContent: 'Reading list' }];
+  const check = () => vm.runInNewContext(`(${popupReady.toString()})(expected)`, { expected: ['Reading list', 'Hydration notes'], document: { querySelectorAll: () => cards } });
+  expect(check()).toBe(false); cards.push({ textContent: 'Hydration notes' }); expect(check()).toBe(true);
+  const key = 'stickysites_todos_v1', before = { [key]: { __global__: { items: [], sections: [{ id: 's', name: 'Keep' }], tagColors: { work: '#fff' } } } };
+  for (const field of ['sections', 'tagColors']) { const after = structuredClone(before); after[key].__global__[field] = field === 'sections' ? [] : {}; expect(restoredNoteContent(before, after, [key])).toBe(false); }
+});
+it('awaits delayed download completion and removes every listener', async () => {
+  vi.useFakeTimers(); const session = new EventEmitter();
+  let result; const pending = completedDownload(session, () => { session.emit('Browser.downloadWillBegin', { guid: 'owned', suggestedFilename: 'outline.md' }); }).then(name => { result = name; });
+  await vi.advanceTimersByTimeAsync(1500); expect(result).toBeUndefined();
+  session.emit('Browser.downloadProgress', { guid: 'owned', state: 'completed' }); await pending;
+  expect(result).toBe('owned'); expect(session.eventNames()).toEqual([]);
+});
+it('bounds never-completed downloads and rejects cancellation', async () => {
+  vi.useFakeTimers();
+  for (const cancel of [false, true]) {
+    const session = new EventEmitter(); let caught;
+    const pending = completedDownload(session, () => { session.emit('Browser.downloadWillBegin', { guid: 'owned', suggestedFilename: 'outline.md' }); if (cancel) session.emit('Browser.downloadProgress', { guid: 'owned', state: 'canceled' }); }, 100).catch(error => { caught = error; });
+    await vi.advanceTimersByTimeAsync(101); await pending;
+    expect(caught.message).toMatch(cancel ? /canceled/ : /timeout/); expect(session.eventNames()).toEqual([]);
+  }
 });

@@ -36,3 +36,8 @@
 ## Prompt v1.11.1 - 2026-09-27T20:14:00-04:00
 - User request:
   - run the repo-bootstrapper on this repo
+
+## Prompt v1.13.1 - 2026-11-12T17:06:37Z (pause checkpoint)
+
+- User request:
+  - Pause StickySites at TASK-1677. Preserve unfinished source and every review receipt and limit. Commit and push only a recoverable task-owned WIP checkpoint on the existing branch, keep PR #35 draft with auto-merge disabled, record continuation and pause metadata, and stop. Do not run new fixes, reviews, tests, builds, merges, protected-data operations or automatic continuation.

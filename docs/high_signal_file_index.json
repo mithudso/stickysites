@@ -124,7 +124,7 @@
     "purpose": "CI: npm ci, lint, test, docs:check-indexes, manifest validation on push/PR to main",
     "layer": "config",
     "classification": "maintained source",
-    "lines": 41,
+    "lines": 44,
     "exports": [],
     "depends_on": [],
     "patterns": []
@@ -294,7 +294,7 @@
     "purpose": "Contexts, data flows, load order, storage schema, permissions, ADRs",
     "layer": "config",
     "classification": "maintained source",
-    "lines": 180,
+    "lines": 182,
     "exports": [],
     "depends_on": [],
     "patterns": []
@@ -384,12 +384,13 @@
     "purpose": "Code deep optimizer — 2026-11-12",
     "layer": "documentation",
     "classification": "audit record",
-    "lines": 1948,
+    "lines": 2036,
     "exports": [],
     "depends_on": [
       "scripts/browser-checks.mjs",
       "src/shared/crypto.js",
       "src/shared/note-writer.js",
+      "src/shared/notes-storage.js",
       "src/shared/peer-sync.js",
       "src/shared/todo-bridge.js"
     ],
@@ -460,7 +461,7 @@
     "purpose": "audit record: maintenance-coverage-2026-11-12.json.",
     "layer": "config",
     "classification": "audit record",
-    "lines": 3440,
+    "lines": 4163,
     "exports": [],
     "depends_on": [],
     "patterns": []
@@ -490,7 +491,7 @@
     "purpose": "Repository bootstrap audit — 2026-11-12",
     "layer": "documentation",
     "classification": "audit record",
-    "lines": 112,
+    "lines": 117,
     "exports": [],
     "depends_on": [],
     "patterns": []
@@ -840,7 +841,7 @@
     "purpose": "Peer sync design, install, merge + encryption rules, security model, troubleshooting",
     "layer": "config",
     "classification": "maintained source",
-    "lines": 159,
+    "lines": 170,
     "exports": [],
     "depends_on": [],
     "patterns": []
@@ -912,7 +913,7 @@
     "purpose": "Reads type/key/label from the URL, overrides getKey/getLabel, opens the Panel full-window",
     "layer": "frontend",
     "classification": "maintained source",
-    "lines": 52,
+    "lines": 65,
     "exports": [],
     "depends_on": [
       "src/content/note-types.js",
@@ -972,18 +973,20 @@
   },
   {
     "path": "scripts/browser-checks.mjs",
-    "purpose": "Side-effect-free screenshot readiness, persisted site-body, and whole-bucket encryption/restoration checks.",
+    "purpose": "Screenshot readiness, owned UI actions, persisted site-body, and whole-bucket encryption/restoration checks.",
     "layer": "tooling",
     "classification": "maintained source",
-    "lines": 50,
+    "lines": 84,
     "exports": [
       "NOTE_BUCKETS",
       "closePanel",
+      "completedDownload",
       "encryptedNoteBuckets",
       "openNoteForScreenshot",
       "panelReady",
       "persistedSiteBody",
       "populatedNoteBuckets",
+      "popupReady",
       "restoredNoteContent"
     ],
     "depends_on": [],
@@ -994,7 +997,7 @@
     "purpose": "Build a runtime-only store ZIP from explicit regular files; exclude hidden paths and symlinks.",
     "layer": "tooling",
     "classification": "maintained source",
-    "lines": 63,
+    "lines": 74,
     "exports": [],
     "depends_on": [
       "manifest.json"
@@ -1009,7 +1012,7 @@
     "purpose": "Validate the file inventory and required llms/wiki index links inside this repository.",
     "layer": "tooling",
     "classification": "maintained source",
-    "lines": 98,
+    "lines": 121,
     "exports": [],
     "depends_on": [
       "docs/high_signal_file_index.json",
@@ -1025,7 +1028,7 @@
     "purpose": "Check JavaScript syntax without following symlinks and enforce manifest/package version agreement.",
     "layer": "tooling",
     "classification": "maintained source",
-    "lines": 88,
+    "lines": 89,
     "exports": [],
     "depends_on": [],
     "patterns": [
@@ -1059,7 +1062,7 @@
     "purpose": "Discover testing Chrome and manage owned browser, server, and temporary-directory resources with bounded shutdown.",
     "layer": "tooling",
     "classification": "maintained source",
-    "lines": 99,
+    "lines": 104,
     "exports": [
       "createHarnessResources",
       "listen",
@@ -1074,7 +1077,7 @@
     "purpose": "Rotate whole Markdown sections with a cooperating lock, recoverable journal, and changed-snapshot refusal.",
     "layer": "tooling",
     "classification": "maintained source",
-    "lines": 219,
+    "lines": 221,
     "exports": [
       "rotateLogs",
       "splitSections"
@@ -1138,7 +1141,7 @@
     "purpose": "ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync, and local peer sync (loopback fetch to the peer daemon, LWW merge via peer-sync.js)",
     "layer": "backend",
     "classification": "maintained source",
-    "lines": 228,
+    "lines": 226,
     "exports": [],
     "depends_on": [
       "src/content/crypto-content.js",
@@ -1159,7 +1162,7 @@
     "purpose": "window.StickySites.Cluster: floating pill with identity icons, drag, long-press reorder, layout toggle, visibility",
     "layer": "frontend",
     "classification": "maintained source",
-    "lines": 390,
+    "lines": 400,
     "exports": [
       "Cluster.applyLayout",
       "Cluster.getVisibleTypeIds",
@@ -1209,7 +1212,7 @@
     "purpose": "window.StickySites.Mentions: @-mention autocomplete dropdown (link, date, contact, file) inserting chips at the caret",
     "layer": "frontend",
     "classification": "maintained source",
-    "lines": 258,
+    "lines": 270,
     "exports": [
       "Mentions.attach",
       "Mentions.hide",
@@ -1240,7 +1243,7 @@
     "purpose": "window.StickySites.OutlineOps: pure outline tree operations, filter, auto-group, Markdown/OPML export (unit-tested)",
     "layer": "shared",
     "classification": "maintained source",
-    "lines": 276,
+    "lines": 284,
     "exports": [
       "OutlineOps.autoGroup",
       "OutlineOps.filterTree",
@@ -1288,7 +1291,7 @@
     "purpose": "window.StickySites.Panel: moveable/resizable note panel, 19-tool rich-text toolbar, find & replace, to-do UI, debounced encrypted save, cross-tab sync, popout",
     "layer": "frontend",
     "classification": "maintained source",
-    "lines": 1872,
+    "lines": 1874,
     "exports": [
       "Panel._popoutActiveNote",
       "Panel.close",
@@ -1343,7 +1346,7 @@
     "purpose": "All injected styles for cluster, panel, toolbar, to-do, outliner, mentions, lock overlay, toast (also used by popout.html)",
     "layer": "frontend",
     "classification": "maintained source",
-    "lines": 1190,
+    "lines": 1191,
     "exports": [],
     "depends_on": [],
     "patterns": [
@@ -1356,7 +1359,7 @@
     "purpose": "Orchestrator content script: init, lock overlay, toast, clip handler, Ctrl/Cmd+F1-F6, SPA URL watcher, message and storage listeners",
     "layer": "frontend",
     "classification": "maintained source",
-    "lines": 224,
+    "lines": 239,
     "exports": [],
     "depends_on": [
       "src/content/cluster.js",
@@ -1386,7 +1389,7 @@
     "purpose": "window.StickySites.Todo: to-do item/section normalisation, color palettes, grip drag-reorder controller",
     "layer": "frontend",
     "classification": "maintained source",
-    "lines": 218,
+    "lines": 223,
     "exports": [
       "Todo.COLORS",
       "Todo.DragController",
@@ -1451,7 +1454,7 @@
     "purpose": "Reference plaintext CRUD for all six note types and prefs, parseTags, createDebouncedSaver (imported by tests only)",
     "layer": "shared",
     "classification": "maintained source",
-    "lines": 405,
+    "lines": 406,
     "exports": [
       "createDebouncedSaver",
       "deleteDailyNote",
@@ -1497,7 +1500,7 @@
     "purpose": "Local peer sync: snapshot build, vault compatibility, record-level LWW merge with tombstones, syncWithDaemon round-trip against the loopback daemon",
     "layer": "shared",
     "classification": "maintained source",
-    "lines": 272,
+    "lines": 284,
     "exports": [
       "CACHED_KEY",
       "CRYPTO_KEY",
@@ -1678,6 +1681,22 @@
     "patterns": []
   },
   {
+    "path": "tests/blind-regressions.test.js",
+    "purpose": "maintained test: blind-regressions.test.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 170,
+    "exports": [],
+    "depends_on": [
+      "src/shared/note-writer.js",
+      "src/shared/notes-storage.js",
+      "src/shared/peer-sync.js",
+      "src/shared/todo-bridge.js",
+      "tests/helpers/runtime.js"
+    ],
+    "patterns": []
+  },
+  {
     "path": "tests/browser-integration.test.js",
     "purpose": "Synthetic DOM integration through manifest load order, all panel types, clips, vault and lock.",
     "layer": "test",
@@ -1741,7 +1760,7 @@
     "purpose": "maintained test: runtime.js.",
     "layer": "test",
     "classification": "maintained test",
-    "lines": 20,
+    "lines": 26,
     "exports": [
       "runtime"
     ],
@@ -1821,7 +1840,7 @@
     "purpose": "Actual worker message/alarm integration with controlled sync completion.",
     "layer": "test",
     "classification": "maintained test",
-    "lines": 50,
+    "lines": 78,
     "exports": [],
     "depends_on": [
       "tests/helpers/runtime.js"
@@ -1861,7 +1880,7 @@
     "purpose": "maintained test: tooling-browser.test.js.",
     "layer": "test",
     "classification": "maintained test",
-    "lines": 65,
+    "lines": 97,
     "exports": [],
     "depends_on": [
       "scripts/browser-checks.mjs"
@@ -1873,7 +1892,7 @@
     "purpose": "maintained test: tooling-docs.test.js.",
     "layer": "test",
     "classification": "maintained test",
-    "lines": 120,
+    "lines": 122,
     "exports": [
       "known",
       "value$",
@@ -1887,7 +1906,7 @@
     "purpose": "maintained test: tooling-harness.test.js.",
     "layer": "test",
     "classification": "maintained test",
-    "lines": 90,
+    "lines": 127,
     "exports": [],
     "depends_on": [],
     "patterns": []
@@ -1897,7 +1916,7 @@
     "purpose": "maintained test: tooling.test.js.",
     "layer": "test",
     "classification": "maintained test",
-    "lines": 267,
+    "lines": 318,
     "exports": [
       "moduleEntry"
     ],

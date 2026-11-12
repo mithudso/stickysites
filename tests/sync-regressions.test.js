@@ -25,8 +25,8 @@ it('rejects poisoned timestamps and orders valid instants instead of their spell
   const key=NOTE_KEYS[0];const local={notes:{[key]:{body:'local',updatedAt:'2026-01-01T11:00:00+02:00'}}};
   const result=mergeNotes(local,[{notes:{[key]:{body:'poison',updatedAt:'z'}},tombstones:{[key]:{__single__:'z'}}},{notes:{[key]:{body:'newer',updatedAt:'2026-01-01T10:00:00Z'}}}]);expect(result.notes[key].body).toBe('newer');expect(result.tombstones[key]).toBeUndefined();
 });
-it('keeps local records on equal parsed instants with different precision',()=>{
-  const key=NOTE_KEYS[0];const result=mergeNotes({notes:{[key]:{body:'local',updatedAt:'2026-01-01T00:00:00.900Z'}}},[{notes:{[key]:{body:'remote',updatedAt:'2026-01-01T00:00:00.9Z'}}}]);expect(result.notes[key].body).toBe('local');
+it('does not rewrite identical records for a different timestamp spelling',()=>{
+  const key=NOTE_KEYS[0];const result=mergeNotes({notes:{[key]:{body:'same',updatedAt:'2026-01-01T00:00:00.900Z'}}},[{notes:{[key]:{body:'same',updatedAt:'2026-01-01T00:00:00.9Z'}}}]);expect(result.notes[key].body).toBe('same');expect(result.changedKeys).toEqual([]);
 });
 it('accepts removal of host-owned grouping while preserving user-owned grouping',()=>{
   const host={items:[{id:'a',text:'A',section:'s'}],sections:[{id:'s',name:'Groceries',origin:'host'}]};const result=applyHostResult(host,[{id:'a',text:'A',section:''}]);expect(result.items[0].section).toBe('');expect(result.sections).toEqual([]);

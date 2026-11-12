@@ -24,6 +24,7 @@ Local Peer Sync); the daemon applies them live and writes them back to peer.json
 import argparse, errno, hashlib, hmac, http.client, json, os, secrets, socket, ssl, stat, subprocess, sys, tempfile, threading, time, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
+from contextlib import contextmanager
 
 VERSION = '1.2.0'
 HOME = os.path.expanduser(os.environ.get('STICKYSITES_HOME', '~/.stickysites'))
@@ -38,8 +39,37 @@ PEER_TTL = 20
 IFACE_RESCAN = 60      # seconds between interface re-enumerations (VPN up/down, Wi-Fi switch)
 LAUNCHD_LABEL = 'com.stickysites.peer'
 REQUEST_TIMEOUT = 5  # bound TLS handshakes, HTTP headers, and request-body reads
+MAX_HTTP_WORKERS = 32
+MAX_SNAPSHOT_BYTES = 64 * 1024 * 1024
+MAX_HELLO_BYTES = 16 * 1024
+PEER_RESPONSE_TIMEOUT = 8
 # A 64 MiB UTF-8 snapshot can expand threefold when the folder writer escapes Unicode.
 MAX_FOLDER_BYTES = 3 * 64 * 1024 * 1024 + 16 * 1024
+
+@contextmanager
+def socket_deadline(connection, seconds, read_only=False):
+    """Bound total read time, including a peer that continually trickles bytes."""
+    expired = threading.Event()
+    def expire():
+        expired.set()
+        try: connection.shutdown(socket.SHUT_RD if read_only else socket.SHUT_RDWR)
+        except OSError: pass
+    timer = threading.Timer(seconds, expire)
+    timer.deadline_expired = expired
+    timer.daemon = True
+    timer.start()
+    try: yield timer
+    finally: timer.cancel()
+
+def read_peer_response(response, limit):
+    try:
+        length = response.getheader('Content-Length')
+        if length is not None and (not length.isascii() or not length.isdecimal() or int(length) > limit):
+            raise ValueError('peer response too large or invalid Content-Length')
+        body = response.read(limit + 1)
+        if len(body) > limit: raise ValueError('peer response too large')
+        return body
+    finally: response.close()
 
 def load_json(body):
     try: return json.loads(body)
@@ -329,8 +359,9 @@ class Daemon:
             with self.config_lock: self._check_generation(generation)
             headers = {'Authorization': 'Bearer ' + bearer(pair_key)}
             if cached: headers['If-None-Match'] = cached['etag']
-            conn.request('GET', '/snapshot', headers=headers)
-            r = conn.getresponse(); body = r.read()
+            with socket_deadline(conn.sock, PEER_RESPONSE_TIMEOUT):
+                conn.request('GET', '/snapshot', headers=headers)
+                r = conn.getresponse(); body = read_peer_response(r, MAX_SNAPSHOT_BYTES)
             if r.status == 304 and cached: snap = cached['snapshot']
             elif r.status == 204: snap = None
             elif r.status == 200: snap = load_json(body.decode())
@@ -428,10 +459,14 @@ class Daemon:
                             self.folder_cache[fn] = {'key': key, 'doc': doc}
                 finally:
                     os.close(descriptor)
-                pid, name, ts = str(doc.get('id')), str(doc.get('name', ''))[:64], doc.get('ts')
-                expected = self.folder_sig(pid, name, ts, doc.get('snapshot'), pair_key=pair_key)
+                pid, signed_name, ts = str(doc.get('id')), str(doc.get('name', '')), doc.get('ts')
+                name = signed_name[:64]
+                signature = doc.get('sig')
+                if not isinstance(signature, str) or len(signature) != 64 or any(c not in '0123456789abcdef' for c in signature):
+                    raise ValueError('invalid folder signature')
+                expected = self.folder_sig(pid, signed_name, ts, doc.get('snapshot'), pair_key=pair_key)
                 age = int(time.time() - st.st_mtime)
-                if not hmac.compare_digest(expected, str(doc.get('sig', ''))):
+                if not hmac.compare_digest(expected, signature):
                     out.append({'id': pid, 'name': name or fn, 'error': 'signature mismatch — that laptop uses a different pairing key', 'via': 'folder', 'age': age}); continue
                 if pid == own_id: continue
                 out.append({'id': pid, 'name': name or pid, 'snapshot': doc.get('snapshot'), 'via': 'folder', 'age': age})
@@ -570,8 +605,9 @@ class Daemon:
                 return res
             with self.config_lock: self._check_generation(generation)
             step('tls', True, 'cert %s (matches announced peer %s)' % (fp[:12], known[0]['name']))
-            conn.request('GET', '/hello', headers={'Authorization': 'Bearer ' + bearer(pair_key)})
-            r = conn.getresponse(); body = r.read()
+            with socket_deadline(conn.sock, PEER_RESPONSE_TIMEOUT):
+                conn.request('GET', '/hello', headers={'Authorization': 'Bearer ' + bearer(pair_key)})
+                r = conn.getresponse(); body = read_peer_response(r, MAX_HELLO_BYTES)
             with self.config_lock: self._check_generation(generation)
             if r.status == 401:
                 step('pairing', False, 'HTTP 401 — the other laptop has a DIFFERENT pairing key'); return res
@@ -589,6 +625,8 @@ class Daemon:
                 return res
         except ConfigurationChanged as e:
             step('pairing', False, str(e)); return res
+        except (OSError, ValueError, http.client.HTTPException):
+            step('pairing', False, 'peer response invalid or timed out'); return res
         finally:
             try: conn.close()
             except Exception: pass
@@ -600,8 +638,21 @@ class Daemon:
                 'hasSnapshot': bool(self.store.get()[0]),
                 'peers': [{'id': p['id'], 'name': p['name'], 'addr': p['addr'], 'port': p['port'], 'lastSeen': int(time.time() - p['lastSeen'])} for p in self.peers.live().values()]}
 
+class PeerRequestHandler(BaseHTTPRequestHandler):
+    def handle(self):
+        # The idle socket timeout alone resets for each arriving header byte.
+        with socket_deadline(self.connection, self.server.request_timeout) as timer:
+            self._header_deadline = timer
+            super().handle()
+    def parse_request(self):
+        try: return super().parse_request()
+        finally:
+            # Body reads receive their own deadline. Request handling may perform
+            # bounded peer I/O after all headers have already arrived.
+            self._header_deadline.cancel()
+
 def make_handlers(d):
-    class LoopHandler(BaseHTTPRequestHandler):
+    class LoopHandler(PeerRequestHandler):
         """Loopback API for the extension. CORS-open to chrome-extension:// origins only."""
         def log_message(self, *a): pass
         @staticmethod
@@ -652,7 +703,11 @@ def make_handlers(d):
                 self._json(400, {'error': 'invalid Content-Length'}); return None
             if n > limit:
                 self._json(413, {'error': 'too large'}); return None
-            try: body = self.rfile.read(n)
+            try:
+                with socket_deadline(self.connection, self.server.request_timeout, read_only=True) as deadline:
+                    body = self.rfile.read(n)
+                    if deadline.deadline_expired.is_set():
+                        self._json(408, {'error': 'request body timed out'}); return None
             except socket.timeout:
                 self._json(408, {'error': 'request body timed out'}); return None
             if len(body) != n:
@@ -695,7 +750,7 @@ def make_handlers(d):
                     return self._json(500, {'error': 'could not save configuration'})
                 return self._json(200, {'ok': True, 'changed': changed, 'config': d.get_config()})
             if self.path != '/snapshot': return self._json(404, {'error': 'not found'})
-            body = self._read_body(64 * 1024 * 1024)
+            body = self._read_body(MAX_SNAPSHOT_BYTES)
             if body is None: return
             try:
                 snap = load_json(body.decode())
@@ -709,7 +764,7 @@ def make_handlers(d):
             except Exception as e: log('sync folder write failed: %s' % e)
             self._json(200, {'ok': True, 'etag': d.store.get()[1]})
 
-    class LanHandler(BaseHTTPRequestHandler):
+    class LanHandler(PeerRequestHandler):
         """LAN API for peers. Bearer token derived from the pairing key; TLS with a pinned cert."""
         def log_message(self, *a): pass
         def do_GET(self):
@@ -730,23 +785,37 @@ def make_handlers(d):
 class PeerHTTPServer(ThreadingHTTPServer):
     """Accept promptly; perform each bounded TLS handshake in its request worker."""
     daemon_threads = True
-    def __init__(self, *args, tls_context=None, **kwargs):
+    def __init__(self, *args, tls_context=None, max_workers=MAX_HTTP_WORKERS, request_timeout=REQUEST_TIMEOUT, **kwargs):
         self.tls_context = tls_context
+        self.max_workers = max_workers
+        self.request_timeout = request_timeout
+        self._worker_slots = threading.BoundedSemaphore(max_workers)
         super().__init__(*args, **kwargs)
     def get_request(self):
         request, address = super().get_request()
-        request.settimeout(REQUEST_TIMEOUT)
+        request.settimeout(self.request_timeout)
         return request, address
+    def process_request(self, request, address):
+        if not self._worker_slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try: super().process_request(request, address)
+        except BaseException:
+            self._worker_slots.release()
+            raise
     def handle_error(self, request, address):
         if isinstance(sys.exc_info()[1], (ConnectionResetError, BrokenPipeError)): return
         super().handle_error(request, address)
     def process_request_thread(self, request, address):
-        if self.tls_context is not None:
-            try: request = self.tls_context.wrap_socket(request, server_side=True)
-            except OSError:
-                self.shutdown_request(request)
-                return
-        super().process_request_thread(request, address)
+        try:
+            if self.tls_context is not None:
+                try: request = self.tls_context.wrap_socket(request, server_side=True)
+                except OSError:
+                    self.shutdown_request(request)
+                    return
+            super().process_request_thread(request, address)
+        finally:
+            self._worker_slots.release()
 
 def make_servers(d, lan_host='0.0.0.0'):
     cfg = d.cfg

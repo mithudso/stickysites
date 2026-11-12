@@ -39,10 +39,10 @@ it('immediately clears cards and settings on Lock Now and binds controls once af
   await settings(r);
   const staleBack = button(r.w, 'Back');
   button(r.w, 'Lock Now').click();
-  await until(() => r.w.document.getElementById('popup-lock'));
   expect(r.w.document.getElementById('popup-settings')).toBeNull();
   expect(r.w.document.getElementById('notes-list').textContent).toBe('');
   expect(r.w.document.body.textContent).not.toContain('Private subject');
+  await until(() => r.w.document.getElementById('popup-lock'));
   staleBack.click();
   expect(r.w.document.getElementById('app').style.display).toBe('none');
   button(r.w, 'Save all as .md').click();

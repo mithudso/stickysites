@@ -169,8 +169,7 @@ let peerSyncTimer = null;
 let peerNoDaemonLogged = false;
 
 // Crypto adapter for the merge: decrypt/encrypt storage values with the cached vault key.
-async function peerCryptoApi() {
-  const stored = await chrome.storage.local.get([CRYPTO_KEY, CACHED_KEY]);
+async function peerCryptoApi(stored) {
   const cfg = stored[CRYPTO_KEY];
   const jwk = stored[CACHED_KEY];
   if (!cfg?.enabled || !jwk) return null;
@@ -186,8 +185,7 @@ function runPeerSync() {
   peerSyncRunning = true;
   peerSyncPromise = (async () => {
   try {
-    const cryptoApi = await peerCryptoApi().catch(() => null);
-    const result = await syncWithDaemon({ storage: chrome.storage.local, fetch: globalThis.fetch.bind(globalThis), daemonUrl: DEFAULT_DAEMON_URL, cryptoApi, commit: noteWriter.commit });
+    const result = await syncWithDaemon({ storage: chrome.storage.local, fetch: globalThis.fetch.bind(globalThis), daemonUrl: DEFAULT_DAEMON_URL, createCryptoApi: peerCryptoApi, commit: noteWriter.commit });
     if (result.status === 'no-daemon') {
       if (!peerNoDaemonLogged) { console.warn('[stickysites] peer-sync', { status: result.status, hint: 'install peer/stickysites-peer.py to sync across laptops' }); peerNoDaemonLogged = true; }
     } else if (result.status === 'error') {

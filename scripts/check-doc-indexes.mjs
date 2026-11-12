@@ -23,14 +23,21 @@ function onDisk(target, base) { return existsSync(safeTarget(target, base)); }
 // actual destinations. Definitions are resolved case-insensitively as Markdown is.
 function markdownTargets(markdown) {
   let fence = null;
+  let listIndent = null;
   const visible = markdown.replace(/<!--[\s\S]*?-->/g, '').split('\n').map((line) => {
-    const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    const item = line.match(/^( {0,3})(?:[-+*]|\d+[.)])\s+/);
+    const indent = line.match(/^ */)[0].length;
+    if (item && !fence) listIndent = item[0].length;
+    else if (line.trim() && listIndent !== null && indent < listIndent && !fence) listIndent = null;
+    const content = listIndent !== null && indent >= listIndent ? line.slice(listIndent) : line;
+    const marker = content.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
     if (fence) {
       if (marker && marker[1][0] === fence.char && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
       return '';
     }
     if (marker) { fence = { char: marker[1][0], length: marker[1].length }; return ''; }
-    return /^ {4}|^\t/.test(line) ? '' : line;
+    const codeIndent = listIndent === null ? 4 : listIndent + 4;
+    return indent >= codeIndent || /^\t/.test(line) ? '' : line;
   }).join('\n').replace(/(`+)[\s\S]*?\1/g, '');
   const normalize = (label) => label.trim().replace(/\s+/g, ' ').toLowerCase();
   const definitions = new Map();
@@ -40,7 +47,23 @@ function markdownTargets(markdown) {
     return '';
   });
   const targets = new Set();
-  for (const match of prose.matchAll(/\]\(\s*(?:<([^>\n]+)>|([^\s)]+))/g)) targets.add(match[1] ?? match[2]);
+  for (const match of prose.matchAll(/\]\(\s*/g)) {
+    let cursor = match.index + match[0].length, target = '', depth = 0;
+    if (prose[cursor] === '<') {
+      const end = prose.indexOf('>', cursor + 1);
+      if (end !== -1) targets.add(prose.slice(cursor + 1, end));
+      continue;
+    }
+    for (; cursor < prose.length; cursor++) {
+      const character = prose[cursor];
+      if (character === '\\' && cursor + 1 < prose.length) { target += prose[++cursor]; continue; }
+      if (/\s/.test(character) || (character === ')' && depth === 0)) break;
+      if (character === '(') depth++;
+      else if (character === ')') depth--;
+      target += character;
+    }
+    if (target) targets.add(target);
+  }
   for (const match of prose.matchAll(/\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/g)) {
     if (prose[match.index + match[0].length] === '(') continue;
     const destination = definitions.get(normalize(match[2] || match[1]));

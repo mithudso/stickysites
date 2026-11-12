@@ -155,9 +155,11 @@ function finishTransaction(root, journalFile, transaction, hooks = {}) {
   if (liveSwapFile(file)) throw new Error(`${transaction.name}: editor swap file present; journal retained.`);
   if (archived !== transaction.archiveAfter) atomicWrite(archive, transaction.archiveAfter, transaction.archiveMode);
   hooks.afterArchive?.(transaction);
+  if (regularText(archive) !== transaction.archiveAfter) throw new Error(`${transaction.name}: archive changed before commit; journal retained.`);
   if (regularText(file) !== live) throw new Error(`${transaction.name}: live file changed before commit; journal retained.`);
   if (live !== transaction.liveAfter) atomicWrite(file, transaction.liveAfter, transaction.liveMode);
   hooks.afterLive?.(transaction);
+  if (regularText(file) !== transaction.liveAfter || regularText(archive) !== transaction.archiveAfter) throw new Error(`${transaction.name}: committed files changed; journal retained.`);
   rmSync(journalFile);
 }
 

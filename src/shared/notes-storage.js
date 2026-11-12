@@ -277,7 +277,8 @@ export async function readPrefs() {
 export async function writePrefs(updates = {}) {
   return serialize(PREFS_KEY, async () => {
     try {
-      const current = await readPrefs();
+      const stored = await chrome.storage.local.get(PREFS_KEY);
+      const current = normalizePrefs(stored?.[PREFS_KEY]);
       const patch = object(updates) ? updates : {};
       const merged = normalizePrefs({ ...current, ...patch, enabledTypes: { ...current.enabledTypes, ...(object(patch.enabledTypes) ? patch.enabledTypes : {}) } });
       await chrome.storage.local.set({ [PREFS_KEY]: merged });

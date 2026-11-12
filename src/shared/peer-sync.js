@@ -12,7 +12,8 @@ import './network.js';
 //   tombstones = { [storageKey]: { [recordKey]: deletedAtISO } } — plaintext, keys + timestamps only.
 //   crypto = { enabled, salt } | null — used to decide whether two peers can understand each other.
 //
-// Merge = record-level last-writer-wins on `updatedAt`, tombstones included; ties keep local.
+// Merge = record-level last-writer-wins on `updatedAt`, tombstones included.
+// Equal-time conflicts choose the lexically first canonical record on every peer.
 
 export const NOTE_KEYS = [
   'stickysites_global_v1', 'stickysites_sites_v1', 'stickysites_pages_v1',
@@ -59,6 +60,15 @@ function ts(v) {
   return Number.isFinite(value) ? value : -Infinity;
 }
 
+function canonical(value) {
+  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical(value[key])).join(',') + '}';
+  return JSON.stringify(value);
+}
+function recordOrder(record) {
+  return canonical({ ...record, updatedAt: ts(record.updatedAt) });
+}
+
 export function buildSnapshot({ deviceId, notes, tombstones, crypto, ts: when }) {
   const cfg = crypto && crypto.enabled ? { enabled: true, salt: String(crypto.salt || '') } : null;
   const out = {};
@@ -100,7 +110,7 @@ export function mergeNotes(local, remotes) {
       let winner = localRecs[rk] || null; let winTs = winner ? ts(winner.updatedAt) : -Infinity; let fromRemote = false;
       for (const recs of remoteRecs) {
         const cand = recs[rk];
-        if (cand && (cand.updatedAt == null || cand.updatedAt === '' || ts(cand.updatedAt) !== -Infinity) && (!winner || ts(cand.updatedAt) > winTs)) { winner = cand; winTs = ts(cand.updatedAt); fromRemote = true; }
+        if (cand && (cand.updatedAt == null || cand.updatedAt === '' || ts(cand.updatedAt) !== -Infinity) && (!winner || ts(cand.updatedAt) > winTs || (ts(cand.updatedAt) === winTs && recordOrder(cand) < recordOrder(winner)))) { winner = cand; winTs = ts(cand.updatedAt); fromRemote = true; }
       }
       const deletedAt = ts(tomb[rk]);
       if (deletedAt !== -Infinity && (!winner || deletedAt > winTs)) {
@@ -123,18 +133,20 @@ export function mergeNotes(local, remotes) {
 // Full round: read → push → pull → merge → write. Dependencies are injected for testability.
 //   storage: chrome.storage.local-like { get(keys), set(obj) }
 //   fetch:   fetch-like; daemonUrl: base URL of the local daemon
-//   cryptoApi: { decrypt(value) → plain, encrypt(value) → envelope } using the cached key, or null
+//   createCryptoApi: construct an adapter from the captured storage snapshot.
+//   cryptoApi: optional injected test adapter; production uses createCryptoApi.
 //   now: () → ISO string
 export async function syncWithDaemon(options) {
   try { return await syncRound(options); }
   catch (err) { return { status: 'error', error: err?.message === 'STATE_CHANGED' ? 'STATE_CHANGED' : 'SYNC_FAILED' }; }
 }
 
-async function syncRound({ storage, fetch, daemonUrl = DEFAULT_DAEMON_URL, cryptoApi = null, now = () => new Date().toISOString(), commit = null }) {
+async function syncRound({ storage, fetch, daemonUrl = DEFAULT_DAEMON_URL, cryptoApi = null, createCryptoApi = null, now = () => new Date().toISOString(), commit = null }) {
   let stored;
   try { stored = await storage.get([...NOTE_KEYS, TOMBSTONES_KEY, CRYPTO_KEY, CACHED_KEY, PEER_STATE_KEY]); }
   catch (err) { return { status: 'error', error: 'storage read failed: ' + (err?.message || err) }; }
   const expected = Object.fromEntries([...NOTE_KEYS, TOMBSTONES_KEY, CRYPTO_KEY, CACHED_KEY, PEER_STATE_KEY].map(k => [k, structuredClone(stored[k] ?? null)]));
+  if (createCryptoApi) cryptoApi = await createCryptoApi(stored);
   async function commitWrites(updates) {
     if (commit) await commit(expected, updates);
     else {

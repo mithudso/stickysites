@@ -18,7 +18,7 @@ import path from 'node:path';
 import { listen, resolveChrome, withHarnessResources } from './harness-resources.mjs';
 import { fileURLToPath } from 'node:url';
 import { createCanvas, loadImage } from 'canvas';
-import { closePanel, openNoteForScreenshot } from './browser-checks.mjs';
+import { closePanel, openNoteForScreenshot, popupReady } from './browser-checks.mjs';
 
 await withHarnessResources(async (resources) => {
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -149,7 +149,7 @@ await shot(page, '04-daily-note.png'); await closePanel(page);
 const popup = await browser.newPage();
 await popup.setViewport({ width: 420, height: 640, deviceScaleFactor: 2 });
 await popup.goto(`chrome-extension://${EXT_ID}/popup.html`, { waitUntil: 'networkidle2' });
-await sleep(700);
+await popup.waitForFunction(popupReady, { timeout: 10000 }, ['Reading list', 'Hydration notes', 'Bread projects']);
 const rawPopup = path.join(resources.tempDir('ss-popup-'), 'raw.png');
 await popup.screenshot({ path: rawPopup, fullPage: true });
 await popup.close();

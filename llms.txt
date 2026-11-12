@@ -144,7 +144,7 @@ Generated from tracked and nonignored files. Use maintained guides for current b
 
 ## scripts
 
-- [scripts/browser-checks.mjs](scripts/browser-checks.mjs): Side-effect-free screenshot readiness, persisted site-body, and whole-bucket encryption/restoration checks. (maintained source)
+- [scripts/browser-checks.mjs](scripts/browser-checks.mjs): Screenshot readiness, owned UI actions, persisted site-body, and whole-bucket encryption/restoration checks. (maintained source)
 - [scripts/build-store-zip.mjs](scripts/build-store-zip.mjs): Build a runtime-only store ZIP from explicit regular files; exclude hidden paths and symlinks. (maintained source)
 - [scripts/check-doc-indexes.mjs](scripts/check-doc-indexes.mjs): Validate the file inventory and required llms/wiki index links inside this repository. (maintained source)
 - [scripts/check-syntax.mjs](scripts/check-syntax.mjs): Check JavaScript syntax without following symlinks and enforce manifest/package version agreement. (maintained source)
@@ -208,6 +208,7 @@ Generated from tracked and nonignored files. Use maintained guides for current b
 
 ## tests
 
+- [tests/blind-regressions.test.js](tests/blind-regressions.test.js): maintained test: blind-regressions.test.js. (maintained test)
 - [tests/browser-integration.test.js](tests/browser-integration.test.js): Synthetic DOM integration through manifest load order, all panel types, clips, vault and lock. (maintained test)
 - [tests/crypto-vault-compat.test.js](tests/crypto-vault-compat.test.js): maintained test: crypto-vault-compat.test.js. (maintained test)
 - [tests/crypto.test.js](tests/crypto.test.js): Tests: salt, derive (extractable), round-trip, wrong key, isEncrypted incl. siteKey guard (maintained test)

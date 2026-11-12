@@ -25,7 +25,12 @@ window.StickySites = window.StickySites || {};
 
   function normalizeData(note) {
     var items = (note && Array.isArray(note.items)) ? note.items.filter(function (i) { return i && typeof i === 'object' && !Array.isArray(i); }).map(normalizeItem) : [];
-    var sections = (note && Array.isArray(note.sections)) ? note.sections.filter(function (s) { return s && typeof s === 'object' && typeof s.id === 'string' && typeof s.name === 'string'; }) : [];
+    var seenSections = new Set();
+    var sections = (note && Array.isArray(note.sections)) ? note.sections.filter(function (s) {
+      if (!s || typeof s !== 'object' || typeof s.id !== 'string' || !s.id || typeof s.name !== 'string' || seenSections.has(s.id)) return false;
+      seenSections.add(s.id);
+      return true;
+    }) : [];
     var ids = new Set(), sectionIds = new Set(sections.map(function (s) { return s.id; }));
     items.forEach(function (item) {
       while (ids.has(item.id)) item.id = genId();

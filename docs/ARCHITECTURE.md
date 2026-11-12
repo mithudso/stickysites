@@ -75,7 +75,9 @@ machines holding the same pairing key, plus any folder provider the user chooses
    `http://127.0.0.1:47831`, `GET`s peer snapshots from LAN or the selected folder, merges
    record-level last-writer-wins on `updatedAt` (decrypting/re-encrypting with the cached key
    when the vault is on and salts match), and guarded-commits changed keys only if the inputs
-   remain current. No daemon → one warning, no-op.
+   remain current. The worker creates its encryption adapter from that same captured snapshot.
+   Equal-time conflicting records use a canonical record order, so peers converge in either
+   direction; timestamp spelling alone does not cause a rewrite. No daemon → one warning, no-op.
 10. **Encryption lifecycle** — popup Settings → `Crypto.enable(passphrase)` derives the key,
    stages every encrypted bucket, config, and cached JWK before one guarded multi-key write.
    Disable stages every decryption first, so a corrupt bucket preserves the vault for recovery.

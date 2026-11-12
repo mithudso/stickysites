@@ -31,6 +31,8 @@ it('handles HTTP-content vault operations in the actual worker without content W
     const C = r.w.StickySites.Crypto;
     await r.storage.set({ stickysites_global_v1: { body: 'HTTP private note' } });
     await C.enable('fixture-pass');
+    expect(r.data.stickysites_global_v1).toMatchObject({ iv: expect.any(String), data: expect.any(String) });
+    expect(r.data.stickysites_global_v1.body).toBeUndefined();
     expect(await C.getCachedKey()).toBeTruthy();
     expect((await C.decryptValue(r.data.stickysites_global_v1)).body).toBe('HTTP private note');
     await C.clearCachedKey(); expect(await C.getCachedKey()).toBeNull();
@@ -47,4 +49,30 @@ it('opens a fixed extension-origin unlock window and retains the asynchronous me
     const returns = messages.map(fn => fn({ type: 'STICKYSITES_UNLOCK', url: 'https://evil.test' }, {}, reply)); expect(returns).toContain(true);
     await Promise.resolve(); expect(create).toHaveBeenCalledWith({ url: 'chrome-extension://fixture/popup.html?unlock=1', type: 'popup', width: 400, height: 600 }); expect(reply).toHaveBeenCalledWith({ ok: true });
   } finally { r.close(); vi.unstubAllGlobals(); }
+});
+
+it('rejects a vault rotation during adapter creation and encrypts a subsequent round with the current key', async () => {
+  vi.resetModules();
+  const { webcrypto } = await import('node:crypto');
+  const { importJwk, decrypt } = await import('../src/shared/crypto.js');
+  const makeJwk = async () => webcrypto.subtle.exportKey('jwk', await webcrypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']));
+  const a = await makeJwk(), b = await makeJwk(), config = 'stickysites_crypto_v1', cached = 'stickysites_cached_key', note = 'stickysites_global_v1';
+  const r = runtime({ [config]: { enabled: true, salt: 'a' }, [cached]: a }), alarms = [], messages = [], event = { addListener() {} };
+  const imported = webcrypto.subtle.importKey.bind(webcrypto.subtle); let rotated = false;
+  try {
+    vi.stubGlobal('crypto', webcrypto);
+    vi.spyOn(webcrypto.subtle, 'importKey').mockImplementation(async (...args) => {
+      const key = await imported(...args);
+      if (!rotated) { rotated = true; await r.storage.set({ [config]: { enabled: true, salt: 'b' }, [cached]: b }); }
+      return key;
+    });
+    vi.stubGlobal('chrome', { storage: { local: r.storage, onChanged: event }, runtime: { id: 'fixture', onMessage: { addListener: fn => messages.push(fn) }, onInstalled: event, onStartup: event }, alarms: { create() {}, onAlarm: { addListener: fn => alarms.push(fn) } }, contextMenus: { create() {}, onClicked: event }, commands: { onCommand: event } });
+    vi.stubGlobal('fetch', async url => url.endsWith('/snapshot') ? { ok: true } : { ok: true, json: async () => ({ peers: [{ snapshot: { version: 1, deviceId: 'remote', notes: { [note]: { body: 'imported note', updatedAt: '2026-11-12T12:00:00Z' } } } }] }) });
+    await import('../src/background/service-worker.js');
+    function round() { return new Promise(resolve => { messages.forEach(fn => fn({ type: 'STICKYSITES_PEER_SYNC_NOW' }, {}, resolve)); }); }
+    await round(); expect(rotated).toBe(true); expect(r.data[note]).toBeUndefined();
+    await round();
+    const currentKey = await importJwk(b);
+    expect(JSON.parse(await decrypt(currentKey, r.data[note])).body).toBe('imported note');
+  } finally { vi.restoreAllMocks(); vi.unstubAllGlobals(); r.close(); }
 });

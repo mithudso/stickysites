@@ -7,6 +7,8 @@ import json
 import os
 import socket
 import ssl
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -14,7 +16,7 @@ import unittest
 import urllib.error
 import urllib.request
 from unittest.mock import patch
-from peer.peer_fixture import PeerFixture, http
+from peer.peer_fixture import PeerFixture, http, needs_supervision, run_supervised, supervised_test
 
 
 class TwoDaemons(unittest.TestCase):
@@ -148,6 +150,7 @@ class TwoDaemons(unittest.TestCase):
 
 class PeerRegressions(unittest.TestCase):
     def setUp(self):
+        if needs_supervision(self): return
         self.fixture = PeerFixture(self.addCleanup, discover=False)
         self.modules = [state['module'] for state in self.fixture.peers]
         self.daemons = [state['daemon'] for state in self.fixture.peers]
@@ -245,6 +248,7 @@ class PeerRegressions(unittest.TestCase):
         self.assertEqual(doc['sig'], self.daemon.folder_sig(doc['id'], doc['name'], doc['ts'], doc['snapshot']))
         self.assertEqual(self.daemon.write_folder_snapshot(), 'unchanged')
 
+    @supervised_test
     def test_concurrent_folder_publications_keep_file_and_etag_consistent(self):
         self.shared_folder()
         daemon = self.daemon
@@ -298,14 +302,14 @@ class PeerRegressions(unittest.TestCase):
                     self.assertIn((' %d ' % expected).encode(), response.split(b'\r\n', 1)[0])
 
     def test_idle_tls_handshake_times_out(self):
-        self.module.REQUEST_TIMEOUT = 0.2
         server = self.fixture.peers[0]['servers'][1]
+        server.request_timeout = 0.2
         with socket.create_connection(('127.0.0.1', server.server_port), timeout=1) as connection:
             connection.settimeout(0.7)
             self.assertEqual(connection.recv(1), b'')
 
     def test_incomplete_request_body_times_out(self):
-        self.module.REQUEST_TIMEOUT = 0.2
+        self.fixture.peers[0]['servers'][0].request_timeout = 0.2
         response = self.raw_put('/snapshot', 'Content-Length: 100', b'{')
         self.assertIn(b' 408 ', response.split(b'\r\n', 1)[0])
 
@@ -361,6 +365,7 @@ class PeerRegressions(unittest.TestCase):
 
 class DaemonBoundaryRegressions(unittest.TestCase):
     def setUp(self):
+        if needs_supervision(self): return
         self.fixture = PeerFixture(self.addCleanup, discover=False)
         self.daemon = self.fixture.peers[0]['daemon']
         self.module = self.fixture.peers[0]['module']
@@ -475,6 +480,7 @@ class DaemonBoundaryRegressions(unittest.TestCase):
             os.unlink(regular); os.mkdir(regular)
             self.assertTrue(all('snapshot' not in entry for entry in self.daemon.folder_peers()))
 
+    @supervised_test
     def test_pair_rotation_rejects_inflight_200_304_and_folder_aggregation(self):
         daemon = self.daemon
         directory = self.folder()
@@ -516,6 +522,7 @@ class DaemonBoundaryRegressions(unittest.TestCase):
                     self.assertEqual(daemon.folder_cache, {})
         server.RequestHandlerClass = original
 
+    @supervised_test
     def test_pair_rotation_during_connect_cannot_reinsert_peer_or_send_new_bearer(self):
         daemon = self.daemon; peer = self.peer()
         peer['addr'] = '127.0.0.2'  # successful fallback would previously reinsert this peer
@@ -550,6 +557,13 @@ class DaemonBoundaryRegressions(unittest.TestCase):
 
 
 class FixtureLifecycle(unittest.TestCase):
+    def test_supervisor_kills_and_reaps_a_deadlocked_test_worker(self):
+        started = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            run_supervised([sys.executable, '-c', 'import threading; threading.Thread(target=threading.Event().wait).start()'], timeout=0.2)
+        self.assertLess(time.monotonic() - started, 3)
+        with self.assertRaises(ProcessLookupError): os.kill(caught.exception.pid, 0)
+
     def test_second_initialization_failure_closes_every_acquired_resource(self):
         from peer import peer_fixture
         callbacks = []
@@ -568,7 +582,7 @@ class FixtureLifecycle(unittest.TestCase):
         try:
             with patch.object(peer_fixture.importlib.util, 'spec_from_file_location', side_effect=failing_spec):
                 with self.assertRaisesRegex(RuntimeError, 'synthetic second initialization failure'):
-                    PeerFixture(callbacks.append)
+                    PeerFixture(callbacks.append, discover=False)
         finally:
             for callback in reversed(callbacks): callback()
         fixture = callbacks[0].__self__
@@ -603,6 +617,106 @@ class FixtureLifecycle(unittest.TestCase):
             for index, state in enumerate(fixture.peers):
                 expected = fixture.peers[1 - index]['daemon'].cfg['id']
                 self.assertEqual(list(state['daemon'].peers.live()), [expected])
+
+
+class PeerResourceRegressions(unittest.TestCase):
+    def setUp(self):
+        self.fixture = PeerFixture(self.addCleanup, discover=False)
+        self.daemon = self.fixture.peers[0]['daemon']
+        self.module = self.fixture.peers[0]['module']
+        self.remote = self.fixture.peers[1]
+
+    def peer(self):
+        daemon = self.remote['daemon']
+        return {'id': daemon.cfg['id'], 'name': 'synthetic', 'addr': '127.0.0.1', 'addrs': ['127.0.0.1'], 'port': daemon.cfg['lan_port'], 'fp': daemon.fp, 'lastSeen': time.time()}
+
+    def response(self, body, declared_length=False):
+        server = self.remote['servers'][1]
+        original = server.RequestHandlerClass
+        self.addCleanup(setattr, server, 'RequestHandlerClass', original)
+        class SyntheticResponse(original):
+            def do_GET(handler):
+                handler.send_response(200)
+                if declared_length: handler.send_header('Content-Length', str(len(body)))
+                handler.end_headers()
+                handler.wfile.write(body)
+        server.RequestHandlerClass = SyntheticResponse
+
+    def test_non_ascii_folder_signature_is_reported_beside_a_valid_long_name(self):
+        directory = tempfile.TemporaryDirectory(prefix='ss-signature-boundary-'); self.addCleanup(directory.cleanup)
+        self.daemon.update_config({'syncDir': directory.name})
+        name = 'n' * 128
+        valid = {'id': 'valid', 'name': name, 'ts': int(time.time()), 'snapshot': {'version': 1, 'notes': {}}}
+        valid['sig'] = self.daemon.folder_sig(valid['id'], name, valid['ts'], valid['snapshot'])
+        for filename, doc in [('bad', {'sig': 'é'}), ('valid', valid)]:
+            with open(os.path.join(directory.name, 'stickysites-peer-%s.json' % filename), 'w') as stream: json.dump(doc, stream)
+        entries = self.daemon.folder_peers()
+        self.assertTrue(any('error' in entry and 'bad' in entry['id'] for entry in entries))
+        self.assertTrue(any(entry.get('snapshot') == valid['snapshot'] and entry['name'] == name[:64] for entry in entries))
+        self.assertEqual(len(self.daemon.status()['folder']['peers']), 2)
+
+    def test_snapshot_response_without_length_is_bounded(self):
+        self.response(json.dumps({'version': 1, 'notes': {}, 'padding': 'x' * 2048}).encode())
+        with patch.object(self.module, 'MAX_SNAPSHOT_BYTES', 1024, create=True):
+            with self.assertRaisesRegex(ValueError, 'too large'): self.daemon.fetch_peer(self.peer())
+        self.assertEqual(self.daemon.cache, {})
+
+    def test_oversized_declared_snapshot_length_is_rejected(self):
+        self.response(json.dumps({'version': 1, 'notes': {}, 'padding': 'x' * 2048}).encode(), declared_length=True)
+        with patch.object(self.module, 'MAX_SNAPSHOT_BYTES', 1024, create=True):
+            with self.assertRaisesRegex(ValueError, 'too large'): self.daemon.fetch_peer(self.peer())
+        self.assertEqual(self.daemon.cache, {})
+
+    def test_hello_response_without_length_is_bounded(self):
+        peer = self.peer(); self.daemon.peers.seen(peer['id'], peer)
+        self.response(json.dumps({'id': peer['id'], 'name': 'synthetic', 'padding': 'x' * 2048}).encode())
+        with patch.object(self.module, 'MAX_HELLO_BYTES', 1024, create=True):
+            result = self.daemon.test_peer('127.0.0.1:%d' % peer['port'])
+        self.assertFalse(result['ok']); self.assertIn('invalid', result['steps'][-1]['detail'])
+
+    def test_trickled_headers_obey_an_absolute_deadline(self):
+        server = self.fixture.peers[0]['servers'][0]
+        server.request_timeout = 0.25
+        closed = False; started = time.monotonic()
+        with socket.create_connection(('127.0.0.1', server.server_port), timeout=1) as connection:
+            connection.settimeout(0.04)
+            connection.sendall(b'GET /status HTTP/1.1\r\nX-Trickle: ')
+            while time.monotonic() - started < 0.9:
+                try:
+                    connection.sendall(b'a')
+                    if connection.recv(1) == b'': closed = True; break
+                except socket.timeout: pass
+                except (BrokenPipeError, ConnectionResetError): closed = True; break
+        self.assertTrue(closed, 'header trickle kept the worker alive beyond its total deadline')
+        self.assertLess(time.monotonic() - started, 0.9)
+
+    def test_worker_admission_is_bounded_and_slots_are_released(self):
+        server = self.fixture.peers[0]['servers'][0]
+        server.request_timeout = 2
+        cap = getattr(server, 'max_workers', 32)
+        lock = threading.Lock(); counts = {'active': 0, 'peak': 0}
+        original = server.process_request_thread
+        def tracked(request, address):
+            with lock:
+                counts['active'] += 1; counts['peak'] = max(counts['peak'], counts['active'])
+            try: original(request, address)
+            finally:
+                with lock: counts['active'] -= 1
+        connections = []
+        with patch.object(server, 'process_request_thread', side_effect=tracked):
+            try:
+                for _ in range(cap + 1): connections.append(socket.create_connection(('127.0.0.1', server.server_port), timeout=1))
+                deadline = time.monotonic() + 1
+                while counts['peak'] < cap and time.monotonic() < deadline: time.sleep(0.005)
+                time.sleep(0.1)
+                self.assertGreaterEqual(counts['peak'], cap)
+                self.assertLessEqual(counts['peak'], cap)
+            finally:
+                for connection in connections: connection.close()
+            deadline = time.monotonic() + 1
+            while counts['active'] and time.monotonic() < deadline: time.sleep(0.005)
+            self.assertEqual(counts['active'], 0)
+            self.assertEqual(http('GET', self.fixture.url(0, '/status'))[0], 200)
 
 
 if __name__ == '__main__':

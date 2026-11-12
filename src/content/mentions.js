@@ -52,14 +52,19 @@ window.StickySites = window.StickySites || {};
       this._controller = new AbortController();
       var signal = this._controller.signal;
       this.editorEl = editorEl;
+      this._composing = false;
       var self = this;
 
+      editorEl.addEventListener('compositionstart', function () { self._composing = true; self.hide(); }, { signal: signal });
+      editorEl.addEventListener('compositionend', function () { self._composing = false; self._checkForTrigger(); }, { signal: signal });
+
       editorEl.addEventListener('input', function () {
-        self._checkForTrigger();
+        if (!self._composing) self._checkForTrigger();
       }, { signal: signal });
 
       editorEl.addEventListener('keydown', function (e) {
-        if (!self.visible) return;
+        if (e.isComposing || self._composing || !self.visible) return;
+        if (!self._validSelection()) { self.hide(); return; }
         if (e.key === 'ArrowDown') {
           e.preventDefault();
           self.selectedIndex = (self.selectedIndex + 1) % self.flatItems.length;
@@ -87,6 +92,12 @@ window.StickySites = window.StickySites || {};
     },
 
     detach: function () { if (this._controller) this._controller.abort(); this.hide(); this.editorEl = null; },
+
+    _validSelection: function () {
+      var position = this.atPosition, selection = window.getSelection();
+      var range = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+      return !!(position && range && range.collapsed && position.node.isConnected && range.startContainer === position.node && range.startOffset === position.end && position.node.textContent === position.text);
+    },
 
     _checkForTrigger: function () {
       var sel = window.getSelection();
@@ -201,8 +212,9 @@ window.StickySites = window.StickySites || {};
       var selection = window.getSelection();
       var selected = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
       var currentOffset = selected ? selected.startOffset : -1;
-      var valid = atPosition && selected && selected.collapsed && selected.startContainer === atPosition.node && currentOffset === atPosition.end && atPosition.node.textContent === atPosition.text;
+      var valid = this._validSelection();
       this.hide();
+      if (!valid) return;
 
       var insertText = '';
 

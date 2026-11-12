@@ -29,8 +29,11 @@ jobs:
         run: |
           sudo unshare --net -- sh -ec '
             ip link set lo up
-            runuser -u "$1" -- "$2" node_modules/vitest/vitest.mjs run
-            runuser -u "$1" -- "$3" -m unittest peer/test_peer.py
+            test_state=$(mktemp -d)
+            chown "$1" "$test_state"
+            trap '\''rm -rf "$test_state"'\'' EXIT
+            runuser -u "$1" -- env HOME="$test_state" XDG_CONFIG_HOME="$test_state/config" XDG_DATA_HOME="$test_state/data" XDG_CACHE_HOME="$test_state/cache" AI_AUTH_HOME="$test_state/auth" HF_HOME="$test_state/models" OLLAMA_MODELS="$test_state/models" AI_PROVIDER=mock AI_AUTH_PROVIDER=mock STICKYSITES_TEST_NETWORK_ISOLATED=1 "$2" node_modules/vitest/vitest.mjs run
+            runuser -u "$1" -- env HOME="$test_state" STICKYSITES_HOME="$test_state/peer" XDG_DATA_HOME="$test_state/data" AI_AUTH_HOME="$test_state/auth" HF_HOME="$test_state/models" AI_PROVIDER=mock AI_AUTH_PROVIDER=mock "$3" -m unittest peer/test_peer.py
           ' sh "$USER" "$(command -v node)" "$(command -v python3)"
       # Retrieval indexes (docs/high_signal_file_index.json, llms.txt) must not point at dead files.
       - run: npm run docs:check-indexes

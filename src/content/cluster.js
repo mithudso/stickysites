@@ -8,6 +8,7 @@ window.StickySites = window.StickySites || {};
     hidden: false,
     collapseToCircle: false,
     _isHovered: false,
+    _isFocused: false,
     _hotkeyExpanded: false,
     _leaveTimer: null,
     onIconClick: null,
@@ -76,10 +77,13 @@ window.StickySites = window.StickySites || {};
       this.clampPosition();
       var self = this;
       window.addEventListener('resize', function () { self.clampPosition(); });
+      cluster.addEventListener('transitionend', function (event) {
+        if (event.target === cluster && (event.propertyName === 'max-height' || event.propertyName === 'max-width')) self.clampPosition();
+      });
     },
 
     clampPosition: function () {
-      if (!this.el) return;
+      if (!this.el || this.hidden || this.el.classList.contains('is-hidden')) return;
       var rect = this.el.getBoundingClientRect();
       this.el.style.right = 'auto';
       this.el.style.left = Math.max(0, Math.min(rect.left, window.innerWidth - rect.width)) + 'px';
@@ -88,6 +92,8 @@ window.StickySites = window.StickySites || {};
 
     _initCollapse: function () {
       var self = this;
+      this.el.addEventListener('focusin', function () { self._isFocused = true; self._updateCollapseState(); });
+      this.el.addEventListener('focusout', function (event) { self._isFocused = !!(event.relatedTarget && self.el.contains(event.relatedTarget)); self._updateCollapseState(); });
       this.el.addEventListener('mouseenter', function () {
         if (self._leaveTimer) { clearTimeout(self._leaveTimer); self._leaveTimer = null; }
         self._isHovered = true;
@@ -129,12 +135,13 @@ window.StickySites = window.StickySites || {};
       if (!this.el) return;
       if (!this.collapseToCircle) {
         this.el.classList.remove('is-collapsible', 'is-collapsed', 'is-expanded');
+        this.clampPosition();
         return;
       }
       this.el.classList.add('is-collapsible');
       this._updateFirstVisible();
 
-      var shouldExpand = this._isHovered || this._hotkeyExpanded || !!this.activeTypeId;
+      var shouldExpand = this._isHovered || this._isFocused || this._hotkeyExpanded || !!this.activeTypeId;
       if (shouldExpand) {
         this.el.classList.remove('is-collapsed');
         this.el.classList.add('is-expanded');
@@ -142,6 +149,7 @@ window.StickySites = window.StickySites || {};
         this.el.classList.add('is-collapsed');
         this.el.classList.remove('is-expanded');
       }
+      this.clampPosition();
     },
 
     applyCollapsePref: function (enabled) {
@@ -155,7 +163,7 @@ window.StickySites = window.StickySites || {};
     },
 
     isCollapsed: function () {
-      return this.collapseToCircle && !this._isHovered && !this._hotkeyExpanded && !this.activeTypeId;
+      return this.collapseToCircle && !this._isHovered && !this._isFocused && !this._hotkeyExpanded && !this.activeTypeId;
     },
 
     _makeClickHandler: function (typeId) {
@@ -217,6 +225,7 @@ window.StickySites = window.StickySites || {};
           this.hidden = false;
           this.el.classList.remove('is-hidden');
           this.setHotkeyExpanded(true);
+          this.clampPosition();
           return;
         }
         if (this.isCollapsed()) {
@@ -230,6 +239,7 @@ window.StickySites = window.StickySites || {};
       }
       this.hidden = !this.hidden;
       this.el.classList.toggle('is-hidden', this.hidden);
+      if (!this.hidden) this.clampPosition();
       if (this.hidden) {
         this.setActive(null);
         if (this.onIconClick) this.onIconClick(null);

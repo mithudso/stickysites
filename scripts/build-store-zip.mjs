@@ -4,7 +4,7 @@
  * the files Chrome needs (manifest, icons, src, popup, popout). Dev tooling, tests, docs,
  * llms files, dotfiles, and the store/ assets are excluded.
  *
- * Usage: npm run build:store       → dist/stickysites-1.11.1.zip + a printed file listing
+ * Usage: npm run build:store       → dist/stickysites-<version>.zip + a printed file listing
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, lstatSync, readdirSync } from 'node:fs';
@@ -47,6 +47,17 @@ function runtimeFiles(relative) {
 const files = INCLUDE.flatMap(runtimeFiles).sort();
 for (const required of INCLUDE.filter((file) => path.extname(file))) {
   if (!files.includes(required)) throw new Error(`Required runtime file is not a regular file: ${required}`);
+}
+const referenced = [
+  manifest.background?.service_worker, ...(manifest.background?.scripts ?? []),
+  ...Object.values(manifest.icons ?? {}), manifest.action?.default_popup,
+  ...Object.values(typeof manifest.action?.default_icon === 'string' ? { icon: manifest.action.default_icon } : manifest.action?.default_icon ?? {}),
+  manifest.options_page, manifest.options_ui?.page, manifest.devtools_page, manifest.side_panel?.default_path,
+  ...Object.values(manifest.chrome_url_overrides ?? {}), ...(manifest.sandbox?.pages ?? []),
+  ...(manifest.content_scripts ?? []).flatMap(group => [...(group.js ?? []), ...(group.css ?? [])]),
+].filter(value => value != null);
+for (const required of referenced) {
+  if (typeof required !== 'string' || !files.includes(required)) throw new Error(`Manifest runtime asset is missing or excluded: ${required}`);
 }
 execFileSync('zip', ['-X', zipPath, ...files], { cwd: repoRoot, stdio: 'ignore' });
 

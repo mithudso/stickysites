@@ -33,20 +33,33 @@
     window.close();
   });
   var generation = 0;
+  async function showUnavailable(current, message, state = 'unavailable') {
+    try { await Panel.close(true); } catch { Panel.el.replaceChildren(); }
+    if (current !== generation) return;
+    Panel.el.textContent = message;
+    Panel.el.dataset.lockState = state;
+    var retry = document.createElement('button');
+    retry.textContent = 'Retry';
+    retry.addEventListener('click', refreshLock);
+    Panel.el.appendChild(retry);
+    Panel.el.classList.add('is-open');
+  }
   async function refreshLock() {
     var current = ++generation, C = window.StickySites.Crypto;
-    var locked = await C.isEnabled() && !await C.getCachedKey();
-    if (current !== generation) return;
-    if (locked) {
-      await Panel.close(true);
+    try {
+      var locked = await C.isEnabled() && !await C.getCachedKey();
       if (current !== generation) return;
-      Panel.el.textContent = 'StickySites is locked. Unlock it with the extension toolbar icon.';
-      Panel.el.classList.add('is-open');
-    } else await Panel.open(noteType);
+      if (locked) await showUnavailable(current, 'StickySites is locked. Unlock it with the extension toolbar icon.', 'locked');
+      else { delete Panel.el.dataset.lockState; await Panel.open(noteType); }
+    } catch {
+      if (current === generation) await showUnavailable(current, 'Could not verify the lock state. Retry before viewing this note.');
+    }
   }
   refreshLock();
   chrome.storage.onChanged.addListener(function (changes, area) {
-    if (area === 'local' && (changes.stickysites_cached_key || changes.stickysites_crypto_v1)) refreshLock();
+    if (area !== 'local') return;
+    if (changes.stickysites_cached_key || changes.stickysites_crypto_v1) refreshLock();
+    else Panel.syncFromStorage(changes).catch(function () {});
   });
 
 })();

@@ -39,7 +39,7 @@ This complete inventory includes tracked files and nonignored new files. Generat
 | [package.json](../package.json) | 30 | maintained source | Development dependencies, supported Node versions, and npm commands. |
 | [popout.css](../popout.css) | 34 | maintained source | Popout overrides: panel fills the window, expand/popout buttons hidden |
 | [popout.html](../popout.html) | 24 | maintained source | Standalone popout window shell; loads the namespace scripts and popout.js |
-| [popout.js](../popout.js) | 52 | maintained source | Reads type/key/label from the URL, overrides getKey/getLabel, opens the Panel full-window |
+| [popout.js](../popout.js) | 65 | maintained source | Reads type/key/label from the URL, overrides getKey/getLabel, opens the Panel full-window |
 | [popup.css](../popup.css) | 473 | maintained source | Popup styles |
 | [popup.html](../popup.html) | 53 | maintained source | Browser-action popup shell; loads crypto-content.js and popup.js |
 | [popup.js](../popup.js) | 1185 | maintained source | Popup logic: lock screen, settings (encryption, note-type visibility, layout), all-notes search/sort/filter, Markdown export, Quick-Open |
@@ -68,7 +68,7 @@ This complete inventory includes tracked files and nonignored new files. Generat
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
-| [ci.yml](../.github/workflows/ci.yml) | 41 | maintained source | CI: npm ci, lint, test, docs:check-indexes, manifest validation on push/PR to main |
+| [ci.yml](../.github/workflows/ci.yml) | 44 | maintained source | CI: npm ci, lint, test, docs:check-indexes, manifest validation on push/PR to main |
 
 ## `.stele/`
 
@@ -89,7 +89,7 @@ This complete inventory includes tracked files and nonignored new files. Generat
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | 180 | maintained source | Contexts, data flows, load order, storage schema, permissions, ADRs |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 182 | maintained source | Contexts, data flows, load order, storage schema, permissions, ADRs |
 | [COMPONENTS.md](COMPONENTS.md) | 245 | maintained source | Per-module API reference |
 | [DEVELOPMENT.md](DEVELOPMENT.md) | 111 | maintained source | Setup, commands, conventions, debugging |
 | [INSTALLATION.md](INSTALLATION.md) | 70 | maintained source | Install, update, uninstall, optional to-do host |
@@ -97,17 +97,17 @@ This complete inventory includes tracked files and nonignored new files. Generat
 | [SECURITY.md](SECURITY.md) | 119 | maintained source | Threat model, permissions audit, encryption lifecycle |
 | [TESTING.md](TESTING.md) | 96 | maintained source | Suites, coverage target, CI gates, live harness |
 | [caching-and-optimization.md](caching-and-optimization.md) | 50 | maintained source | Cache layers, debounce patterns, bottlenecks, profiling |
-| [code-deep-optimizer-2026-11-12.md](code-deep-optimizer-2026-11-12.md) | 1948 | audit record | Code deep optimizer — 2026-11-12 |
+| [code-deep-optimizer-2026-11-12.md](code-deep-optimizer-2026-11-12.md) | 2036 | audit record | Code deep optimizer — 2026-11-12 |
 | [codebase-overview.md](codebase-overview.md) | — | generated text | Generated complete repository inventory grouped by directory. |
 | [external-calls.md](external-calls.md) | 97 | maintained source | Document optional native messaging and loopback peer-daemon boundaries. |
 | [high_signal_file_index.json](high_signal_file_index.json) | — | generated text | Generated per-file inventory with purpose, exported names, dependencies, and classification. |
 | [integrations-and-assumptions.md](integrations-and-assumptions.md) | 61 | maintained source | Chrome APIs, external tools, hardcoded assumptions, context differences |
 | [known-issues.md](known-issues.md) | 93 | maintained source | Open limitations and gotchas |
 | [logging.md](logging.md) | 50 | maintained source | Console-only diagnostics, silent-failure inventory, sensitive-data rules |
-| [maintenance-coverage-2026-11-12.json](maintenance-coverage-2026-11-12.json) | 3440 | audit record | audit record: maintenance-coverage-2026-11-12.json. |
+| [maintenance-coverage-2026-11-12.json](maintenance-coverage-2026-11-12.json) | 4163 | audit record | audit record: maintenance-coverage-2026-11-12.json. |
 | [onboarding.md](onboarding.md) | 58 | maintained source | Zero-to-contributing walkthrough |
 | [repo-bootstrap-audit-2026-09-27.md](repo-bootstrap-audit-2026-09-27.md) | 126 | audit record | Standards audit ledger: findings, retractions, deferrals |
-| [repo-bootstrap-audit-2026-11-12.md](repo-bootstrap-audit-2026-11-12.md) | 112 | audit record | Repository bootstrap audit — 2026-11-12 |
+| [repo-bootstrap-audit-2026-11-12.md](repo-bootstrap-audit-2026-11-12.md) | 117 | audit record | Repository bootstrap audit — 2026-11-12 |
 | [requirements.md](requirements.md) | 85 | maintained source | Functional and non-functional requirements |
 
 ## `docs/archive/`
@@ -167,7 +167,7 @@ This complete inventory includes tracked files and nonignored new files. Generat
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
-| [README.md](../peer/README.md) | 159 | maintained source | Peer sync design, install, merge + encryption rules, security model, troubleshooting |
+| [README.md](../peer/README.md) | 170 | maintained source | Peer sync design, install, merge + encryption rules, security model, troubleshooting |
 | [peer_fixture.py](../peer/peer_fixture.py) | — | maintained source | Disposable actual-daemon loopback fixture with isolated state, ephemeral ports and cleanup. |
 | [stickysites-peer.py](../peer/stickysites-peer.py) | — | maintained source | Stdlib Python peer daemon: loopback API for the extension, LAN HTTPS snapshot relay with pinned certs and bearer auth, HMAC-signed multicast discovery, launchd install |
 | [test_peer.py](../peer/test_peer.py) | — | maintained test | Two-daemon end-to-end test: discovery, CORS, auth, snapshot round-trip |
@@ -176,14 +176,14 @@ This complete inventory includes tracked files and nonignored new files. Generat
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
-| [browser-checks.mjs](../scripts/browser-checks.mjs) | 50 | maintained source | Side-effect-free screenshot readiness, persisted site-body, and whole-bucket encryption/restoration checks. |
-| [build-store-zip.mjs](../scripts/build-store-zip.mjs) | 63 | maintained source | Build a runtime-only store ZIP from explicit regular files; exclude hidden paths and symlinks. |
-| [check-doc-indexes.mjs](../scripts/check-doc-indexes.mjs) | 98 | maintained source | Validate the file inventory and required llms/wiki index links inside this repository. |
-| [check-syntax.mjs](../scripts/check-syntax.mjs) | 88 | maintained source | Check JavaScript syntax without following symlinks and enforce manifest/package version agreement. |
+| [browser-checks.mjs](../scripts/browser-checks.mjs) | 84 | maintained source | Screenshot readiness, owned UI actions, persisted site-body, and whole-bucket encryption/restoration checks. |
+| [build-store-zip.mjs](../scripts/build-store-zip.mjs) | 74 | maintained source | Build a runtime-only store ZIP from explicit regular files; exclude hidden paths and symlinks. |
+| [check-doc-indexes.mjs](../scripts/check-doc-indexes.mjs) | 121 | maintained source | Validate the file inventory and required llms/wiki index links inside this repository. |
+| [check-syntax.mjs](../scripts/check-syntax.mjs) | 89 | maintained source | Check JavaScript syntax without following symlinks and enforce manifest/package version agreement. |
 | [generate-docs.mjs](../scripts/generate-docs.mjs) | 194 | maintained source | Generate and check deterministic text inventories, guide concatenation, abstracts, and source-backed facts. |
 | [generate-icons.js](../scripts/generate-icons.js) | 44 | maintained source | npm run icons: draws icons/icon{16,48,128}.png with canvas |
-| [harness-resources.mjs](../scripts/harness-resources.mjs) | 99 | maintained source | Discover testing Chrome and manage owned browser, server, and temporary-directory resources with bounded shutdown. |
-| [rotate-workflow-logs.mjs](../scripts/rotate-workflow-logs.mjs) | 219 | maintained source | Rotate whole Markdown sections with a cooperating lock, recoverable journal, and changed-snapshot refusal. |
+| [harness-resources.mjs](../scripts/harness-resources.mjs) | 104 | maintained source | Discover testing Chrome and manage owned browser, server, and temporary-directory resources with bounded shutdown. |
+| [rotate-workflow-logs.mjs](../scripts/rotate-workflow-logs.mjs) | 221 | maintained source | Rotate whole Markdown sections with a cooperating lock, recoverable journal, and changed-snapshot refusal. |
 | [store-promo.mjs](../scripts/store-promo.mjs) | 91 | maintained source | npm run store:promo: renders the 440x280 and 1400x560 promo tiles and copies the 128px icon |
 | [store-screenshots.mjs](../scripts/store-screenshots.mjs) | 184 | maintained source | npm run store:screenshots: seeds demo data in a throwaway profile and captures five 1280x800 store screenshots with puppeteer-core + canvas |
 | [verify-live.mjs](../scripts/verify-live.mjs) | 489 | maintained source | npm run verify:live: puppeteer-core harness driving Chrome for Testing through identity, editor, SPA, sync, outliner, popup and encryption checks |
@@ -192,25 +192,25 @@ This complete inventory includes tracked files and nonignored new files. Generat
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
-| [service-worker.js](../src/background/service-worker.js) | 228 | maintained source | ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync, and local peer sync (loopback fetch to the peer daemon, LWW merge via peer-sync.js) |
+| [service-worker.js](../src/background/service-worker.js) | 226 | maintained source | ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync, and local peer sync (loopback fetch to the peer daemon, LWW merge via peer-sync.js) |
 
 ## `src/content/`
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
-| [cluster.js](../src/content/cluster.js) | 390 | maintained source | window.StickySites.Cluster: floating pill with identity icons, drag, long-press reorder, layout toggle, visibility |
+| [cluster.js](../src/content/cluster.js) | 400 | maintained source | window.StickySites.Cluster: floating pill with identity icons, drag, long-press reorder, layout toggle, visibility |
 | [crypto-content.js](../src/content/crypto-content.js) | 215 | maintained source | window.StickySites.Crypto: PBKDF2 + AES-256-GCM, envelope detection, enable/unlock/disable, cached key in chrome.storage.local |
-| [mentions.js](../src/content/mentions.js) | 258 | maintained source | window.StickySites.Mentions: @-mention autocomplete dropdown (link, date, contact, file) inserting chips at the caret |
+| [mentions.js](../src/content/mentions.js) | 270 | maintained source | window.StickySites.Mentions: @-mention autocomplete dropdown (link, date, contact, file) inserting chips at the caret |
 | [note-types.js](../src/content/note-types.js) | 114 | maintained source | window.StickySites.noteTypes: six note-type descriptors with storage keys, key/label/placeholder and identity-icon functions |
-| [outline-ops.js](../src/content/outline-ops.js) | 276 | maintained source | window.StickySites.OutlineOps: pure outline tree operations, filter, auto-group, Markdown/OPML export (unit-tested) |
+| [outline-ops.js](../src/content/outline-ops.js) | 284 | maintained source | window.StickySites.OutlineOps: pure outline tree operations, filter, auto-group, Markdown/OPML export (unit-tested) |
 | [outline.js](../src/content/outline.js) | 802 | maintained source | window.StickySites.Outline: outliner UI over a global library of named docs; switcher, menu, keyboard nav, zoom, filter, lock notice |
-| [panel.js](../src/content/panel.js) | 1872 | maintained source | window.StickySites.Panel: moveable/resizable note panel, 19-tool rich-text toolbar, find & replace, to-do UI, debounced encrypted save, cross-tab sync, popout |
+| [panel.js](../src/content/panel.js) | 1874 | maintained source | window.StickySites.Panel: moveable/resizable note panel, 19-tool rich-text toolbar, find & replace, to-do UI, debounced encrypted save, cross-tab sync, popout |
 | [prefs.js](../src/content/prefs.js) | 15 | maintained source | window.StickySites.Prefs: read/write stickysites_prefs_v1 with defaults |
 | [safe-html.js](../src/content/safe-html.js) | 54 | maintained source | Inert rich-text allowlist sanitizer and block-aware plain-text extraction. |
-| [sticky-inject.css](../src/content/sticky-inject.css) | 1190 | maintained source | All injected styles for cluster, panel, toolbar, to-do, outliner, mentions, lock overlay, toast (also used by popout.html) |
-| [sticky-inject.js](../src/content/sticky-inject.js) | 224 | maintained source | Orchestrator content script: init, lock overlay, toast, clip handler, Ctrl/Cmd+F1-F6, SPA URL watcher, message and storage listeners |
+| [sticky-inject.css](../src/content/sticky-inject.css) | 1191 | maintained source | All injected styles for cluster, panel, toolbar, to-do, outliner, mentions, lock overlay, toast (also used by popout.html) |
+| [sticky-inject.js](../src/content/sticky-inject.js) | 239 | maintained source | Orchestrator content script: init, lock overlay, toast, clip handler, Ctrl/Cmd+F1-F6, SPA URL watcher, message and storage listeners |
 | [storage-content.js](../src/content/storage-content.js) | 9 | maintained source | Classic-script IPC client for the authoritative service-worker writer. |
-| [todo.js](../src/content/todo.js) | 218 | maintained source | window.StickySites.Todo: to-do item/section normalisation, color palettes, grip drag-reorder controller |
+| [todo.js](../src/content/todo.js) | 223 | maintained source | window.StickySites.Todo: to-do item/section normalisation, color palettes, grip drag-reorder controller |
 
 ## `src/shared/`
 
@@ -219,8 +219,8 @@ This complete inventory includes tracked files and nonignored new files. Generat
 | [crypto.js](../src/shared/crypto.js) | 76 | maintained source | ES-module cryptographic primitives used by tests and service-worker peer merging. |
 | [network.js](../src/shared/network.js) | 16 | maintained source | Bound fetch headers and response-body reads with an abort deadline. |
 | [note-writer.js](../src/shared/note-writer.js) | 127 | maintained source | Authoritative service-worker mutation queue, guarded sync commits, and storage readback verification. |
-| [notes-storage.js](../src/shared/notes-storage.js) | 405 | maintained source | Reference plaintext CRUD for all six note types and prefs, parseTags, createDebouncedSaver (imported by tests only) |
-| [peer-sync.js](../src/shared/peer-sync.js) | 272 | maintained source | Local peer sync: snapshot build, vault compatibility, record-level LWW merge with tombstones, syncWithDaemon round-trip against the loopback daemon |
+| [notes-storage.js](../src/shared/notes-storage.js) | 406 | maintained source | Reference plaintext CRUD for all six note types and prefs, parseTags, createDebouncedSaver (imported by tests only) |
+| [peer-sync.js](../src/shared/peer-sync.js) | 284 | maintained source | Local peer sync: snapshot build, vault compatibility, record-level LWW merge with tombstones, syncWithDaemon round-trip against the loopback daemon |
 | [settings.js](../src/shared/settings.js) | 26 | maintained source | Shared preference normalization and integration deadlines for classic scripts and the worker. |
 | [todo-bridge.js](../src/shared/todo-bridge.js) | 151 | maintained source | Native-messaging to-do sync: request builder, host-result merge preserving local-only fields, syncTodosWithHost orchestration |
 
@@ -254,6 +254,7 @@ This complete inventory includes tracked files and nonignored new files. Generat
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
+| [blind-regressions.test.js](../tests/blind-regressions.test.js) | 170 | maintained test | maintained test: blind-regressions.test.js. |
 | [browser-integration.test.js](../tests/browser-integration.test.js) | 41 | maintained test | Synthetic DOM integration through manifest load order, all panel types, clips, vault and lock. |
 | [crypto-vault-compat.test.js](../tests/crypto-vault-compat.test.js) | 96 | maintained test | maintained test: crypto-vault-compat.test.js. |
 | [crypto.test.js](../tests/crypto.test.js) | 56 | maintained test | Tests: salt, derive (extractable), round-trip, wrong key, isEncrypted incl. siteKey guard |
@@ -262,13 +263,13 @@ This complete inventory includes tracked files and nonignored new files. Generat
 | [peer-sync.test.js](../tests/peer-sync.test.js) | 242 | maintained test | Tests: snapshot, compatibility matrix, merge semantics, orchestration with fake daemon and fake crypto |
 | [popup-regressions.test.js](../tests/popup-regressions.test.js) | 138 | maintained test | maintained test: popup-regressions.test.js. |
 | [runtime-regressions.test.js](../tests/runtime-regressions.test.js) | 61 | maintained test | Actual browser-module regressions for vault, writer, panel ownership, mentions and drag behavior. |
-| [service-worker.test.js](../tests/service-worker.test.js) | 50 | maintained test | Actual worker message/alarm integration with controlled sync completion. |
+| [service-worker.test.js](../tests/service-worker.test.js) | 78 | maintained test | Actual worker message/alarm integration with controlled sync completion. |
 | [sync-regressions.test.js](../tests/sync-regressions.test.js) | 33 | maintained test | Synthetic delayed/malformed peer and native sync responses, conflicts and deadlines. |
 | [todo-bridge.test.js](../tests/todo-bridge.test.js) | 190 | maintained test | Tests: request shape, host merge, encrypted skip, error paths |
-| [tooling-browser.test.js](../tests/tooling-browser.test.js) | 65 | maintained test | maintained test: tooling-browser.test.js. |
-| [tooling-docs.test.js](../tests/tooling-docs.test.js) | 120 | maintained test | maintained test: tooling-docs.test.js. |
-| [tooling-harness.test.js](../tests/tooling-harness.test.js) | 90 | maintained test | maintained test: tooling-harness.test.js. |
-| [tooling.test.js](../tests/tooling.test.js) | 267 | maintained test | maintained test: tooling.test.js. |
+| [tooling-browser.test.js](../tests/tooling-browser.test.js) | 97 | maintained test | maintained test: tooling-browser.test.js. |
+| [tooling-docs.test.js](../tests/tooling-docs.test.js) | 122 | maintained test | maintained test: tooling-docs.test.js. |
+| [tooling-harness.test.js](../tests/tooling-harness.test.js) | 127 | maintained test | maintained test: tooling-harness.test.js. |
+| [tooling.test.js](../tests/tooling.test.js) | 318 | maintained test | maintained test: tooling.test.js. |
 | [ui-boundaries.test.js](../tests/ui-boundaries.test.js) | 73 | maintained test | maintained test: ui-boundaries.test.js. |
 | [vault-import.test.js](../tests/vault-import.test.js) | 33 | maintained test | Optional private-package absence versus installed import failure behavior. |
 | [vault-legacy.test.js](../tests/vault-legacy.test.js) | 18 | maintained test | Always-on decryption of frozen legacy corpus with real shared cryptographic primitives. |
@@ -284,4 +285,4 @@ This complete inventory includes tracked files and nonignored new files. Generat
 
 | File | Lines | Classification | Purpose |
 |---|---:|---|---|
-| [runtime.js](../tests/helpers/runtime.js) | 20 | maintained test | maintained test: runtime.js. |
+| [runtime.js](../tests/helpers/runtime.js) | 26 | maintained test | maintained test: runtime.js. |

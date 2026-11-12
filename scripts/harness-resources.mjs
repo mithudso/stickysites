@@ -38,9 +38,9 @@ export function createHarnessResources({ tempRoot = os.tmpdir(), closeTimeoutMs 
   const browsers = new Set();
   const servers = new Set();
   return {
-    tempDir(prefix) {
+    tempDir(prefix, { preserve = false } = {}) {
       const directory = fs.mkdtempSync(path.join(tempRoot, prefix));
-      directories.push(directory);
+      if (!preserve) directories.push(directory);
       return directory;
     },
     ownBrowser(browser) { browsers.add(browser); return browser; },
@@ -57,15 +57,20 @@ export function createHarnessResources({ tempRoot = os.tmpdir(), closeTimeoutMs 
       }
       for (const server of servers) {
         try {
-          await withDeadline(() => new Promise((resolve, reject) => server.close((error) => {
-            if (error && error.code !== 'ERR_SERVER_NOT_RUNNING') reject(error); else resolve();
-          })), closeTimeoutMs, 'Server');
+          await withDeadline(() => new Promise((resolve, reject) => {
+            server.close((error) => {
+              if (error && error.code !== 'ERR_SERVER_NOT_RUNNING') reject(error); else resolve();
+            });
+            // These are exclusively owned fixture servers. No request needs to
+            // finish once the harness action has ended.
+            server.closeAllConnections?.();
+          }), closeTimeoutMs, 'Server');
+          servers.delete(server);
         } catch (error) { errors.push(error); }
       }
-      servers.clear();
       // A failed browser close can mean Chrome still owns its profile. Preserve
       // directories in that case and report the cleanup failure for manual review.
-      if (!browsers.size) {
+      if (!browsers.size && !servers.size) {
         for (const directory of directories.reverse()) {
           try { fs.rmSync(directory, { recursive: true, force: true }); } catch (error) { errors.push(error); }
         }
