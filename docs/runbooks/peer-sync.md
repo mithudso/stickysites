@@ -5,18 +5,19 @@ helper (`peer/stickysites-peer.py`). Design and security model: `peer/README.md`
 
 **Precondition**: Python 3.9+ and `openssl` on each machine; both on the same Wi-Fi/LAN with
 multicast or subnet broadcast allowed (the daemon uses both; guest networks with client isolation
-block both — configure `--peer IP` on each side, see `peer/README.md`).
+may also block direct peer traffic. Static IPs help only when unicast is allowed;
+otherwise use a shared/cloud folder, see `peer/README.md`).
 
 ## Set up
 
 1. First laptop:
    ```bash
-   python3 /Users/mitch/dev/stickysites/peer/stickysites-peer.py install
+   python3 peer/stickysites-peer.py install
    ```
    Copy the pairing key it prints.
 2. Every other laptop (same repo checkout or a copy of `peer/stickysites-peer.py`):
    ```bash
-   python3 /Users/mitch/dev/stickysites/peer/stickysites-peer.py install --pair-key <KEY>
+   python3 peer/stickysites-peer.py install --pair-key <KEY>
    ```
    Or skip the key flag: after installing, open the popup → Settings → Local Peer Sync, paste the
    first laptop's key into **Pairing key**, click **Save**. Applied live.
@@ -40,7 +41,8 @@ When Test connection keeps failing at `tcp` (VPN you cannot bypass, client isola
 different subnets): on each laptop set the **same** shared folder — popup → Settings → Local
 Peer Sync → Sync folder → Save, or `python3 peer/stickysites-peer.py folder "<path>"`.
 Test connection then shows "Sync folder OK … peers via folder: <name> (file N s old, key OK)".
-The pairing key must still match; nothing else is required.
+The pairing key must still match. Your chosen provider must deliver the files, and it can
+store plaintext notes when the vault is off; metadata remains readable with the vault on.
 
 ## Encryption
 
@@ -58,6 +60,7 @@ and every laptop heard on the network and reports the first failing step (`tcp` 
 |---|---|
 | Test: `tcp` fails with `No route to host` although the app is allowed; log line `interpreter /opt/homebrew/…` | Sends are attributed to the interpreter, and Homebrew's Python.app gets no Local Network prompt under launchd. `install` picks Apple `/usr/bin/python3` when the Command Line Tools exist (`xcode-select --install`), or force one with `install --python PATH`; then re-run `install` |
 | Test: `tcp` fails with `No route to host` while the peer is heard | A VPN is tunnelling the helper: add **StickySites Peer** (`~/Applications`) to its bypass list (Surfshark: Bypasser → Bypass VPN → add app), or allow it in Privacy & Security → Local Network; then `launchctl kickstart -k gui/$(id -u)/com.stickysites.peer` |
+| Test: `tls` says certificate is not authenticated by signed discovery | Check the pairing key and wait for a signed announcement; the helper does not send credentials to an unknown certificate |
 | Test: `pairing` fails with 401 | Different pairing keys — copy one to the other laptop and Save |
 | Test: `tcp` times out | Wrong IP / helper not running there / firewall blocking TCP 47832 |
 | Popup: "Peer helper not running on this machine" | `launchctl list \| grep com.stickysites.peer`; `tail ~/.stickysites/peer.log`; re-run `install` |
@@ -69,7 +72,8 @@ and every laptop heard on the network and reports the first failing step (`tcp` 
 ## Escalation
 
 Run both daemons in the foreground (`run`) and watch the logs; the two-daemon test
-`npm run test:peer` reproduces discovery + fetch on one machine.
+`npm run test:peer` exercises actual modules through isolated loopback unicast discovery
+and pinned TLS. It does not activate installed helpers or reproduce real LAN permissions.
 
 ## Remove
 

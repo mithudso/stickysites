@@ -1,83 +1,96 @@
 # Testing
 
-## Framework and commands
+## Commands
 
-[Vitest](https://vitest.dev/) 5.x, node environment, `globals: true` (`vitest.config.mjs`).
+Use the Node version in `.nvmrc` that satisfies `package.json` engines, then `npm ci`.
 
 ```bash
-npm test                                   # single run — 5 files, 125 tests (~400 ms)
-npm run test:peer                          # python3 -m unittest peer/test_peer.py — two daemons, ~10 s
-npm run test:watch                         # watch mode
-npx vitest run tests/todo-bridge.test.js   # one file
-npm run lint                               # syntax gate + version agreement (runs before tests in CI)
-npm run verify:live                        # optional end-to-end harness (see below)
+npm run lint                              # syntax, ESLint, manifest/package version agreement
+npm test                                  # Vitest pure modules and runtime regressions
+npm run test:peer                         # Python/OpenSSL; isolated actual daemon modules
+npm run test:watch                        # Vitest watch mode
+npx vitest run tests/todo-bridge.test.js   # focused file
+npm run docs:check-indexes                # retrieval/wiki paths resolve
+npm run docs:check-generated             # generated docs agree with sources
+npm run build:store                       # runtime package validation
 ```
 
-## Suites
+CI runs JavaScript and peer tests inside a Linux network namespace with only loopback.
+Package installation occurs before that isolation.
 
-| File | Tests | Module under test | What is covered |
-|------|------:|-------------------|-----------------|
-| `tests/notes-storage.test.js` | 50 | `src/shared/notes-storage.js` | `getSiteKey` (www strip, invalid URL), `getPageKey` (query/hash stripped), `getDailyKey`, `parseTags` (split, `#` prefix, dedupe, lowercase), CRUD + `createdAt` preservation + delete + readAll for global, site, page, daily, todo, outline; prefs defaults (match `prefs.js`) / write / partial merge; todo `sections`/`tagColors` round-trip |
-| `tests/peer-sync.test.js` | 24 | `src/shared/peer-sync.js` | Snapshot shape (+ `cryptoFull`), `recordsOf`/`fromRecords`, vault compatibility matrix, `mergeNotes` (newer wins, older loses, ties keep local, legacy records lose, remote-only records added, tombstones newer/older, global + todo as single records, three peers), `syncWithDaemon` with a fake daemon and fake crypto (no-daemon, disabled, apply + state, self-echo, locked, same-salt decrypt/merge/re-encrypt, mismatch, adopt remote vault, remote-off, tombstone propagation) |
-| `peer/test_peer.py` | 4 (Python) | `peer/stickysites-peer.py` | Two daemons on ephemeral ports: CORS preflight for extension origins, bad snapshot → 400, LAN endpoint 401 without bearer, discovery + snapshot round-trip through pinned TLS with ETag cache |
-| `tests/todo-bridge.test.js` | 23 | `src/shared/todo-bridge.js` | `buildRequest` shape and coercion; `applyHostResult` — local-only fields kept, section name↔id mapping, host-origin section pruning, `completedAt` backfill/clear, `changed` detection; `syncTodosWithHost` — encrypted skip, host error, malformed reply, no-write when unchanged, storage read/write failures |
-| `tests/outline-ops.test.js` | 21 | `src/content/outline-ops.js` (with a stubbed `window`) | `findParent`, insert/indent/outdent/move/remove, `filterTree` (ancestors kept), `extractTags`, `autoGroup`, `toMarkdown`, `toOPML` |
-| `tests/crypto.test.js` | 7 | `src/shared/crypto.js` | 16-byte salt, `CryptoKey` derivation, encrypt/decrypt round-trip, wrong-key failure, `isEncrypted` |
+CI's exact gates are in `.github/workflows/ci.yml`. Test totals and source line counts are
+not documentation contracts; inspect the current runner output. Passing synthetic tests does
+not establish a live browser, installed native host, launchd job, or real LAN deployment.
 
-### Chrome API mocking
+## Suites and fixtures
 
-Tests replace `globalThis.chrome.storage.local` with an in-memory object exposing `get`, `set`,
-`remove`; `beforeEach` resets it. `todo-bridge` takes `storage` and `sendNativeMessage` as
-parameters, so its tests inject fakes and never touch `chrome.*`. `outline-ops` is loaded
-after assigning `globalThis.window = {}` so the namespace IIFE has somewhere to attach.
+| File/group | Coverage |
+|---|---|
+| `notes-storage.test.js` | Reference CRUD, keys, timestamps, tags, and preference shapes |
+| `outline-ops.test.js` | Tree operations, filtering, tags, grouping, Markdown/OPML export |
+| `crypto.test.js` | Salt/key derivation, AES-GCM round trips, wrong-key rejection, envelope shapes |
+| `peer-sync.test.js` | Snapshot shape, vault compatibility, record LWW, tombstones, orchestration |
+| `todo-bridge.test.js` | Native request/reply normalization, local-only fields, encrypted skip, failures |
+| `ui-boundaries.test.js` | Save/blur/transition races, outline clips, checkbox/formatting persistence, OPML whitespace, popout lock, cluster geometry |
+| `runtime-regressions.test.js` | Actual classic-script rendering, mentions, HTML filtering, queued mutations, vault staging, and stale/failed writes |
+| `popup-regressions.test.js` | Actual popup lock/settings behavior, preference merging, stale async work, bounded response bodies |
+| `browser-integration.test.js`, `service-worker.test.js` | Manifest script order, all six editors, clip/vault/lock, actual worker alarm/message completion |
+| `vault-legacy.test.js`, `vault-import.test.js` | Always-on frozen-corpus decryption; optional-package absence versus installed import failure |
+| `sync-regressions.test.js` | Changes during native/peer requests, malformed peers, response-body deadlines |
+| `tooling*.test.js` | Package, syntax, documentation generation, and optional browser-harness behavior |
+| `peer/test_peer.py`, `peer/peer_fixture.py` | Actual daemon discovery, handlers, pinned TLS, auth, ETags, folder/config/persistence failures, invalid lengths, stalled clients, fixture cleanup/isolation |
+| `crypto-vault-compat.test.js` | Optional private-package interoperability against frozen legacy envelopes; package absence skips this suite |
 
-## Coverage target
+`tests/helpers/runtime.js` uses jsdom and synthetic Chrome storage/IPC. Tests load the actual
+classic scripts rather than a rewritten implementation. Worker tests also simulate an HTTP
+content context without WebCrypto and assert asynchronous response channels remain open. Storage, native replies, and fetch
+responses remain synthetic. Tests do not activate the user's extension, daemon, or host.
 
-**Meaningful coverage of the paths that lose or corrupt data if wrong**, with assertions on
-behaviour — not a blanket line-percentage. Concretely, every exported function in
-`src/shared/` and `src/content/outline-ops.js` has at least one behavioural test, and every
-change to storage shapes, the merge in `todo-bridge.js`, or the envelope check ships with a
-test in the same PR. No numeric threshold is enforced in CI; the gate is "all tests pass"
-plus the review checklist in `.github/PULL_REQUEST_TEMPLATE.md`.
+The Python fixture imports fresh daemon modules with temporary `STICKYSITES_HOME` directories
+and dynamic ports. HTTP, HTTPS, and UDP sockets bind to `127.0.0.1`. It keeps production HMAC
+announce/listen logic while directing discovery over loopback unicast with a synthetic
+interface inventory. It exercises the same server factory as `run()`, registers cleanup
+before acquisition, retains bounded startup diagnostics, and supports concurrent runs without
+LAN permissions or fixed ports. Python 3.9+ and `openssl` are required.
 
-## CI gates (`.github/workflows/ci.yml`)
+For this maintenance batch, local automated tests use the task-local process-tree egress
+runner outside this repository. It denies outbound traffic, including loopback, except exact
+owned TCP fixture ports. The peer guarded launcher reserves and inherits those listeners.
+The runner cannot permit UDP fixture sends. Local guarded parser tests use an injected
+datagram socket; the full actual UDP discovery test runs in isolated CI. Earlier local
+loopback passes preceded the guard and are not evidence of guarded isolation. Git test
+fixtures strip inherited selectors/config, use empty templates, and verify effective hooks
+before committing; a hostile hook sentinel checks that boundary.
 
-1. `npm run lint` — `node --check` over every `.js`/`.mjs`; `manifest.json` and `package.json` versions must agree.
-2. `npm test` — the 125 unit tests.
-2b. `python3 -m unittest peer/test_peer.py` — the two-daemon test (multicast on loopback).
-3. `npm run docs:check-indexes` — `docs/high_signal_file_index.json` and `llms.txt` links resolve.
-4. `manifest.json` parses and declares `manifest_version: 3`.
+## Compatibility boundaries
 
-## What is not unit-tested
+`tests/fixtures/legacy-crypto-envelopes.json` is a frozen historical corpus. Normal tests do
+not regenerate it or install the optional private package. A skipped private compatibility
+suite is not evidence of interoperability. Follow the suite's setup instructions only when
+that private-package work is explicitly in scope.
 
-- **DOM layers** — `panel.js`, `cluster.js`, `outline.js`, `mentions.js`, `sticky-inject.js`,
-  `popup.js`, `popout.js`. They are coupled to the content-script runtime and `execCommand`.
-- **Service worker wiring** — context menus, commands, alarms, `sendNativeMessage` and
-  peer-daemon `fetch` glue (the merge logic it calls *is* tested; a live smoke of daemon +
-  extension was run by hand during development).
-- **Encryption end-to-end** in the namespace module (`crypto-content.js`); the primitives are
-  tested through the ES twin.
+## Coverage target and limits
 
-These are covered by the live harness and by the manual checklist in
-`docs/runbooks/load-and-reload-extension.md`.
+Prioritize observable data-loss, stale-write, vault, import/rendering, and integration failure
+paths. Add a behavioral regression when changing those contracts. No blanket line-percentage
+threshold is enforced. Use `vi.spyOn(console, 'warn')` when the log behavior matters.
 
-## Live harness (`npm run verify:live`)
+jsdom cannot establish real `execCommand`, caret/layout, extension permission handling,
+Chrome service-worker lifecycle, or OS network authorization. The synthetic peer suite does
+not establish real multicast/broadcast delivery, VPN behavior, cloud-client propagation, or
+launchd installation. Keep these limits in verification reports.
 
-`scripts/verify-live.mjs` drives an unpacked build with puppeteer-core:
+## Optional live harnesses
 
-- Needs `npm i --no-save puppeteer-core` and a Chromium that honours `--load-extension`
-  (Chrome for Testing; branded Chrome 137+ ignores it). Override the binary with `SS_CHROME`.
-- Spins up a local HTTP server with classic pages and an SPA route, then checks: identity
-  icons (S1), caret stability across save cycles (S2), per-page identity (S3), SPA re-key (S4),
-  unfocused cross-tab sync (S5), site note (S6), outliner keyboard/zoom/filter/auto-group/export
-  (S7a–k), popup labels and storage integrity (S8), encryption enable → Lock Now → locked
-  popout read-only → unlock (S9a–d).
-- Screenshots land in `/tmp/stickysites-verify`; exit code is non-zero on any ❌ step
-  (🔍 marks probes that are informational).
+`npm run verify:live` and `npm run store:screenshots` use puppeteer-core and a compatible
+Chrome for Testing/Chromium binary. Install the optional harness prerequisite only when a
+live run is authorized; set `SS_CHROME` for either harness. Branded Chrome versions may
+ignore `--load-extension`; consult the current harness prerequisites.
 
-## Adding tests
-
-- Pure logic → extract into `src/shared/` or a `*-ops.js` namespace module and test it directly.
-- Anything asserting on the service worker's `console.warn` failure logs →
-  `vi.spyOn(console, 'warn')`; see `docs/logging.md`.
-- Keep `describe` blocks per export; reset the storage mock in `beforeEach`.
+The verification harness serves local fixtures and checks identity icons, caret stability,
+page identity, SPA navigation, cross-tab sync, outliner interactions, popup storage, and
+vault enable/lock/unlock. Screenshots go to `/tmp/stickysites-verify`. Store screenshots have
+their own output under `store/screenshots/`. Neither harness's presence proves it was run.
+Do not reload an active user extension or daemon merely to complete automated maintenance.
+For an explicitly requested manual smoke, follow
+[load/reload](runbooks/load-and-reload-extension.md).

@@ -4,40 +4,41 @@
 
 StickySites is a Chrome Extension (Manifest V3) that injects a floating note workspace into
 every web page. Notes live in `chrome.storage.local` with optional AES-256-GCM encryption.
-There are no servers, internet calls, or analytics. Two optional out-of-browser boundaries exist,
-both local: a native-messaging host that mirrors the global to-do list into `TODO.md`, and a
-loopback peer daemon that syncs notes between the user's own machines on the same LAN.
+There is no hosted StickySites service or telemetry. Optional native messaging mirrors
+to-dos into `TODO.md`. An optional loopback daemon relays snapshots to paired LAN computers
+or to a shared/cloud folder selected by the user.
 
 ## System context
 
 ```
   User ──▶ Chrome
-            ├─ Content scripts (per tab; 10 classic scripts in manifest order)
+            ├─ Content scripts (per tab; classic scripts in manifest order)
             │    Cluster pill · Panel (rich text / to-do / outliner) · lock overlay · toast
-            │    chrome.storage.local ⇄ notes, prefs, crypto config, cached key
+            │    reads storage; mutations ──▶ service-worker write queue
             ├─ Service worker (ES module)
-            │    context menus · Alt+S command · popout window · to-do sync scheduler
+            │    menus · commands · popout · sync · note-writer queue → chrome.storage.local
             │    ──▶ chrome.runtime.sendNativeMessage('com.mitch.todo_bridge')  (optional)
             │    │     └─▶ ~/.claude/skills/todo/scripts/todo_host ⇄ TODO.md
             │    ──▶ fetch http://127.0.0.1:47831  (optional peer daemon, peer/stickysites-peer.py)
-            │          └─▶ LAN: multicast discovery + HTTPS snapshot relay ⇄ other laptops' daemons
+            │          ├─▶ LAN: signed discovery + pinned HTTPS ⇄ paired daemons
+            │          └─▶ selected shared/cloud folder ⇄ paired snapshot files
             ├─ Popup page (popup.html)   Quick-Open · search · settings · lock screen
             └─ Popout page (popout.html) Panel filling its own window
 ```
 
 External actors: the user; the host web page (untrusted DOM the UI is injected into); the
 optional native host process; the optional peer daemon and, through it, the user's other
-machines holding the same pairing key. Nothing else.
+machines holding the same pairing key, plus any folder provider the user chooses.
 
 ## Runtime contexts and communication
 
 | Context | File(s) | Module system | Talks to |
 |---|---|---|---|
-| Content scripts | `src/content/*.js` | classic, `window.StickySites.*` | storage; SW via `runtime.sendMessage(POPOUT)`; receives `TOGGLE` / `OPEN` / `CLIP` |
-| Service worker | `src/background/service-worker.js` | ES module (imports `src/shared/todo-bridge.js`, `peer-sync.js`, `crypto.js`) | tabs via `tabs.sendMessage`; native host; `windows.create`; loopback `fetch` to the peer daemon |
-| Popup | `popup.html` + `crypto-content.js` + `popup.js` | classic `<script>` | storage; active tab via `tabs.sendMessage(OPEN/TOGGLE)`; SW via `POPOUT` |
-| Popout | `popout.html` + 8 namespace scripts + `popout.js` | classic `<script>` | storage only |
-| Tests | `tests/*.test.js` | ES modules (vitest, node) | mocked `chrome.storage.local` |
+| Content scripts | `src/content/*.js` | classic, `window.StickySites.*` | storage reads; SW via `STICKYSITES_WRITE` / `POPOUT` / `UNLOCK`; receives `TOGGLE` / `OPEN` / `CLIP` |
+| Service worker | `src/background/service-worker.js` | ES module (`note-writer.js`, sync/crypto modules, shared classic helpers) | tabs via `tabs.sendMessage`; native host; `windows.create`; loopback `fetch` to the peer daemon |
+| Popup | `popup.html` + shared classic helpers + `popup.js` | classic `<script>` | storage reads; queued mutations; active tab via `tabs.sendMessage(OPEN/TOGGLE)`; SW via `POPOUT` |
+| Popout | `popout.html` + namespace helpers + `popout.js` | classic `<script>` | storage reads; queued mutations via SW |
+| Tests | `tests/*.test.js` | Vitest, node/jsdom | synthetic storage, IPC, fetch, and native calls |
 
 ## Data flows
 
@@ -46,50 +47,53 @@ machines holding the same pairing key. Nothing else.
 2. **Open a note** — cluster icon click, `Ctrl/Cmd+F1…F6`, popup Quick-Open (`STICKYSITES_OPEN`),
    or a clip. `checkUnlocked()` first: if encryption is enabled and no cached key, the lock
    overlay is shown instead. `Panel.open(type)` snapshots `_activeKey`/`_activeLabel`, reads
-   and decrypts the record, renders the right editor.
+   and decrypts the record, renders the right editor. The notice opens a fixed extension-origin
+   unlock window; the host page has no passphrase input.
 3. **Edit** — rich text (`contenteditable` + `execCommand`), to-do list, or outliner. Every
    change arms a 500 ms debounce; the write encrypts when a key is cached. `flushPendingSave()`
-   commits early on close, switch, popout, or SPA re-key.
+   commits early on close, switch, popout, or SPA re-key. Mutations enter the single SW
+   queue, read fresh records, and verify persistence. A deletion and its tombstone share a write.
 4. **Cross-tab sync** — `chrome.storage.onChanged` in every tab → `Panel.syncFromStorage`.
    Guards: self-echo (skip the body this panel just wrote), focus (never rewrite a focused
-   editor, re-checked after async decryption), encryption (skip while locked).
+   editor, re-checked after async decryption), dirty/in-flight saves, encryption (skip while locked).
 5. **SPA navigation** — `popstate`, `hashchange`, and a 1 s `href` poll. On change: flush the
    pending save under the old key, `Cluster.refreshIcons()`, re-open an open site/page note
    under the new key.
 6. **Clip** — right-click selection → SW `contextMenus.onClicked` → `STICKYSITES_CLIP` →
-   `clipToNote()` appends escaped text to the target record and shows a toast.
+   a queued clip command appends escaped text to a fresh target record and shows a toast.
 7. **Popout** — ⧉ button or drag-off-page → `Panel._popoutActiveNote()` → flush →
    `STICKYSITES_POPOUT` → SW `windows.create(popout.html?type&key&label, 1400×1100)`.
    `popout.js` overrides `getKey/getLabel` on a cloned note type and opens the panel.
 8. **To-do sync** — SW runs `syncTodosWithHost` on startup/install, every 2 min (alarm), and
-   3 s after `stickysites_todos_v1` changes. Skipped if the value is an encrypted envelope.
+   3 s after `stickysites_todos_v1` changes. Skipped while the vault is enabled or the value is an encrypted envelope.
    The host three-way-merges with `TODO.md`; `applyHostResult` folds the reply back while
-   keeping StickySites-only fields and writes only if the canonical JSON changed.
+   keeping StickySites-only fields. A guarded commit rejects the reply with `STATE_CHANGED`
+   if the to-do or vault changed while the host was working.
 9. **Local peer sync** — SW runs `syncWithDaemon` on startup/install, every minute (alarm),
    4 s after a note/tombstone/crypto change, and on `STICKYSITES_PEER_SYNC_NOW`. It `PUT`s a
    snapshot (six note keys as stored + tombstones + reduced vault config) to
-   `http://127.0.0.1:47831`, `GET`s every peer's snapshot the daemon fetched over the LAN, merges
+   `http://127.0.0.1:47831`, `GET`s peer snapshots from LAN or the selected folder, merges
    record-level last-writer-wins on `updatedAt` (decrypting/re-encrypting with the cached key
-   when the vault is on and salts match), and writes only the changed keys. No daemon → one
-   warning, no-op.
+   when the vault is on and salts match), and guarded-commits changed keys only if the inputs
+   remain current. No daemon → one warning, no-op.
 10. **Encryption lifecycle** — popup Settings → `Crypto.enable(passphrase)` derives the key,
-   stores `{ enabled, salt, verify }`, caches the JWK in `stickysites_cached_key`, re-encrypts
-   the six note keys. **Lock Now** removes the cached key; unlock re-derives and verifies.
+   stages every encrypted bucket, config, and cached JWK before one guarded multi-key write.
+   Disable stages every decryption first, so a corrupt bucket preserves the vault for recovery.
+   **Lock Now** clears the cached key; unlock re-derives and verifies. The JWK otherwise
+   remains in `chrome.storage.local` across browser restarts. Content pages without secure-context
+   WebCrypto use extension-worker vault IPC with the same lifecycle and storage protocol.
 
 ## Content script load order
 
-| # | File | Namespace |
-|---|------|-----------|
-| 1 | `crypto-content.js` | `StickySites.Crypto` |
-| 2 | `note-types.js` | `StickySites.noteTypes` |
-| 3 | `prefs.js` | `StickySites.Prefs` |
-| 4 | `cluster.js` | `StickySites.Cluster` |
-| 5 | `todo.js` | `StickySites.Todo` |
-| 6 | `outline-ops.js` | `StickySites.OutlineOps` |
-| 7 | `outline.js` | `StickySites.Outline` |
-| 8 | `mentions.js` | `StickySites.Mentions` |
-| 9 | `panel.js` | `StickySites.Panel` |
-| 10 | `sticky-inject.js` | orchestrator (no namespace) |
+| Order | File | Purpose |
+|---|---|---|
+| First | `src/shared/settings.js`, `src/shared/network.js` | Preference normalization and bounded requests |
+| Then | `storage-content.js`, `safe-html.js`, `crypto-content.js` | Mutation IPC, inert HTML filtering, vault operations |
+| Then | `note-types.js`, `prefs.js`, `cluster.js`, `todo.js`, `outline-ops.js` | Descriptors, preferences, and UI primitives |
+| Last | `outline.js`, `mentions.js`, `panel.js`, `sticky-inject.js` | Editors and orchestration |
+
+`manifest.json` is the exact ordered source of truth. Extension-page script lists live in
+`popup.html` and `popout.html`; they also load the shared mutation and safety helpers.
 
 ## Storage schema (`chrome.storage.local`)
 
@@ -103,9 +107,9 @@ Encrypted note values are replaced wholesale by `{ iv: base64, data: base64 }` e
 | `stickysites_todos_v1` | `{ __global__: { key, items[], sections[], tagColors, createdAt, updatedAt } }` |
 | `stickysites_outlines_v1` | `{ [ol_<id>]: { key, name, items[], createdAt, updatedAt } }` (legacy hostname keys adapt at read) |
 | `stickysites_daily_v1` | `{ [YYYY-MM-DD]: { key, body, ... } }` |
-| `stickysites_prefs_v1` | `{ clusterPosition {x,y}, clusterLayout, iconOrder, enabledTypes, panelSize, panelPosition, activeOutlineId, panelMode (unused) }` |
+| `stickysites_prefs_v1` | `{ clusterPosition {x,y}, clusterLayout, collapseToCircle, iconOrder, enabledTypes, panelSize, panelPosition, activeOutlineId, panelMode (unused) }` |
 | `stickysites_crypto_v1` | `{ enabled, salt: base64, verify: envelope }` |
-| `stickysites_cached_key` | JWK of the derived AES-GCM key; present only while unlocked |
+| `stickysites_cached_key` | JWK of the derived AES-GCM key while unlocked; null/absent while locked |
 | `stickysites_tombstones_v1` | `{ [storageKey]: { [recordKey]: deletedAtISO } }` — deletions to propagate via peer sync (plaintext) |
 | `stickysites_peer_v1` | `{ deviceId, enabled, lastSync, lastResult: { status, peers[], changedKeys[], stats } }` |
 
@@ -122,7 +126,7 @@ Encrypted note values are replaced wholesale by `{ iv: base64, data: base64 }` e
 | `storage` | All persistence |
 | `activeTab` | `tabs.sendMessage` / `tabs.query` for the active tab |
 | `contextMenus` | The "StickySites" clip submenu |
-| `alarms` | 2-minute to-do sync period (service workers cannot hold timers) |
+| `alarms` | To-do and peer sync schedules (service workers cannot retain timers) |
 | `nativeMessaging` | `runtime.sendNativeMessage` to `com.mitch.todo_bridge` |
 
 Content scripts match `<all_urls>` at `document_idle`.
@@ -132,7 +136,8 @@ Content scripts match `<all_urls>` at `document_idle`.
 ### ADR-1 Namespace pattern for content scripts
 MV3 content scripts cannot `import`. Every module attaches to `window.StickySites` and the
 manifest lists them in dependency order. Consequence: `popout.html` must repeat the list;
-`crypto.js` (ES) duplicates `crypto-content.js` (namespace) for tests.
+`crypto.js` (ES) duplicates `crypto-content.js` (namespace) for the worker and tests.
+Portable `settings.js` and `network.js` classic helpers also run in the module worker.
 
 ### ADR-2 IIFE guard against double injection
 `sticky-inject.js` returns if `#stickysites-cluster` exists, so re-injection after an

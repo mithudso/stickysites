@@ -6,26 +6,46 @@
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
-      "args": ["run", "${relativeFile}"],
+      "args": [
+        "run",
+        "${relativeFile}"
+      ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
-      "skipFiles": ["<node_internals>/**"]
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
     },
     {
       "name": "Vitest: all",
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
-      "args": ["run"],
+      "args": [
+        "run"
+      ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}",
-      "skipFiles": ["<node_internals>/**"]
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
     },
     {
       "name": "Live verify (puppeteer harness)",
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/scripts/verify-live.mjs",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Peer daemon: synthetic tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "unittest",
+      "args": [
+        "peer/test_peer.py"
+      ],
       "console": "integratedTerminal",
       "cwd": "${workspaceFolder}"
     }

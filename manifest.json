@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "StickySites",
-  "version": "1.13.0",
+  "version": "1.13.1",
   "description": "Sticky notes for every website. Global notes, per-site notes, and per-page notes in a floating workspace.",
   "homepage_url": "https://github.com/mithudso/stickysites",
   "minimum_chrome_version": "116",
@@ -36,6 +36,10 @@
         "<all_urls>"
       ],
       "js": [
+        "src/shared/settings.js",
+        "src/shared/network.js",
+        "src/content/storage-content.js",
+        "src/content/safe-html.js",
         "src/content/crypto-content.js",
         "src/content/note-types.js",
         "src/content/prefs.js",

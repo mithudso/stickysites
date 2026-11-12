@@ -1,5 +1,10 @@
 # StickySites Prompts Log
 
+## Prompt v1.13.1 - 2026-11-12T10:13:30Z
+
+- User request:
+  - Execute repo-bootstrapper and the full code-deep-optimizer workflow only for StickySites. Preserve others' work, use bounded local per-file reviewers, and deliver final verified changes through passing GitHub checks and merge. Keep live services and semantic indexing inactive.
+
 ## Prompt v1.13.0 - 2026-09-28T02:20:00-04:00
 - User request:
   - I can connect via smb but not via that port, let's do this. Add a sync folder and I'll just point the sync folder to a shared folder that both can access like '/Users/mitch/Library/CloudStorage/GoogleDrive-mitchphudson@gmail.com/My Drive/StickySites/'

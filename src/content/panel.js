@@ -30,17 +30,19 @@ window.StickySites = window.StickySites || {};
 
   function bodyToHtml(body) {
     if (!body) return '';
-    return isHtml(body) ? body : plainTextToHtml(body);
+    return window.StickySites.Html.sanitize(isHtml(body) ? body : plainTextToHtml(body));
   }
 
   function getPlainText(editorEl) {
-    return editorEl.textContent || editorEl.innerText || '';
+    return window.StickySites.Html.text(editorEl.innerHTML);
   }
 
   function getCleanHtml(editorEl) {
-    var marks = editorEl.querySelectorAll('.stickysites-search-match');
-    if (!marks.length) return editorEl.innerHTML;
     var clone = editorEl.cloneNode(true);
+    var liveBoxes = editorEl.querySelectorAll('input[type=checkbox]');
+    clone.querySelectorAll('input[type=checkbox]').forEach(function (box, i) {
+      if (liveBoxes[i].checked) box.setAttribute('checked', ''); else box.removeAttribute('checked');
+    });
     clone.querySelectorAll('.stickysites-search-match').forEach(function (mark) {
       while (mark.firstChild) mark.parentNode.insertBefore(mark.firstChild, mark);
       mark.remove();
@@ -69,6 +71,10 @@ window.StickySites = window.StickySites || {};
     _activeKey: null,
     _activeLabel: null,
     _lastSavedBody: null,
+    _generation: 0,
+    _saves: new Set(),
+    _saveFailed: false,
+    _saveEpoch: 0,
 
     init: function (onClose) {
       this.onClose = onClose;
@@ -84,25 +90,40 @@ window.StickySites = window.StickySites || {};
       // Commit any pending edit from the previous note under ITS OWN snapshot
       // key before re-snapshotting — otherwise the armed 500ms save would fire
       // after the switch and write the old note's content under the new key.
-      if (this._saveTimer) await this.flushPendingSave();
+      var generation = ++this._generation;
+      this.el.inert = true;
+      try { await this.flushPendingSave(); } catch { if (generation === this._generation) this.el.inert = false; this.el.setAttribute('data-save-error', 'true'); return; }
+      if (generation !== this._generation) return;
+      if (window.StickySites.Mentions) window.StickySites.Mentions.detach();
+      if (window.StickySites.Todo) window.StickySites.Todo.DragController.destroy();
       this.activeNoteType = noteType;
       // Snapshot the storage key/label once per panel session. All reads and
       // writes use the snapshot, so a save can never land under another page's
       // key after an SPA navigation (or a daily note crossing midnight).
       this._activeKey = noteType.getKey(location);
       this._activeLabel = noteType.getLabel(location);
+      this._session = { key: this._activeKey, label: this._activeLabel };
       this._lastSavedBody = null;
       // Cleared per-open so a stale save closure from a previous note type can
       // never write to the wrong storage key; the rich-text renderer re-sets it.
       this._flushSave = null;
-      var note = await this._readNote(noteType);
-      this._render(noteType, note);
+      try {
+        var note = await this._readNote(noteType);
+        if (generation !== this._generation) return;
+        await this._render(noteType, note);
+        if (generation !== this._generation) return;
+      } catch {
+        if (generation !== this._generation) return;
+        this.el.textContent = 'Could not read this note. Unlock StickySites or restore a valid backup.';
+      }
       // _render's child-wipe destroys the resize grips; re-add them every open.
       this._addResizeGrips();
       this.el.classList.add('is-open');
+      this.el.inert = false;
 
       try {
         var prefs = await window.StickySites.Prefs.read();
+        if (generation !== this._generation) return;
         if (prefs.panelSize) {
           this.el.style.width = prefs.panelSize.width + 'px';
           this.el.style.height = prefs.panelSize.height + 'px';
@@ -118,17 +139,21 @@ window.StickySites = window.StickySites || {};
       } catch (e) { /* prefs are non-critical — panel is already visible */ }
     },
 
-    close: function () {
-      // A pending edit is committed, not dropped: the save closure captures the
-      // editor DOM and the snapshot key synchronously, before teardown below.
-      if (this._saveTimer) {
-        clearTimeout(this._saveTimer);
-        this._saveTimer = null;
-        if (this._flushSave) {
-          try { this._flushSave(); } catch (e) { /* save is best-effort */ }
-        }
-      }
+    close: async function (force) {
+      var generation = ++this._generation;
+      if (force) { this._saveEpoch++; this._saveFailed = false; }
+      this.el.inert = true;
+      if (!force) {
+        try { await this.flushPendingSave(); }
+        catch { if (generation === this._generation) this.el.inert = false; this.el.setAttribute('data-save-error', 'true'); return false; }
+      } else if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+      if (generation !== this._generation) return false;
+      if (window.StickySites.Mentions) window.StickySites.Mentions.detach();
+      if (window.StickySites.Todo) window.StickySites.Todo.DragController.destroy();
+      if (this._viewController) this._viewController.abort();
       this.activeNoteType = null;
+      this._session = null;
+      this.el.inert = false;
       this._isExpanded = false;
       this._flushSave = null;
       this._activeKey = null;
@@ -236,28 +261,42 @@ window.StickySites = window.StickySites || {};
 
     _popoutActiveNote: async function () {
       var noteType = this.activeNoteType;
+      var generation = this._generation;
+      var key = this._activeKey, label = this._activeLabel;
       if (!noteType) return;
       // Flush any pending edit so the popout window reads the latest content from
       // storage (the popout reloads the note from chrome.storage, not from the DOM).
       await this.flushPendingSave();
+      if (generation !== this._generation || key !== this._activeKey) return;
       chrome.runtime.sendMessage({
         type: 'STICKYSITES_POPOUT',
         noteTypeId: noteType.id,
-        key: this._activeKey,
-        label: this._activeLabel
+        key: key,
+        label: label
       });
       if (this.onClose) this.onClose();
     },
 
+    _trackSave: function (promise) {
+      this._saves.add(promise);
+      var self = this;
+      var epoch = this._saveEpoch;
+      promise.then(function (result) { if (epoch === self._saveEpoch) self._saveFailed = result === null; }, function () { if (epoch === self._saveEpoch) self._saveFailed = true; }).finally(function () { self._saves.delete(promise); }).catch(function () {});
+      return promise;
+    },
+
     flushPendingSave: async function () {
-      // No armed timer means no unsaved edit — skip the write entirely so a
-      // no-edit flush can't bump updatedAt (which drives the popup Recent sort).
-      if (!this._saveTimer) return;
-      clearTimeout(this._saveTimer);
-      this._saveTimer = null;
-      if (this._flushSave) {
-        try { await this._flushSave(); } catch (e) { /* save is best-effort */ }
-      }
+      var retry = this._saveFailed;
+      do {
+        if (this._saveTimer || retry) {
+          clearTimeout(this._saveTimer);
+          this._saveTimer = null;
+          retry = false;
+          if (this._flushSave) await this._flushSave();
+        }
+        await Promise.all(Array.from(this._saves));
+        if (this._saveFailed) throw new Error('NOTE_WRITE_FAILED');
+      } while (this._saveTimer || this._saves.size);
     },
 
     // Registers the document-level resize listeners once. The grips themselves
@@ -370,10 +409,13 @@ window.StickySites = window.StickySites || {};
     _readNote: async function (noteType) {
       var key = this._activeKey;
       try {
+        var C = window.StickySites.Crypto;
+        if (C && await C.isEnabled() && !await C.getCachedKey()) throw new Error('VAULT_LOCKED');
         var stored = await chrome.storage.local.get(noteType.storageKey);
         var raw = stored?.[noteType.storageKey];
         if (raw && window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(raw)) {
           raw = await window.StickySites.Crypto.decryptValue(raw);
+          if (window.StickySites.Crypto.isEncrypted(raw)) throw new Error('VAULT_UNREADABLE');
         }
         if (noteType.storagePattern === 'single') {
           return { body: String(raw?.body ?? ''), tags: [], updatedAt: String(raw?.updatedAt ?? '') };
@@ -385,7 +427,7 @@ window.StickySites = window.StickySites || {};
           // an item another writer (the TODO.md sync) added while the panel was open.
           this._loadedIds = this._loadedIds || {};
           this._loadedIds[noteType.storageKey + '|' + key] = new Set(
-            (record && Array.isArray(record.items) ? record.items : []).map(function (i) { return String(i.id); }));
+            (record && Array.isArray(record.items) ? record.items : []).filter(function (i) { return i && typeof i === 'object'; }).map(function (i) { return String(i.id); }));
           if (!record) return null;
           return {
             items: Array.isArray(record.items) ? record.items : [],
@@ -402,93 +444,30 @@ window.StickySites = window.StickySites || {};
           tags: Array.isArray(record.tags) ? record.tags : [],
           updatedAt: String(record.updatedAt ?? '')
         };
-      } catch { return null; }
+      } catch { throw new Error('NOTE_READ_FAILED'); }
     },
 
-    _writeNote: async function (noteType, body, tags) {
-      var key = this._activeKey;
-      var now = new Date().toISOString();
-      try {
-        if (noteType.storagePattern === 'single') {
-          var record = { body: String(body), updatedAt: now };
-          var toStore = record;
-          if (window.StickySites.Crypto && await window.StickySites.Crypto.isEnabled() && await window.StickySites.Crypto.getCachedKey()) {
-            toStore = await window.StickySites.Crypto.encryptValue(record);
-          }
-          await chrome.storage.local.set({ [noteType.storageKey]: toStore });
-          return record;
-        }
-        var stored = await chrome.storage.local.get(noteType.storageKey);
-        var rawMap = stored?.[noteType.storageKey] || {};
-        if (window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(rawMap)) {
-          rawMap = await window.StickySites.Crypto.decryptValue(rawMap);
-        }
-        var map = rawMap;
-        var existing = map[key];
-        map[key] = {
-          key: key,
-          label: this._activeLabel,
-          body: String(body),
-          tags: Array.isArray(tags) ? tags : [],
-          createdAt: existing?.createdAt || now,
-          updatedAt: now
-        };
-        var mapToStore = map;
-        if (window.StickySites.Crypto && await window.StickySites.Crypto.isEnabled() && await window.StickySites.Crypto.getCachedKey()) {
-          mapToStore = await window.StickySites.Crypto.encryptValue(map);
-        }
-        await chrome.storage.local.set({ [noteType.storageKey]: mapToStore });
-        return map[key];
-      } catch { return null; }
+    _writeNote: function (noteType, body, tags, session) {
+      return this._sendRecord(noteType, { body: String(body), tags: Array.isArray(tags) ? tags : [], label: session ? session.label : this._activeLabel }, session);
     },
 
-    _writeStructured: async function (noteType, data) {
-      var key = this._activeKey;
-      var now = new Date().toISOString();
-      try {
-        var stored = await chrome.storage.local.get(noteType.storageKey);
-        var rawMap = stored?.[noteType.storageKey] || {};
-        if (window.StickySites.Crypto && window.StickySites.Crypto.isEncrypted(rawMap)) {
-          rawMap = await window.StickySites.Crypto.decryptValue(rawMap);
-        }
-        var map = rawMap;
-        var existing = map[key];
-        var items = Array.isArray(data.items) ? data.items.slice() : [];
-        var sections = Array.isArray(data.sections) ? data.sections.slice() : (existing?.sections || []);
-        var loadKey = noteType.storageKey + '|' + key;
-        var loaded = (this._loadedIds && this._loadedIds[loadKey]) || null;
-        if (loaded && existing && Array.isArray(existing.items)) {
-          var inData = new Set(items.map(function (i) { return String(i.id); }));
-          existing.items.forEach(function (i) {
-            if (!inData.has(String(i.id)) && !loaded.has(String(i.id))) items.push(i);
-          });
-          var secIds = new Set(sections.map(function (sec) { return sec.id; }));
-          (existing.sections || []).forEach(function (sec) {
-            if (!secIds.has(sec.id) && items.some(function (i) { return i.section === sec.id; })) sections.push(sec);
-          });
-        }
-        // Only ids this panel has itself shown count as loaded; items kept above stay foreign so
-        // the next save from the same (stale) panel keeps preserving them.
-        if (this._loadedIds) {
-          var nextLoaded = new Set(loaded || []);
-          (Array.isArray(data.items) ? data.items : []).forEach(function (i) { nextLoaded.add(String(i.id)); });
-          this._loadedIds[loadKey] = nextLoaded;
-        }
-        map[key] = {
-          key: key,
-          items: items,
-          sections: sections,
-          tagColors: (data.tagColors && typeof data.tagColors === 'object') ? data.tagColors : (existing?.tagColors || {}),
-          createdAt: existing?.createdAt || now,
-          updatedAt: now
-        };
-        var mapToStore = map;
-        if (window.StickySites.Crypto && await window.StickySites.Crypto.isEnabled() && await window.StickySites.Crypto.getCachedKey()) {
-          mapToStore = await window.StickySites.Crypto.encryptValue(map);
-        }
-        await chrome.storage.local.set({ [noteType.storageKey]: mapToStore });
-        return map[key];
-      } catch { return null; }
+    _writeStructured: function (noteType, data, session) {
+      return this._sendRecord(noteType, data, session);
+    },
+
+    _sendRecord: function (noteType, data, session) {
+      var key = session ? session.key : this._activeKey;
+      var loadKey = noteType.storageKey + '|' + key;
+      var loaded = this._loadedIds && this._loadedIds[loadKey];
+      // Capture command data now, before close/open can replace the session key.
+      var command = { op: 'record', storageKey: noteType.storageKey, key: key, data: structuredClone(data) };
+      if (loaded) command.loadedIds = Array.from(loaded);
+      if (loaded && Array.isArray(data.items)) data.items.filter(Boolean).forEach(function (i) { loaded.add(String(i.id)); });
+      var promise = window.StickySites.Storage.request(command).catch(function () {
+        console.warn('[stickysites] save', { error: 'NOTE_WRITE_FAILED' });
+        return null;
+      });
+      return this._trackSave(promise);
     },
 
     _buildToolbar: function (editorEl) {
@@ -605,12 +584,15 @@ window.StickySites = window.StickySites || {};
     },
 
     _render: function (noteType, note) {
+      if (this._viewController) this._viewController.abort();
+      this._viewController = new AbortController();
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
       var self = this;
+      var session = this._session;
 
       if (noteType.storagePattern === 'structured') {
         if (noteType.id === 'todo') { this._renderTodo(noteType, note); return; }
-        if (noteType.id === 'outline') { window.StickySites.Outline.render(this, noteType); return; }
+        if (noteType.id === 'outline') return window.StickySites.Outline.render(this, noteType);
       }
 
       var body = note?.body ?? '';
@@ -684,8 +666,8 @@ window.StickySites = window.StickySites || {};
       var editor = document.createElement('div');
       editor.className = 'stickysites-panel-editor';
       editor.contentEditable = 'true';
-      // Safe: body is user-authored content read from chrome.storage.local (extension-isolated storage)
-      editor.innerHTML = bodyToHtml(body); // nosec — user-authored content from isolated extension storage
+      // Authored and synced HTML is untrusted; bodyToHtml filters it before insertion.
+      editor.innerHTML = bodyToHtml(body);
       if (!body) {
         editor.dataset.placeholder = noteType.getPlaceholder(location);
       }
@@ -715,7 +697,7 @@ window.StickySites = window.StickySites || {};
         var result = await self._writeNote(
           noteType,
           getCleanHtml(editor),
-          parseTags(tagInput.value)
+          parseTags(tagInput.value), session
         );
         if (result) {
           // Remember exactly what we stored so syncFromStorage can ignore the
@@ -723,7 +705,7 @@ window.StickySites = window.StickySites || {};
           self._lastSavedBody = result.body;
           chars.textContent = getPlainText(editor).length + ' chars';
           saved.textContent = formatSaved(result.updatedAt);
-        }
+        } else { saved.textContent = 'Could not save — unlock and try again'; }
       };
 
       // Exposed so _popoutActiveNote() can flush in-flight edits before the
@@ -731,11 +713,23 @@ window.StickySites = window.StickySites || {};
       self._flushSave = doSave;
 
       var debouncedSave = function () {
+        if (session !== self._session) return;
         if (self._saveTimer) clearTimeout(self._saveTimer);
         self._saveTimer = setTimeout(function () { self._saveTimer = null; doSave(); }, 500);
       };
 
+      ['paste', 'drop'].forEach(function (eventName) {
+        editor.addEventListener(eventName, function (event) {
+          var transfer = event.clipboardData || event.dataTransfer;
+          if (!transfer) return;
+          event.preventDefault();
+          var html = transfer.getData('text/html');
+          document.execCommand('insertHTML', false, bodyToHtml(html || transfer.getData('text/plain')));
+          debouncedSave();
+        });
+      });
       editor.addEventListener('input', debouncedSave);
+      editor.addEventListener('change', debouncedSave);
       tagInput.addEventListener('input', debouncedSave);
 
       // ── Search & Replace ──────────────────────────────────
@@ -940,8 +934,10 @@ window.StickySites = window.StickySites || {};
     },
 
     _renderTodo: function (noteType, note) {
+      var viewSignal = this._viewController.signal;
       while (this.el.firstChild) this.el.removeChild(this.el.firstChild);
       var self = this;
+      var session = this._session;
       var Todo = window.StickySites.Todo;
       var data = Todo.normalizeData(note);
       var items = data.items;
@@ -1090,11 +1086,13 @@ window.StickySites = window.StickySites || {};
           items: items,
           sections: sections,
           tagColors: tagColors
-        }).then(function (result) {
-          if (result) saved.textContent = formatSaved(result.updatedAt);
+        }, session).then(function (result) {
+          saved.textContent = result ? formatSaved(result.updatedAt) : 'Could not save — unlock and try again';
+          return result;
         });
       }
       function save() {
+        if (session !== self._session) return;
         if (self._saveTimer) clearTimeout(self._saveTimer);
         self._saveTimer = setTimeout(function () { self._saveTimer = null; saveNow(); }, 500);
       }
@@ -1236,7 +1234,7 @@ window.StickySites = window.StickySites || {};
               document.removeEventListener('click', dismiss, true);
             }
           };
-          document.addEventListener('click', dismiss, true);
+          document.addEventListener('click', dismiss, { capture: true, signal: viewSignal });
         }, 0);
       }
 
@@ -1364,7 +1362,7 @@ window.StickySites = window.StickySites || {};
               document.removeEventListener('click', dismiss, true);
             }
           };
-          document.addEventListener('click', dismiss, true);
+          document.addEventListener('click', dismiss, { capture: true, signal: viewSignal });
         }, 0);
       }
 
@@ -1620,16 +1618,14 @@ window.StickySites = window.StickySites || {};
             }
           } else {
             // Show rendered markdown
-            // Safe: item.note is user-authored content from extension-isolated chrome.storage.local
             var rendered = document.createElement('div');
             rendered.className = 'stickysites-todo-note-rendered';
             rendered.textContent = ''; // clear first
             var mdHtml = renderMarkdown(item.note);
-            // nosec — user-authored content from isolated extension storage (same pattern as editor.innerHTML on line 479)
             var mdTemp = document.createElement('div');
             mdTemp.textContent = '';
             rendered.appendChild(mdTemp);
-            mdTemp.outerHTML = mdHtml;
+            mdTemp.outerHTML = window.StickySites.Html.sanitize(mdHtml);
             rendered.addEventListener('click', function () {
               expandedNotes[item.id] = 'editing';
               renderAll();
@@ -1723,7 +1719,7 @@ window.StickySites = window.StickySites || {};
                 document.removeEventListener('click', dismiss, true);
               }
             };
-            document.addEventListener('click', dismiss, true);
+            document.addEventListener('click', dismiss, { capture: true, signal: viewSignal });
           }, 0);
         });
 
@@ -1801,7 +1797,7 @@ window.StickySites = window.StickySites || {};
 
       // If no existing note, create initial record
       if (!note) {
-        self._writeStructured(noteType, { items: items, sections: sections, tagColors: tagColors });
+        self._writeStructured(noteType, { items: items, sections: sections, tagColors: tagColors }, session);
       }
 
       this.el.append(header, toolbar, listEl, actionsRow, footer);
@@ -1813,6 +1809,7 @@ window.StickySites = window.StickySites || {};
 
       // Auto-focus an empty task input so the user can start typing immediately.
       setTimeout(function () {
+        if (session !== self._session) return;
         var inputs = listEl.querySelectorAll('.stickysites-todo-text');
         for (var fi = 0; fi < inputs.length; fi++) {
           if (!inputs[fi].value) { inputs[fi].focus(); return; }
@@ -1822,8 +1819,9 @@ window.StickySites = window.StickySites || {};
     },
 
     syncFromStorage: async function (changes) {
-      if (!this.activeNoteType) return;
+      if (!this.activeNoteType || this._saveTimer || this._saves.size || this._saveFailed) return;
       var nt = this.activeNoteType;
+      var generation = this._generation;
       if (nt.storagePattern === 'structured') return;
       if (!changes[nt.storageKey]) return;
 
@@ -1850,6 +1848,7 @@ window.StickySites = window.StickySites || {};
         if (window.StickySites.Crypto.isEncrypted(newValue)) return;
       }
 
+      if (generation !== this._generation || this._saveTimer || this._saves.size || this._saveFailed) return;
       var body;
       if (nt.storagePattern === 'single') {
         body = newValue ? String(newValue.body ?? '') : '';
@@ -1867,7 +1866,6 @@ window.StickySites = window.StickySites || {};
       var activeNow = document.activeElement;
       if (activeNow && this.el.contains(activeNow)) return;
 
-      // Safe: body is user-authored content from chrome.storage.local (extension-isolated storage)
       if (ed.innerHTML !== body) ed.innerHTML = bodyToHtml(body); // nosec
     }
   };

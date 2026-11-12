@@ -73,6 +73,17 @@ window.StickySites = window.StickySites || {};
       this._initDrag();
       this._initReorder();
       this._updateCollapseState();
+      this.clampPosition();
+      var self = this;
+      window.addEventListener('resize', function () { self.clampPosition(); });
+    },
+
+    clampPosition: function () {
+      if (!this.el) return;
+      var rect = this.el.getBoundingClientRect();
+      this.el.style.right = 'auto';
+      this.el.style.left = Math.max(0, Math.min(rect.left, window.innerWidth - rect.width)) + 'px';
+      this.el.style.top = Math.max(0, Math.min(rect.top, window.innerHeight - rect.height)) + 'px';
     },
 
     _initCollapse: function () {
@@ -231,6 +242,7 @@ window.StickySites = window.StickySites || {};
       if (!this.el) return;
       this.el.classList.toggle('is-horizontal', layout === 'horizontal');
       this._updateCollapseState();
+      this.clampPosition();
     },
 
     _initReorder: function () {
@@ -286,7 +298,13 @@ window.StickySites = window.StickySites || {};
         }
       });
 
+      window.addEventListener('blur', function () {
+        clearTimeout(holdTimer); holdTimer = null; isReordering = false;
+        if (dragBtn) dragBtn.el.classList.remove('is-reordering');
+        dragBtn = null; self.el.classList.remove('is-reorder-mode');
+      });
       document.addEventListener('mouseup', async function () {
+        if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
         if (!isReordering) return;
         isReordering = false;
         if (dragBtn) {
@@ -302,9 +320,11 @@ window.StickySites = window.StickySites || {};
             return null;
           }).filter(Boolean);
 
-          await window.StickySites.Prefs.write({ iconOrder: newOrder });
-          self._updateFirstVisible();
           dragBtn = null;
+          self._wasDragging = true;
+          setTimeout(function () { self._wasDragging = false; }, 0);
+          self._updateFirstVisible();
+          await window.StickySites.Prefs.write({ iconOrder: newOrder });
         }
       });
     },
@@ -333,6 +353,8 @@ window.StickySites = window.StickySites || {};
         e.preventDefault();
       });
 
+      window.addEventListener('blur', function () { isDragging = false; hasMoved = false; self.el.style.cursor = ''; });
+
       document.addEventListener('mousemove', function (e) {
         if (!isDragging) return;
         var dx = e.clientX - startX;
@@ -357,7 +379,6 @@ window.StickySites = window.StickySites || {};
         isDragging = false;
         self.el.style.cursor = '';
         if (hasMoved) {
-          self._wasDragging = true;
           var rect = self.el.getBoundingClientRect();
           await window.StickySites.Prefs.write({
             clusterPosition: { x: Math.round(rect.left), y: Math.round(rect.top) }

@@ -1,7 +1,7 @@
 # StickySites peer helper — local network sync
 
-Keeps two or more laptops' StickySites notes converged **over the local network only** — no
-account, no cloud, no server. A tiny Python daemon (stdlib only, Python 3.9+) runs on each
+Keeps two or more laptops' StickySites notes converged over a paired LAN or a shared/cloud
+folder you select, without a hosted StickySites service. A tiny Python daemon (stdlib only, Python 3.9+) runs on each
 machine; the extension talks to it on loopback, the daemons talk to each other on the LAN.
 
 ```
@@ -18,10 +18,10 @@ laptop A                                             laptop B
 
 ```bash
 # first laptop — prints a pairing key
-python3 /Users/mitch/dev/stickysites/peer/stickysites-peer.py install
+python3 peer/stickysites-peer.py install
 
 # every other laptop — same key
-python3 /Users/mitch/dev/stickysites/peer/stickysites-peer.py install --pair-key <KEY>
+python3 peer/stickysites-peer.py install --pair-key <KEY>
 ```
 
 `install` writes `~/.stickysites/peer.json` (id, name, pairing key, ports), generates a
@@ -75,7 +75,7 @@ Restart=always
 WantedBy=default.target
 ```
 
-## Sync folder (no network needed)
+## Sync folder (alternative to direct LAN transport)
 
 If direct LAN connections are blocked (VPN, client isolation, different subnets), point every
 laptop at **one shared folder** — Google Drive, iCloud Drive, Dropbox, an SMB share:
@@ -87,8 +87,7 @@ python3 peer/stickysites-peer.py folder "/Users/you/Library/CloudStorage/GoogleD
 or popup → Settings → Local Peer Sync → **Sync folder** → Save. Each laptop writes its
 snapshot there as `stickysites-peer-<id>.json` (signed with the pairing key) whenever its
 notes change, and reads every other laptop's file as a peer on each sync. Files signed with a
-different pairing key are ignored and reported. The cloud service does the transport; nothing
-else is needed — no ports, no discovery. With the vault on, the file holds encrypted
+different pairing key are ignored and reported. The cloud service does the transport; the provider handles transfer, so direct peer ports/discovery are not needed. With the vault on, the file holds encrypted
 envelopes; with it off, the file holds your notes in plaintext inside that cloud account.
 Latency = your cloud client's sync delay plus up to one minute.
 
@@ -101,7 +100,7 @@ Latency = your cloud client's sync delay plus up to one minute.
   and outline records individually; the global note and the to-do list as one record each).
   Ties keep the local copy. A deletion tombstone newer than the record deletes it everywhere.
 - Preferences, the cluster position, and the cached vault key are **not** synced.
-- Daemons only relay: they never inspect or merge notes. `~/.stickysites/snapshot.json` holds
+- Daemons parse and authenticate snapshot files but do not merge or decrypt note content. `~/.stickysites/snapshot.json` holds
   the last snapshot the local extension pushed (mode 0600).
 
 ## Encryption
@@ -120,17 +119,19 @@ Enable encryption on **one** laptop and let the others adopt it.
 
 ## Security model
 
-- Nothing leaves the LAN. Peers must hold the same pairing key: announcements are HMAC-signed
+- Direct peer transport uses the LAN; a selected cloud-folder provider may transfer files
+  outside it. Peers must hold the same pairing key: announcements are HMAC-signed
   with it (unsigned/foreign announcements are dropped) and every LAN request carries a bearer
   token derived from it.
 - LAN transport is HTTPS with a per-machine self-signed certificate whose SHA-256 fingerprint is
   carried in the signed announcement and pinned by the fetching peer.
-- The loopback API accepts requests only from `chrome-extension://` origins on `127.0.0.1`.
-  Any extension installed in a browser on that machine could reach it — same trust level as
-  the Chrome profile itself.
+- The loopback API checks loopback Host and extension Origin before effects. CLI requests
+  without Origin remain supported; cross-site browser GETs are blocked. Other local programs
+  and extensions remain inside the local-user trust boundary.
 - Without the vault, notes are plaintext at rest on each machine (as they already are in
   Chrome's storage) and plaintext inside the TLS tunnel. Turn on encryption for at-rest
-  protection on all machines at once.
+  protection on all machines at once. Tombstones (record keys/timestamps), crypto config,
+  device identity, and folder metadata remain plaintext. HMAC folder signatures do not encrypt.
 
 ## Troubleshooting
 
@@ -138,12 +139,21 @@ Enable encryption on **one** laptop and let the others adopt it.
 |---|---|
 | **Test connection** fails at `tcp` with `No route to host` although the other laptop is heard | This Mac is refusing to *send* on the LAN. Almost always a VPN that tunnels every app: add **StickySites Peer** (`~/Applications/StickySites Peer.app`, created by `install`) to the VPN's bypass / split-tunnel list — Surfshark: Settings → VPN settings → Bypasser → Bypass VPN → add app; Tailscale/others: allow LAN access. On recent macOS also check System Settings → Privacy & Security → Local Network → StickySites Peer. Then `launchctl kickstart -k gui/$(id -u)/com.stickysites.peer`. Reproduce from the terminal: `open -a "StickySites Peer" --args probe` and read `~/.stickysites/peer.log` |
 | **Test connection** still fails at `tcp` with `No route to host` after allowing the app, and `~/.stickysites/peer.log` says `interpreter /opt/homebrew/...` | macOS attributes the sends to the *interpreter*, and Homebrew's Python.app never gets a Local Network prompt from a launchd job. `install` prefers Apple's `/usr/bin/python3` (Command Line Tools) for exactly this; run `xcode-select --install` and re-run `install`, or point it at an allowed interpreter with `install --python PATH` |
+| **Test connection** stops at `tls` with an unauthenticated certificate | Verify the pairing key and signed discovery; no bearer is sent until that certificate is known |
 | **Test connection** fails at `pairing` with HTTP 401 | The other laptop has a different pairing key — paste this one there (or theirs here) and Save |
 | **Test connection** fails at `tcp` with `timed out` | Wrong IP, helper not running there, or its firewall blocks TCP 47832 |
 | Popup says "Peer helper not running" | `python3 peer/stickysites-peer.py status`; `launchctl list \| grep stickysites`; log at `~/.stickysites/peer.log` |
 | "no other laptop seen" | Same Wi-Fi/LAN? Same pairing key (`pair`)? Firewall allowing inbound TCP 47832 and UDP 47833? Client isolation on the Wi-Fi → use `--peer` (see *Discovery on VPNs*). `~/.stickysites/peer.log` lists the interfaces announced on |
 | Fetch from peer fails in the log | Certificate changed after reinstall → the announcement carries the new fingerprint automatically; a stale `lastSeen` entry expires in 20 s |
 | "Encryption mismatch" | See the table above |
-| Two daemons on one machine (testing) | Use `init` with distinct `--loop-port`/`--lan-port` and a shared `--mcast-port`; see `peer/test_peer.py` |
+| Synthetic integration tests | `npm run test:peer` loads actual modules with temporary homes, separate dynamic discovery ports, loopback unicast, and pinned HTTPS; no installed helper is used |
 
-Tests: `python3 -m unittest peer/test_peer.py` (spins up two daemons on ephemeral ports).
+Tests: `npm run test:peer` (Python 3.9+ and OpenSSL). Fixtures bind only dynamic loopback
+sockets and test trust, folder/config atomicity, persistence failures, malformed requests,
+stalled TLS/body reads, and cleanup. They do not prove live LAN permissions or cloud delivery.
+`STICKYSITES_HOME` overrides the state directory; tests supply isolated temporary homes.
+
+Config and snapshot updates preserve the last successful state if disk replacement fails.
+Folder publications serialize and use unique private temporary files; key/name changes
+republish unchanged notes. Daemon read/handshake waits are finite, and diagnostic bearers
+are sent only after the certificate matches signed discovery.

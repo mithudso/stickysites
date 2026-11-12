@@ -1,5 +1,13 @@
 # StickySites Memory Log
 
+## v1.13.1 - 2026-11-12T10:13:30Z
+
+- Active task: repository bootstrap and full code optimizer maintenance for StickySites.
+- Completed: isolated task checkout; baseline and per-file review; vault/storage/sync/UI/daemon/tooling fixes; runtime DOM and disposable daemon regressions; current privacy, operations, developer guides; versioned dependency and CI updates.
+- In progress: final independent reviews, generated documentation checks, and verified GitHub delivery.
+- Next steps: resolve corroborated review findings, pass final checks, deliver through a PR, verify remote main and safely synchronize the primary checkout.
+- Files changed: runtime storage/crypto/UI/sync modules, peer daemon/fixtures, development scripts/tests/CI, maintained guides and generated inventories. Detailed scope and rollback are in the dated maintenance reports.
+
 ## v1.13.0 - 2026-09-28
 - User request:
   - Direct port unreachable (VPN) but SMB works: add a sync folder pointed at a shared folder both

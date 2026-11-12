@@ -10,13 +10,13 @@ window.StickySites = window.StickySites || {};
 
   function normalizeItem(item) {
     return {
-      id: item.id || genId(),
+      id: (typeof item.id === 'string' || typeof item.id === 'number') && String(item.id) ? String(item.id) : genId(),
       text: String(item.text ?? ''),
       done: !!item.done,
       indent: typeof item.indent === 'number' ? Math.max(0, Math.min(3, item.indent)) : 0,
       priority: typeof item.priority === 'number' ? Math.max(0, Math.min(5, item.priority)) : 0,
       color: typeof item.color === 'string' ? item.color : '',
-      tags: Array.isArray(item.tags) ? item.tags : [],
+      tags: Array.isArray(item.tags) ? item.tags.filter(function (t) { return typeof t === 'string'; }) : [],
       note: typeof item.note === 'string' ? item.note : '',
       section: typeof item.section === 'string' ? item.section : '',
       completedAt: typeof item.completedAt === 'string' ? item.completedAt : ''
@@ -24,8 +24,14 @@ window.StickySites = window.StickySites || {};
   }
 
   function normalizeData(note) {
-    var items = (note && Array.isArray(note.items)) ? note.items.map(normalizeItem) : [];
-    var sections = (note && Array.isArray(note.sections)) ? note.sections : [];
+    var items = (note && Array.isArray(note.items)) ? note.items.filter(function (i) { return i && typeof i === 'object' && !Array.isArray(i); }).map(normalizeItem) : [];
+    var sections = (note && Array.isArray(note.sections)) ? note.sections.filter(function (s) { return s && typeof s === 'object' && typeof s.id === 'string' && typeof s.name === 'string'; }) : [];
+    var ids = new Set(), sectionIds = new Set(sections.map(function (s) { return s.id; }));
+    items.forEach(function (item) {
+      while (ids.has(item.id)) item.id = genId();
+      ids.add(item.id);
+      if (!sectionIds.has(item.section)) item.section = '';
+    });
     var tagColors = (note && typeof note.tagColors === 'object' && note.tagColors) ? note.tagColors : {};
     return { items: items, sections: sections, tagColors: tagColors };
   }
@@ -46,6 +52,9 @@ window.StickySites = window.StickySites || {};
 
     init: function (listEl, getItems, getSections, onReorder) {
       var self = this;
+      self.destroy();
+      self._controller = new AbortController();
+      window.addEventListener('blur', function () { self.cancel(); }, { signal: self._controller.signal });
       self._listEl = listEl;
       self._getItems = getItems;
       self._getSections = getSections;
@@ -109,7 +118,7 @@ window.StickySites = window.StickySites || {};
             self._targetId = bestTarget;
             self._insertAfter = bestAfter;
             // Position indicator
-            var targetContainer = listEl.querySelector('[data-item-id="' + bestTarget + '"]');
+            var targetContainer = Array.from(listEl.querySelectorAll('[data-item-id]')).find(function (el) { return el.getAttribute('data-item-id') === bestTarget; });
             if (targetContainer) {
               var targetRow = targetContainer.querySelector('.stickysites-todo-item');
               if (targetRow) {
@@ -183,7 +192,18 @@ window.StickySites = window.StickySites || {};
 
         document.addEventListener('mousemove', self._onMouseMove);
         document.addEventListener('mouseup', self._onMouseUp);
-      });
+      }, { signal: self._controller.signal });
+    },
+    destroy: function () {
+      if (this._controller) this._controller.abort();
+      this.cancel();
+    },
+    cancel: function () {
+      if (this._dragRow) this._dragRow.classList.remove('is-dragging');
+      if (this._indicator) this._indicator.remove();
+      document.removeEventListener('mousemove', this._onMouseMove);
+      document.removeEventListener('mouseup', this._onMouseUp);
+      this._dragging = false; this._indicator = null; this._dragRow = null; this._targetId = null;
     }
   };
 

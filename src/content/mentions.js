@@ -47,12 +47,16 @@ window.StickySites = window.StickySites || {};
     flatItems: [],
 
     attach: function (editorEl) {
+      if (this._controller) this._controller.abort();
+      this.hide();
+      this._controller = new AbortController();
+      var signal = this._controller.signal;
       this.editorEl = editorEl;
       var self = this;
 
       editorEl.addEventListener('input', function () {
         self._checkForTrigger();
-      });
+      }, { signal: signal });
 
       editorEl.addEventListener('keydown', function (e) {
         if (!self.visible) return;
@@ -73,14 +77,16 @@ window.StickySites = window.StickySites || {};
           e.preventDefault();
           self.hide();
         }
-      });
+      }, { signal: signal });
 
       document.addEventListener('click', function (e) {
         if (self.dropdown && !self.dropdown.contains(e.target) && e.target !== editorEl) {
           self.hide();
         }
-      });
+      }, { signal: signal });
     },
+
+    detach: function () { if (this._controller) this._controller.abort(); this.hide(); this.editorEl = null; },
 
     _checkForTrigger: function () {
       var sel = window.getSelection();
@@ -101,7 +107,7 @@ window.StickySites = window.StickySites || {};
       if (beforeAt !== ' ' && beforeAt !== '\n' && atIdx !== 0) { this.hide(); return; }
 
       this.query = text.substring(atIdx + 1, offset).toLowerCase();
-      this.atPosition = { node: textNode, offset: atIdx };
+      this.atPosition = { node: textNode, offset: atIdx, end: offset, text: text };
       this._buildFlatItems();
       this.selectedIndex = 0;
 
@@ -115,21 +121,7 @@ window.StickySites = window.StickySites || {};
     },
 
     _buildFlatItems: function () {
-      var q = this.query;
-      var flat = [];
-      MENTION_ITEMS.forEach(function (cat) {
-        var matchedItems = cat.items.filter(function (item) {
-          if (!q) return true;
-          return item.label.toLowerCase().includes(q) || cat.category.toLowerCase().includes(q);
-        });
-        if (matchedItems.length > 0) {
-          flat.push({ type: 'header', label: cat.icon + ' ' + cat.category });
-          matchedItems.forEach(function (item) {
-            flat.push({ type: 'item', label: item.label, data: item });
-          });
-        }
-      });
-      this.flatItems = flat.filter(function (f) { return f.type === 'item'; });
+      this.flatItems = this._getAllDisplayItems().filter(function (f) { return f.type === 'item'; });
     },
 
     _getAllDisplayItems: function () {
@@ -205,6 +197,11 @@ window.StickySites = window.StickySites || {};
     _selectItem: function (flatItem) {
       var item = flatItem.data;
       var self = this;
+      var atPosition = this.atPosition;
+      var selection = window.getSelection();
+      var selected = selection && selection.rangeCount ? selection.getRangeAt(0) : null;
+      var currentOffset = selected ? selected.startOffset : -1;
+      var valid = atPosition && selected && selected.collapsed && selected.startContainer === atPosition.node && currentOffset === atPosition.end && atPosition.node.textContent === atPosition.text;
       this.hide();
 
       var insertText = '';
@@ -223,12 +220,11 @@ window.StickySites = window.StickySites || {};
         insertText = val;
       }
 
-      if (!insertText || !self.atPosition) return;
+      if (!insertText || !valid || !atPosition.node.isConnected || atPosition.node.textContent !== atPosition.text) return;
 
-      var node = self.atPosition.node;
-      var atOff = self.atPosition.offset;
+      var node = atPosition.node;
+      var atOff = atPosition.offset;
       var sel = window.getSelection();
-      var currentOffset = sel.getRangeAt(0).startOffset;
 
       var before = node.textContent.substring(0, atOff);
       var after = node.textContent.substring(currentOffset);

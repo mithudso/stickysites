@@ -14,16 +14,17 @@
 import puppeteer from 'puppeteer-core';
 import http from 'node:http';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { listen, resolveChrome, withHarnessResources } from './harness-resources.mjs';
 import { fileURLToPath } from 'node:url';
 import { createCanvas, loadImage } from 'canvas';
+import { closePanel, openNoteForScreenshot } from './browser-checks.mjs';
 
+await withHarnessResources(async (resources) => {
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(REPO, 'store', 'screenshots');
 fs.mkdirSync(OUT, { recursive: true });
-const CHROME = process.env.SS_CHROME ||
-  '/Users/mitch/.cache/puppeteer/chrome/mac_arm-152.0.7977.54/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = resolveChrome();
 const W = 1280, H = 800;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -53,21 +54,20 @@ const ARTICLE = `<!doctype html><html><head><meta charset="utf-8"><title>Field G
 <p>Score at a shallow angle with a decisive stroke. Steam for the first twenty minutes keeps the crust soft enough to expand; a Dutch oven does this for free. Then vent and bake until the crust is deep mahogany — paler than that and the flavour is not there yet.</p>
 <p>Let it cool completely before slicing. The crumb is still setting for an hour after the loaf leaves the oven.</p>
 </main></body></html>`;
-const server = http.createServer((req, res) => { res.setHeader('content-type', 'text/html'); res.end(ARTICLE); });
-await new Promise((r) => server.listen(0, '127.0.0.1', r));
-const PORT = server.address().port;
+const server = resources.ownServer(http.createServer((req, res) => { res.setHeader('content-type', 'text/html'); res.end(ARTICLE); }));
+const PORT = await listen(server);
 const PAGE_URL = `http://localhost:${PORT}/technique/sourdough-hydration`;
 
 // ── launch with the unpacked extension ───────────────────────────────────────
 async function launch(headless) {
-  return puppeteer.launch({
+  return resources.ownBrowser(await puppeteer.launch({
     executablePath: CHROME, headless,
-    userDataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'ss-store-')),
+    userDataDir: resources.tempDir('ss-store-'),
     ignoreDefaultArgs: ['--disable-extensions'],
     defaultViewport: { width: W, height: H, deviceScaleFactor: 1 },
     args: [`--disable-extensions-except=${REPO}`, `--load-extension=${REPO}`, `--window-size=${W},${H + 90}`,
       '--no-first-run', '--no-default-browser-check', '--disable-sync', '--hide-scrollbars'],
-  });
+  }));
 }
 let browser = await launch('new');
 let page = await browser.newPage();
@@ -75,7 +75,7 @@ await page.goto(PAGE_URL, { waitUntil: 'networkidle2' });
 const hasCluster = await page.waitForSelector('#stickysites-cluster', { timeout: 8000 }).then(() => true).catch(() => false);
 if (!hasCluster) {
   console.log('headless did not load the extension; retrying headful');
-  await browser.close();
+  await resources.closeBrowser(browser);
   browser = await launch(false);
   page = await browser.newPage();
   await page.goto(PAGE_URL, { waitUntil: 'networkidle2' });
@@ -126,39 +126,31 @@ await seeder.evaluate((data) => chrome.storage.local.set(data), seed);
 await seeder.close();
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-async function openNote(p, typeId) {
-  await p.evaluate((t) => {
-    document.querySelectorAll('#stickysites-cluster .stickysites-cluster-icon').forEach((b) => { if (b.dataset.typeId === t) b.click(); });
-  }, typeId);
-  await p.waitForSelector('#stickysites-panel.is-open', { timeout: 5000 });
-  await sleep(500);
-}
 async function shot(p, name) {
   const file = path.join(OUT, name);
   await p.screenshot({ path: file, clip: { x: 0, y: 0, width: W, height: H } });
   console.log(`store/screenshots/${name}`);
 }
-async function closePanel(p) {
-  await p.evaluate(() => window.StickySites?.Panel?.close?.());
-  await sleep(300);
-}
-
 await page.bringToFront();
 await page.reload({ waitUntil: 'networkidle2' });
 await page.waitForSelector('#stickysites-cluster');
 await sleep(400);
 
-await openNote(page, 'page');   await shot(page, '01-page-note.png');  await closePanel(page);
-await openNote(page, 'todo');   await shot(page, '02-todo.png');       await closePanel(page);
-await openNote(page, 'outline');await shot(page, '03-outliner.png');   await closePanel(page);
-await openNote(page, 'daily');  await shot(page, '04-daily-note.png'); await closePanel(page);
+await openNoteForScreenshot(page, 'page', { title: 'Page note — /technique/sourdough-hydration', bodySelector: '.stickysites-panel-editor', bodyText: 'Hydration notes' });
+await shot(page, '01-page-note.png'); await closePanel(page);
+await openNoteForScreenshot(page, 'todo', { title: 'To-do list', bodySelector: '.stickysites-todo-text', bodyText: 'Bake the 80% test loaf' });
+await shot(page, '02-todo.png'); await closePanel(page);
+await openNoteForScreenshot(page, 'outline', { outlineName: 'Bread projects', bodySelector: '.stickysites-outline-text', bodyText: 'Sourdough fundamentals #learning' });
+await shot(page, '03-outliner.png'); await closePanel(page);
+await openNoteForScreenshot(page, 'daily', { title: 'Daily — ' + today, bodySelector: '.stickysites-panel-editor', bodyText: 'Feed the starter 1:5:5 at 8 am' });
+await shot(page, '04-daily-note.png'); await closePanel(page);
 
 // popup: capture at natural size, then compose onto a 1280×800 backdrop
 const popup = await browser.newPage();
 await popup.setViewport({ width: 420, height: 640, deviceScaleFactor: 2 });
 await popup.goto(`chrome-extension://${EXT_ID}/popup.html`, { waitUntil: 'networkidle2' });
 await sleep(700);
-const rawPopup = path.join(os.tmpdir(), 'ss-popup-raw.png');
+const rawPopup = path.join(resources.tempDir('ss-popup-'), 'raw.png');
 await popup.screenshot({ path: rawPopup, fullPage: true });
 await popup.close();
 {
@@ -183,6 +175,10 @@ await popup.close();
   console.log('store/screenshots/05-popup.png');
 }
 
-await browser.close();
-server.close();
 console.log(`done — ${fs.readdirSync(OUT).filter((f) => f.endsWith('.png')).length} screenshots in store/screenshots/`);
+
+}).catch((error) => {
+  console.error(error.message);
+  for (const cleanupError of error.cleanupErrors ?? error.errors ?? []) console.error(`Cleanup: ${cleanupError.message}`);
+  process.exitCode = 1;
+});

@@ -3,18 +3,20 @@
 import puppeteer from 'puppeteer-core';
 import http from 'node:http';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
+import { listen, resolveChrome, withHarnessResources } from './harness-resources.mjs';
+import { encryptedNoteBuckets, persistedSiteBody, populatedNoteBuckets, restoredNoteContent } from './browser-checks.mjs';
 
-const REPO = process.cwd();
+import { fileURLToPath } from 'node:url';
+
+await withHarnessResources(async (resources) => {
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // Branded Chrome 137+ ignores --load-extension; use Chrome for Testing / Chromium.
 // Override with SS_CHROME=/path/to/binary. Requires: npm i --no-save puppeteer-core
-const CHROME = process.env.SS_CHROME ||
-  '/Users/mitch/.cache/puppeteer/chrome/mac_arm-152.0.7977.54/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = resolveChrome();
 const SHOT_DIR = '/tmp/stickysites-verify';
 fs.mkdirSync(SHOT_DIR, { recursive: true });
-const DOWNLOAD_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ss-dl-'));
-const PROFILE_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ss-profile-'));
+const DOWNLOAD_DIR = resources.tempDir('ss-dl-');
 
 const results = [];
 function record(icon, name, detail) {
@@ -26,21 +28,20 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 // ── Test server: classic pages + SPA route ────────────────────────────────
 const PAGE = (title, body) => `<!doctype html><html><head><title>${title}</title></head>
 <body><h1>${title}</h1>${body}<p>${'lorem ipsum '.repeat(20)}</p></body></html>`;
-const server = http.createServer((req, res) => {
+const server = resources.ownServer(http.createServer((req, res) => {
   res.setHeader('content-type', 'text/html');
   if (req.url === '/contactus.html') return res.end(PAGE('Contact Us', '<a href="/index.html">home</a>'));
   return res.end(PAGE('Home', '<a href="/contactus.html">contact</a><button id="spa" onclick="history.pushState({},\'\',\'/spa-route\')">spa nav</button>'));
-});
-await new Promise(r => server.listen(0, '127.0.0.1', r));
-const PORT = server.address().port;
+}));
+const PORT = await listen(server);
 const BASE = `http://localhost:${PORT}`;
 
 // ── Launch Chrome with the unpacked extension ─────────────────────────────
 async function launch(headless) {
-  return puppeteer.launch({
+  return resources.ownBrowser(await puppeteer.launch({
     executablePath: CHROME,
     headless,
-    userDataDir: fs.mkdtempSync(path.join(os.tmpdir(), 'ss-profile-')),
+    userDataDir: resources.tempDir('ss-profile-'),
     // Puppeteer's defaults include --disable-extensions, which defeats --load-extension.
     ignoreDefaultArgs: ['--disable-extensions'],
     args: [
@@ -48,7 +49,7 @@ async function launch(headless) {
       `--load-extension=${REPO}`,
       '--no-first-run', '--no-default-browser-check', '--disable-sync',
     ],
-  });
+  }));
 }
 let browser = await launch('new');
 
@@ -61,11 +62,11 @@ let page = await browser.newPage();
 await page.goto(`${BASE}/index.html`, { waitUntil: 'networkidle2' });
 if (!await clusterAppears(page)) {
   console.log('headless=new did not load the extension; retrying headful');
-  await browser.close();
+  await resources.closeBrowser(browser);
   browser = await launch(false);
   page = await browser.newPage();
   await page.goto(`${BASE}/index.html`, { waitUntil: 'networkidle2' });
-  if (!await clusterAppears(page)) { record('❌', 'extension load', 'cluster never appeared'); process.exit(1); }
+  if (!await clusterAppears(page)) throw new Error('extension load: cluster never appeared');
 }
 record('✅', 'extension loaded', 'cluster injected');
 
@@ -189,13 +190,19 @@ const editorText = (p) => p.$eval('.stickysites-panel-editor', e => e.textConten
   await page.bringToFront();
 }
 
+let expectedSiteBody = '';
 // ── S6: site note (for popup labels later) ─────────────────────────────────
 {
   await openNote(page, 'site');
   await page.click('.stickysites-panel-editor');
   await page.keyboard.type('SITE-NOTE', { delay: 40 });
   await sleep(800);
-  record('✅', 'S6 site note created', '');
+  expectedSiteBody = await page.$eval('.stickysites-panel-editor', editor => editor.innerHTML);
+  await page.goto(`${BASE}/index.html`, { waitUntil: 'networkidle2' });
+  await page.waitForSelector('#stickysites-cluster');
+  await openNote(page, 'site');
+  const persisted = await editorText(page);
+  record(persisted === 'SITE-NOTE' ? '✅' : '❌', 'S6 site note persisted after navigation', `exact body restored=${persisted === 'SITE-NOTE'}`);
 }
 
 // ── S7: outliner — library, keyboard, zoom, filter, auto-group, export ─────
@@ -369,6 +376,7 @@ const editorText = (p) => p.$eval('.stickysites-panel-editor', e => e.textConten
   const outlineOk = oKeys.length === 2 && oKeys.every(k => k.startsWith('ol_')) &&
     Object.values(outlines).map(o => o.name).sort().join(',') === 'My outline,Second Brain';
   record(noBleed ? '✅' : '❌', 'S8b storage: no cross-page bleed', `${keys.length} page keys: ${keys.join(' , ')}`);
+  record(persistedSiteBody(store, 'localhost', expectedSiteBody) ? '✅' : '❌', 'S8d storage: exact site-note body persisted', '');
   record(outlineOk ? '✅' : '❌', 'S8c storage: outline library', `${oKeys.join(',')} names=${Object.values(outlines).map(o => o.name).join('/')}`);
   await popup.close();
 }
@@ -382,6 +390,8 @@ const editorText = (p) => p.$eval('.stickysites-panel-editor', e => e.textConten
   const popup = await browser.newPage();
   await popup.bringToFront();
   await popup.goto(`chrome-extension://${EXT_ID}/popup.html`, { waitUntil: 'networkidle2' });
+  const beforeEncryption = await popup.evaluate(() => chrome.storage.local.get(null));
+  const expectedBuckets = populatedNoteBuckets(beforeEncryption);
   await popup.click('#settings-btn');
   await popup.waitForSelector('.settings-toggle-btn');
   await popup.evaluate(() => {
@@ -396,15 +406,12 @@ const editorText = (p) => p.$eval('.stickysites-panel-editor', e => e.textConten
     () => [...document.querySelectorAll('.settings-toggle-btn')].some(b => b.textContent === 'Disable'),
     { timeout: 30000 });
   let store = await popup.evaluate(() => chrome.storage.local.get(null));
-  let env = store.stickysites_outlines_v1 || {};
-  const encOk = typeof env.iv === 'string' && typeof env.data === 'string' &&
-    !Object.keys(env).some(k => k.startsWith('ol_'));
-  record(encOk ? '✅' : '❌', 'S9a enable encryption', `outlines value keys=[${Object.keys(env).join(',')}]`);
+  const coverage = encryptedNoteBuckets(store, expectedBuckets);
+  record(coverage.ok ? '✅' : '❌', 'S9a enable encryption for every populated note bucket', `checked=${expectedBuckets.length} missing=${coverage.missing.join(',')}`);
 
   // S9b: Lock Now. We're still inside the settings panel (showSettings()
-  // hides #app, which contains #settings-btn) and the enable path never calls
-  // updateLockBtnState(), so Lock Now is hidden in the current panel. A real
-  // user closes and reopens the popup — for the harness, reload the page.
+  // hides #app, which contains #settings-btn). Reload the popup before locking
+  // to exercise the persisted encryption configuration in a fresh document.
   await popup.goto(`chrome-extension://${EXT_ID}/popup.html`, { waitUntil: 'networkidle2' });
   await popup.click('#settings-btn');
   await popup.waitForFunction(
@@ -436,29 +443,47 @@ const editorText = (p) => p.$eval('.stickysites-panel-editor', e => e.textConten
     `notice=${lockedNotice} envelopeSurvived=${envelopeSurvived}`);
   await pop.close();
 
-  // S9d: locked in-page icon click → lock overlay → unlock restores content.
+  // S9d: a locked in-page request opens the secure extension unlock flow.
   const tab = await browser.newPage();
   await tab.bringToFront();
   await tab.goto(`${BASE}/index.html`, { waitUntil: 'networkidle2' });
   await tab.waitForSelector('#stickysites-cluster');
+  const priorTargets = new Set(browser.targets());
+  const unlockTargetReady = browser.waitForTarget(target => !priorTargets.has(target) && target.url().startsWith(`chrome-extension://${EXT_ID}/popup.html?unlock=1`), { timeout: 10000 }).catch(() => null);
   await tab.evaluate(() => {
     document.querySelectorAll('#stickysites-cluster .stickysites-cluster-icon')
       .forEach(b => { if (b.dataset.typeId === 'outline') b.click(); });
   });
-  const overlayShown = await tab.waitForSelector('#stickysites-lock', { timeout: 5000 })
-    .then(() => true).catch(() => false);
-  await tab.type('.stickysites-lock-input', PASS);
-  await tab.click('.stickysites-lock-btn');
-  await tab.waitForSelector('.stickysites-outline-switcher', { timeout: 15000 });
-  await sleep(300);
+  // The actual in-page request must open a secure extension page. The host-page
+  // main world never receives the passphrase or decrypted storage.
+  const unlockTarget = await unlockTargetReady;
+  const unlockPage = unlockTarget && await unlockTarget.page();
+  if (!unlockPage) throw new Error('Secure unlock request did not open an extension page.');
+  await unlockPage.waitForSelector('#popup-lock .popup-lock-input', { timeout: 5000 });
+  await unlockPage.type('#popup-lock .popup-lock-input', PASS);
+  await unlockPage.click('#popup-lock .popup-lock-btn');
+  await unlockPage.waitForFunction(() => !document.querySelector('#popup-lock'), { timeout: 15000 });
+  const decrypted = await unlockPage.evaluate(async (keys) => {
+    const raw = await chrome.storage.local.get(keys), plain = {};
+    for (const key of keys) plain[key] = await window.StickySites.Crypto.decryptValue(raw[key]);
+    return plain;
+  }, expectedBuckets);
+  const contentRestored = restoredNoteContent(beforeEncryption, decrypted, expectedBuckets);
+  record(contentRestored ? '✅' : '❌', 'S9d unlock restores every populated note bucket', `checked=${expectedBuckets.length}`);
+  await unlockPage.close();
+  await tab.bringToFront();
+  if (!await tab.$('.stickysites-outline-switcher')) await openNote(tab, 'outline');
   const rows = await tab.$$eval('.stickysites-outline-text', els => els.map(e => e.value));
-  const unlockOk = overlayShown && rows.includes('buy milk #errands');
-  record(unlockOk ? '✅' : '❌', 'S9d unlock restores outline', `overlay=${overlayShown} rows=[${rows.join(' | ')}]`);
+  record(rows.includes('buy milk #errands') ? '✅' : '❌', 'S9e unlocked outline restores rendered content', '');
   await tab.close();
 }
 
-await browser.close();
-server.close();
 const fails = results.filter(r => r.icon.includes('❌')).length;
 console.log(`\n=== ${results.length} steps, ${fails} failures. Screenshots in ${SHOT_DIR} ===`);
-process.exit(fails ? 1 : 0);
+process.exitCode = fails ? 1 : 0;
+
+}).catch((error) => {
+  console.error(error.message);
+  for (const cleanupError of error.cleanupErrors ?? error.errors ?? []) console.error(`Cleanup: ${cleanupError.message}`);
+  process.exitCode = 1;
+});

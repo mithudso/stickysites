@@ -5,7 +5,8 @@ host `com.mitch.todo_bridge` (`src/shared/todo-bridge.js`, driven by
 `src/background/service-worker.js`). Without the host the extension works normally and the
 list stays local.
 
-**Precondition**: the `todo` skill is present at `~/.claude/skills/todo/`.
+**Precondition**: live native-host troubleshooting is in scope and the `todo` skill is
+present at `~/.claude/skills/todo/`. Automated maintenance uses synthetic replies instead.
 
 ## Steps
 
@@ -28,9 +29,13 @@ list stays local.
    `[stickysites] todo-sync` warning carries the host's error text
    (`Specified native messaging host not found`, `Access to the specified native messaging
    host is forbidden`, …).
-6. **Is the vault locked or encrypted?** Sync is skipped while `stickysites_todos_v1` is an
+6. **Is the vault enabled or the value encrypted?** Sync is skipped while `stickysites_todos_v1` is an
    `{ iv, data }` envelope — by design, plaintext never reaches the file. Disable
    encryption or accept local-only to-dos.
+
+A `NATIVE_TIMEOUT` preserves the current list. `STATE_CHANGED` means an edit or vault
+change occurred while the host was working; let the next scheduled run retry rather than
+applying the stale reply.
 
 ## Verification
 

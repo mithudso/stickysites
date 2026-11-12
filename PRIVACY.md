@@ -1,94 +1,95 @@
 # StickySites Privacy Policy
 
-_Last updated: 2026-09-28 (sync folder added)_
+_Last updated: 2026-11-12_
 
-StickySites is a Chrome extension that lets you keep notes attached to websites, pages, and
-dates, plus a to-do list and an outliner. This policy explains what the extension does with
-your data. The short version: **everything stays on your device; nothing is sent to us or to
-any third party.**
+StickySites keeps notes attached to websites, pages, and dates, plus a to-do list and an
+outliner. Notes are stored locally by default. We operate no hosted collection service,
+analytics, telemetry, crash reporting, or advertising. Optional sync sends data only through
+the local programs, paired computers, and shared/cloud folder you choose.
 
 ## What the extension stores
 
-- The notes, to-do items, and outlines you write, and the settings you choose (cluster
-  position, layout, which note types are visible, panel size).
-- If you turn on encryption: a random salt, an encrypted verification token, and — while the
-  vault is unlocked — the derived encryption key. Your passphrase itself is never stored.
+- Notes, to-do items, outlines, deletion markers, sync status, and your settings.
+- If encryption is enabled: a random salt, an encrypted verification token, and a cached
+  derived key while unlocked. The passphrase itself is never stored.
 
-All of this is kept in Chrome's extension storage (`chrome.storage.local`) on your computer.
-It is not synced through Google, not uploaded anywhere, and not accessible to websites you
-visit or to other extensions.
+The extension uses `chrome.storage.local`, not Chrome's account-sync storage. The cached
+key deliberately persists across browser restarts until **Lock Now**. Other extensions do
+not have direct access to this extension's storage. An open in-page note panel is part of
+the host page's DOM: that page's scripts can read its displayed plaintext. Encryption at
+rest does not hide content while you display it on a page.
 
 ## What the extension reads from web pages
 
-- The page's address (hostname and path) — to decide which site/page note to show and to
-  draw the small identity icons.
-- Text you have **selected and explicitly chosen to clip** through the right-click
-  "StickySites" menu. Nothing else on the page is read, and no page content is read
-  automatically.
+- Hostname and path identify the site/page note and its icon.
+- Selected text is read when you explicitly choose a StickySites clipping menu item.
 
-## Network
+StickySites does not automatically scrape page content. Imported rich-text HTML is filtered
+before display to remove scripts, event attributes, embedded resource nodes, and unsafe URLs.
 
-StickySites makes **no network requests**. It has no servers, no analytics, no telemetry,
-no crash reporting, no advertising, and loads no remote code or resources.
+## Network and optional sync
 
-## Optional local to-do sync (native messaging)
+The extension loads no remote code or resources and sends no hosted telemetry. It can call
+an optional helper on `127.0.0.1`. That helper can exchange snapshots over a paired LAN or
+write them to your chosen shared/cloud folder. These optional boundaries are described below.
 
-If you install the optional companion program on your own computer, the extension can keep
-your to-do list in sync with a local Markdown file. In that case the to-do items (text, done
-state, notes, sections) are passed to that local program through Chrome's native-messaging
-channel. This never leaves your machine, and the sync is skipped entirely while encryption is
-turned on. Without the companion program installed, the feature is simply inactive.
+### Local to-do sync
 
-## Optional local peer sync
+If you install the optional native-messaging host, the extension sends to-do item text,
+done state, notes, sections, and identifiers to that local program so it can synchronize a
+Markdown file. The extension skips this sync while the vault is enabled or the to-do value
+is encrypted. The extension itself does not upload that file; a folder synchronization
+service you independently use may transfer it under that service's terms.
 
-If you install the optional peer helper (`peer/stickysites-peer.py`) on two or more of your own
-computers and give them the same pairing key, the extension hands its notes to that helper over
-`127.0.0.1`, and the helpers exchange them **only across your local network** (multicast
-discovery, HTTPS with pinned certificates, authenticated with the pairing key). Nothing goes to
-the internet, to us, or to any third party, and computers without your pairing key are ignored.
-With encryption on, the exchanged data is already encrypted. Without the helper installed the
-feature is inactive; it can also be switched off in Settings.
+### Paired LAN sync
 
-You may also choose a **sync folder** — for example a Google Drive, iCloud Drive or Dropbox
-folder on your own account, or a network share. If you do, each computer writes a file
-containing its notes into that folder and your chosen cloud service stores and transfers it
-under your own account and its terms; we never see it. With encryption on, that file contains
-encrypted data only. Delete the file or clear the folder setting to stop.
+If you enable peer sync and install `peer/stickysites-peer.py`, the extension passes a
+snapshot to its local helper over loopback. Helpers authenticate discovery with a shared
+pairing key and exchange snapshots over HTTPS with certificate fingerprints pinned from
+those signed announcements. The helper stores the latest snapshot on your computer.
+Without the helper, peer sync is unavailable; it can be switched off in Settings.
+
+### Shared or cloud folder
+
+You may configure a sync folder, including a network share or a Google Drive, iCloud Drive,
+or Dropbox folder. Each helper writes a signed snapshot file there and reads paired peers'
+files. Your chosen provider may store and transfer those files outside your device or LAN,
+under its own terms. StickySites does not operate that provider or receive those files.
+Clear the folder setting to stop future writes; delete existing copies separately.
 
 ## Encryption
 
-Encryption is optional. When enabled, your notes are encrypted at rest with AES-256-GCM using
-a key derived from your passphrase (PBKDF2, 600,000 iterations). We cannot recover your notes
-if you forget the passphrase, because we never see it.
+Encryption is optional: AES-256-GCM with PBKDF2-SHA256 and 600,000 iterations derives a key
+from your passphrase. With the vault enabled, the six note buckets travel as encrypted
+envelopes. Deletion markers (including record keys and timestamps), crypto configuration,
+device names/identifiers, and folder-signature metadata remain readable. With encryption
+off, snapshots and shared-folder files contain plaintext notes. Folder signatures authenticate
+a file; they do not encrypt it. We cannot recover a forgotten passphrase.
 
 ## Data sharing and sale
 
-We do not collect, transmit, sell, or share any personal data. The only transmissions the
-extension can make are to programs on your own computer (`127.0.0.1`), and from there, if you
-opt in, to your own other computers on your local network.
+We do not collect or sell your personal data. Optional transfers occur through the local
+host, paired computers, or folder provider you select. Notes and settings serve only the
+extension's note-taking and synchronization features.
 
 ## Permissions
 
 | Permission | Why it is needed |
 |---|---|
-| `storage` | Save your notes and settings locally |
-| `activeTab` | Open or toggle the note panel on the tab you are looking at |
-| `contextMenus` | The right-click "StickySites" clip menu |
-| `alarms` | Schedule the optional local to-do sync |
-| `nativeMessaging` | Talk to the optional local companion program |
-| Access to websites (content script) | Show the floating note cluster and panel on the pages you visit |
+| `storage` | Save notes, settings, vault configuration, and sync state locally |
+| `activeTab` | Open or toggle a note panel on the active tab |
+| `contextMenus` | Offer the explicit clipping menu |
+| `alarms` | Schedule optional to-do and peer sync |
+| `nativeMessaging` | Talk to the optional local to-do program |
+| Content script on websites | Display the floating cluster and panel |
 
 ## Removing your data
 
-Uninstalling the extension deletes all of its stored data. You can export your notes as
-Markdown from the extension popup first.
+Export readable notes as Markdown before uninstalling. Removing the extension deletes its
+Chrome extension storage. It does not delete the helper's state, local Markdown file,
+paired computers' copies, or shared/cloud-folder files; remove those separately if desired.
 
-## Changes
+## Changes and contact
 
-If this policy changes, the updated version will be published at
-https://github.com/mithudso/stickysites/blob/main/PRIVACY.md with a new date.
-
-## Contact
-
-Open an issue at https://github.com/mithudso/stickysites/issues or contact the maintainer
-listed in the repository.
+Policy updates appear at https://github.com/mithudso/stickysites/blob/main/PRIVACY.md with a
+new date. Contact the maintainer through https://github.com/mithudso/stickysites/issues.

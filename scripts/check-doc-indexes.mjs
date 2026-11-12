@@ -1,107 +1,98 @@
 #!/usr/bin/env node
-/**
- * Path-validates the LLM retrieval indexes so they can never rot silently:
- *
- *   docs/high_signal_file_index.json  — every entry's `path` must exist on disk
- *   llms.txt                          — every relative markdown link must exist on disk
- *
- * Dead entries make retrieval worse than no index, so CI runs this after tests.
- *
- * Usage:
- *   node scripts/check-doc-indexes.mjs           # report; non-zero exit if any path is dead
- *   node scripts/check-doc-indexes.mjs --prune   # drop dead index entries and rewrite the JSON
- *
- * npm alias: npm run docs:check-indexes
- *
- * `depends_on` targets are validated too, but a missing dependency is only a warning
- * (it may name a conceptual rather than on-disk dependency).
- */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+/** Validate index paths and required llms/wiki links; --prune removes missing index entries. */
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const indexPath = path.join(repoRoot, 'docs', 'high_signal_file_index.json');
-const llmsPath = path.join(repoRoot, 'llms.txt');
+const repoRoot = realpathSync(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'));
+const indexPath = path.join(repoRoot, 'docs/high_signal_file_index.json');
 const prune = process.argv.includes('--prune');
-
-const rel = (p) => path.relative(repoRoot, p);
-const onDisk = (p) => existsSync(path.join(repoRoot, p));
-
 let exitCode = 0;
 
-// ── docs/high_signal_file_index.json ─────────────────────────────────────────
-let raw;
+function safeTarget(target, base = repoRoot) {
+  const decoded = decodeURIComponent(target.split('#')[0].split('?')[0]);
+  if (!decoded || path.isAbsolute(decoded) || /[\\\x00-\x1f]/.test(decoded)) throw new Error(`unsafe relative path: ${target}`);
+  const full = path.resolve(base, decoded);
+  const inside = (file) => file === repoRoot || file.startsWith(repoRoot + path.sep);
+  if (!inside(full) || (existsSync(full) && !inside(realpathSync(full)))) throw new Error(`path escapes repository: ${target}`);
+  return full;
+}
+function onDisk(target, base) { return existsSync(safeTarget(target, base)); }
+
+// Handle the link forms used by maintained indexes without treating examples as
+// actual destinations. Definitions are resolved case-insensitively as Markdown is.
+function markdownTargets(markdown) {
+  let fence = null;
+  const visible = markdown.replace(/<!--[\s\S]*?-->/g, '').split('\n').map((line) => {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (fence) {
+      if (marker && marker[1][0] === fence.char && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
+      return '';
+    }
+    if (marker) { fence = { char: marker[1][0], length: marker[1].length }; return ''; }
+    return /^ {4}|^\t/.test(line) ? '' : line;
+  }).join('\n').replace(/(`+)[\s\S]*?\1/g, '');
+  const normalize = (label) => label.trim().replace(/\s+/g, ' ').toLowerCase();
+  const definitions = new Map();
+  const prose = visible.replace(/^ {0,3}\[([^\]\n]+)\]:\s*(?:<([^>\n]+)>|([^\s]+)).*$/gm, (_, label, angled, plain) => {
+    const key = normalize(label);
+    if (!definitions.has(key)) definitions.set(key, angled ?? plain);
+    return '';
+  });
+  const targets = new Set();
+  for (const match of prose.matchAll(/\]\(\s*(?:<([^>\n]+)>|([^\s)]+))/g)) targets.add(match[1] ?? match[2]);
+  for (const match of prose.matchAll(/\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/g)) {
+    if (prose[match.index + match[0].length] === '(') continue;
+    const destination = definitions.get(normalize(match[2] || match[1]));
+    if (destination) targets.add(destination);
+  }
+  return targets;
+}
+
 try {
-  raw = readFileSync(indexPath, 'utf8');
-} catch {
-  console.error(`Missing ${rel(indexPath)} — the retrieval index does not exist.`);
-  process.exit(1);
-}
-
-let entries;
-try {
-  entries = JSON.parse(raw);
-} catch (err) {
-  console.error(`${rel(indexPath)} is not valid JSON: ${err.message}`);
-  process.exit(1);
-}
-if (!Array.isArray(entries)) {
-  console.error(`${rel(indexPath)} must be a JSON array of index entries.`);
-  process.exit(1);
-}
-
-const deadPaths = [];
-const missingDeps = [];
-for (const entry of entries) {
-  if (!entry || typeof entry.path !== 'string') {
-    console.error(`Index entry missing a string "path": ${JSON.stringify(entry)}`);
-    process.exit(1);
+  safeTarget('docs/high_signal_file_index.json');
+  if (!existsSync(indexPath)) throw new Error('Missing docs/high_signal_file_index.json — the retrieval index does not exist.');
+  const entries = JSON.parse(readFileSync(indexPath, 'utf8'));
+  if (!Array.isArray(entries)) throw new Error('docs/high_signal_file_index.json must be a JSON array of index entries.');
+  const deadPaths = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry.path !== 'string') throw new Error('Index entry missing a string "path".');
+    if (!onDisk(entry.path)) deadPaths.push(entry.path);
+    if (entry.depends_on != null && !Array.isArray(entry.depends_on)) throw new Error(`Index entry "${entry.path}" has a non-array "depends_on".`);
+    for (const dep of entry.depends_on ?? []) {
+      if (typeof dep !== 'string' || dep.startsWith('@') || !dep.includes('/')) continue;
+      if (!onDisk(dep)) console.warn(`warning: depends_on target not found on disk: ${entry.path} → ${dep}`);
+    }
   }
-  if (!onDisk(entry.path)) deadPaths.push(entry.path);
-  if (entry.depends_on != null && !Array.isArray(entry.depends_on)) {
-    console.error(`Index entry "${entry.path}" has a non-array "depends_on".`);
-    process.exit(1);
-  }
-  for (const dep of entry.depends_on ?? []) {
-    if (typeof dep !== 'string' || dep.startsWith('@') || !dep.includes('/')) continue;
-    if (!onDisk(dep)) missingDeps.push(`${entry.path} → ${dep}`);
-  }
-}
-for (const dep of missingDeps) console.warn(`warning: depends_on target not found on disk: ${dep}`);
-
-if (deadPaths.length === 0) {
-  console.log(`${rel(indexPath)} is current (${entries.length} entries, all paths valid)`);
-} else if (prune) {
-  const kept = entries.filter((e) => onDisk(e.path));
-  writeFileSync(indexPath, JSON.stringify(kept, null, 2) + '\n', 'utf8');
-  console.log(`Pruned ${deadPaths.length} dead entr${deadPaths.length === 1 ? 'y' : 'ies'} (${kept.length} remain):`);
-  for (const p of deadPaths) console.log(`  - ${p}`);
-} else {
-  console.error(`${rel(indexPath)} is stale — ${deadPaths.length} entr${deadPaths.length === 1 ? 'y points' : 'ies point'} at missing files:`);
-  for (const p of deadPaths) console.error(`  - ${p}`);
-  console.error('Fix the paths or run: npm run docs:check-indexes -- --prune');
+  if (deadPaths.length && prune) {
+    const kept = entries.filter((entry) => !deadPaths.includes(entry.path));
+    writeFileSync(indexPath, JSON.stringify(kept, null, 2) + '\n');
+    console.log(`Pruned ${deadPaths.length} dead entries (${kept.length} remain).`);
+  } else if (deadPaths.length) {
+    console.error(`docs/high_signal_file_index.json has missing files:\n  ${deadPaths.join('\n  ')}`);
+    exitCode = 1;
+  } else console.log(`docs/high_signal_file_index.json is current (${entries.length} entries, all paths valid)`);
+} catch (error) {
+  console.error(error.message);
   exitCode = 1;
 }
 
-// ── llms.txt relative links ──────────────────────────────────────────────────
-if (existsSync(llmsPath)) {
-  const text = readFileSync(llmsPath, 'utf8');
-  const deadLinks = [];
-  let seen = 0;
-  for (const m of text.matchAll(/\]\(([^)\s]+)\)/g)) {
-    const target = m[1];
-    if (/^[a-z]+:/i.test(target) || target.startsWith('#')) continue; // URLs / anchors
-    seen++;
-    if (!onDisk(target.split('#')[0])) deadLinks.push(target);
-  }
-  if (deadLinks.length === 0) {
-    console.log(`llms.txt is current (${seen} relative links, all resolve)`);
-  } else {
-    console.error(`llms.txt has ${deadLinks.length} dead relative link${deadLinks.length === 1 ? '' : 's'}:`);
-    for (const l of deadLinks) console.error(`  - ${l}`);
+for (const name of ['llms.txt', 'docs/wiki/index.md']) {
+  try {
+    const file = safeTarget(name);
+    if (!existsSync(file)) throw new Error(`Missing ${name} — the required documentation index does not exist.`);
+    let seen = 0;
+    const missing = [];
+    for (const target of markdownTargets(readFileSync(file, 'utf8'))) {
+      if (/^[a-z][a-z\d+.-]*:/i.test(target) || target.startsWith('#')) continue;
+      seen++;
+      if (!onDisk(target, path.dirname(file))) missing.push(target);
+    }
+    if (missing.length) throw new Error(`${name} has dead relative links:\n  ${missing.join('\n  ')}`);
+    console.log(`${name} is current (${seen} relative links, all resolve)`);
+  } catch (error) {
+    console.error(`${name}: ${error.message}`);
     exitCode = 1;
   }
 }
-
-process.exit(exitCode);
+process.exitCode = exitCode;

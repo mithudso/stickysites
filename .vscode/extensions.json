@@ -2,6 +2,9 @@
   "recommendations": [
     "esbenp.prettier-vscode",
     "editorconfig.editorconfig",
-    "nicolo-ribaudo.vitest-explorer"
+    "nicolo-ribaudo.vitest-explorer",
+    "dbaeumer.vscode-eslint",
+    "ms-python.python",
+    "ms-python.debugpy"
   ]
 }

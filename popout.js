@@ -32,10 +32,21 @@
   Panel.init(function () {
     window.close();
   });
-  Panel.open(noteType);
-
-  // The popout window is resized by the OS; strip every in-page resize grip.
-  document.querySelectorAll('.stickysites-panel-resize').forEach(function (grip) {
-    grip.remove();
+  var generation = 0;
+  async function refreshLock() {
+    var current = ++generation, C = window.StickySites.Crypto;
+    var locked = await C.isEnabled() && !await C.getCachedKey();
+    if (current !== generation) return;
+    if (locked) {
+      await Panel.close(true);
+      if (current !== generation) return;
+      Panel.el.textContent = 'StickySites is locked. Unlock it with the extension toolbar icon.';
+      Panel.el.classList.add('is-open');
+    } else await Panel.open(noteType);
+  }
+  refreshLock();
+  chrome.storage.onChanged.addListener(function (changes, area) {
+    if (area === 'local' && (changes.stickysites_cached_key || changes.stickysites_crypto_v1)) refreshLock();
   });
+
 })();

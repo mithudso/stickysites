@@ -6,25 +6,36 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Lint, test, and index check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
       # Syntax gate for every content script / module + manifest↔package version agreement.
       - run: npm run lint
-      - run: npm test
-      # Local peer-sync daemon: two instances on ephemeral ports discover each other and exchange a snapshot.
-      - name: Peer daemon test
-        run: python3 -m unittest peer/test_peer.py
+      # Tests get a network namespace with only loopback. Package installation above
+      # can reach npm; these synthetic browser/peer fixtures cannot reach external hosts.
+      - name: Offline JavaScript and peer fixtures
+        run: |
+          sudo unshare --net -- sh -ec '
+            ip link set lo up
+            runuser -u "$1" -- "$2" node_modules/vitest/vitest.mjs run
+            runuser -u "$1" -- "$3" -m unittest peer/test_peer.py
+          ' sh "$USER" "$(command -v node)" "$(command -v python3)"
       # Retrieval indexes (docs/high_signal_file_index.json, llms.txt) must not point at dead files.
       - run: npm run docs:check-indexes
+      - run: npm run docs:check-generated
+      - run: npm run build:store
       # The unpacked extension is the repo root — make sure the manifest still parses.
       - name: Validate manifest.json
         run: node -e "const m=require('./manifest.json'); if(m.manifest_version!==3) throw new Error('manifest_version must be 3'); console.log('manifest ok', m.name, m.version)"

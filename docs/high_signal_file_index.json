@@ -1,364 +1,956 @@
 [
   {
-    "path": "manifest.json",
-    "purpose": "MV3 manifest: 5 permissions, Alt+S command, 10 content scripts in load order, module service worker, popup action; canonical version",
+    "path": ".codex/config.toml",
+    "purpose": "private operator context: config.toml.",
     "layer": "config",
+    "classification": "private operator context",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".editorconfig",
+    "purpose": "maintained source: .editorconfig.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".env.example",
+    "purpose": "private operator context: .env.example.",
+    "layer": "config",
+    "classification": "private operator context",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".gitattributes",
+    "purpose": "maintained source: .gitattributes.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/CODEOWNERS",
+    "purpose": "maintained source: CODEOWNERS.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/FUNDING.yml",
+    "purpose": "maintained source: FUNDING.yml.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 7,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+    "purpose": "Documentation: bug_report.md.",
+    "layer": "documentation",
+    "classification": "maintained source",
+    "lines": 21,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/ISSUE_TEMPLATE/feature_request.md",
+    "purpose": "Documentation: feature_request.md.",
+    "layer": "documentation",
+    "classification": "maintained source",
+    "lines": 14,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/PULL_REQUEST_TEMPLATE.md",
+    "purpose": "Documentation: PULL_REQUEST_TEMPLATE.md.",
+    "layer": "documentation",
+    "classification": "maintained source",
+    "lines": 26,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/SECURITY.md",
+    "purpose": "Security Policy",
+    "layer": "documentation",
+    "classification": "maintained source",
+    "lines": 25,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/copilot-instructions.md",
+    "purpose": "Copilot rules mirroring CLAUDE.md; starts with Default Execution Strategy",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 93,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/dependabot.yml",
+    "purpose": "maintained source: dependabot.yml.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 10,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".github/workflows/ci.yml",
+    "purpose": "CI: npm ci, lint, test, docs:check-indexes, manifest validation on push/PR to main",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 41,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".gitignore",
+    "purpose": "maintained source: .gitignore.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".mcp.json",
+    "purpose": "private operator context: .mcp.json.",
+    "layer": "config",
+    "classification": "private operator context",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".nvmrc",
+    "purpose": "maintained source: .nvmrc.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".stele/project.json",
+    "purpose": "private operator context: project.json.",
+    "layer": "config",
+    "classification": "private operator context",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".vscode/extensions.json",
+    "purpose": "maintained source: extensions.json.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 10,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".vscode/launch.json",
+    "purpose": "maintained source: launch.json.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 53,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".vscode/mcp.json",
+    "purpose": "private operator context: mcp.json.",
+    "layer": "config",
+    "classification": "private operator context",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": ".vscode/settings.json",
+    "purpose": "maintained source: settings.json.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 20,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "AGENTS.md",
+    "purpose": "Agent catalog (no repo-local agents) and pointers to the per-agent guides",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 25,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "CLAUDE.md",
+    "purpose": "Canonical agent guide: shape, commands, runtime architecture, storage keys, conventions, message types, workflow log rule",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 335,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "CODE_OF_CONDUCT.md",
+    "purpose": "Contributor Covenant Code of Conduct",
+    "layer": "documentation",
+    "classification": "maintained source",
+    "lines": 38,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "CONTRIBUTING.md",
+    "purpose": "Contributing",
+    "layer": "documentation",
+    "classification": "maintained source",
+    "lines": 23,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "GEMINI.md",
+    "purpose": "Gemini CLI pointer to CLAUDE.md with quick facts",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 19,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "LICENSE",
+    "purpose": "maintained source: LICENSE.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 21,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "PRIVACY.md",
+    "purpose": "Public privacy policy for the Chrome Web Store listing: local-only storage, page access, native messaging, encryption, no collection",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 95,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "README.md",
+    "purpose": "Project overview, features, quick start, docs table",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 127,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/ARCHITECTURE.md",
+    "purpose": "Contexts, data flows, load order, storage schema, permissions, ADRs",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 180,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/COMPONENTS.md",
+    "purpose": "Per-module API reference",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 245,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/DEVELOPMENT.md",
+    "purpose": "Setup, commands, conventions, debugging",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 111,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/INSTALLATION.md",
+    "purpose": "Install, update, uninstall, optional to-do host",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 70,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/MCP.md",
+    "purpose": "No shipped MCP server; global_ai_hub developer server",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 32,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/SECURITY.md",
+    "purpose": "Threat model, permissions audit, encryption lifecycle",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 119,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/TESTING.md",
+    "purpose": "Suites, coverage target, CI gates, live harness",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 96,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/archive/README.md",
+    "purpose": "Documentation: README.md.",
+    "layer": "documentation",
+    "classification": "historical workflow archive",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/caching-and-optimization.md",
+    "purpose": "Cache layers, debounce patterns, bottlenecks, profiling",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 50,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/code-deep-optimizer-2026-11-12.md",
+    "purpose": "Code deep optimizer — 2026-11-12",
+    "layer": "documentation",
+    "classification": "audit record",
+    "lines": 1948,
+    "exports": [],
+    "depends_on": [
+      "scripts/browser-checks.mjs",
+      "src/shared/crypto.js",
+      "src/shared/note-writer.js",
+      "src/shared/peer-sync.js",
+      "src/shared/todo-bridge.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "docs/codebase-overview.md",
+    "purpose": "Generated complete repository inventory grouped by directory.",
+    "layer": "config",
+    "classification": "generated text",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/external-calls.md",
+    "purpose": "Document optional native messaging and loopback peer-daemon boundaries.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 97,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/high_signal_file_index.json",
+    "purpose": "Generated per-file inventory with purpose, exported names, dependencies, and classification.",
+    "layer": "config",
+    "classification": "generated text",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/integrations-and-assumptions.md",
+    "purpose": "Chrome APIs, external tools, hardcoded assumptions, context differences",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 61,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/known-issues.md",
+    "purpose": "Open limitations and gotchas",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 93,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/logging.md",
+    "purpose": "Console-only diagnostics, silent-failure inventory, sensitive-data rules",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 50,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/maintenance-coverage-2026-11-12.json",
+    "purpose": "audit record: maintenance-coverage-2026-11-12.json.",
+    "layer": "config",
+    "classification": "audit record",
+    "lines": 3440,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/onboarding.md",
+    "purpose": "Zero-to-contributing walkthrough",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 58,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/repo-bootstrap-audit-2026-09-27.md",
+    "purpose": "Standards audit ledger: findings, retractions, deferrals",
+    "layer": "config",
+    "classification": "audit record",
+    "lines": 126,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/repo-bootstrap-audit-2026-11-12.md",
+    "purpose": "Repository bootstrap audit — 2026-11-12",
+    "layer": "documentation",
+    "classification": "audit record",
+    "lines": 112,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/requirements.md",
+    "purpose": "Functional and non-functional requirements",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 85,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/runbooks/encryption-lock-and-recovery.md",
+    "purpose": "Runbook: encryption lock and recovery",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 54,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ]
+  },
+  {
+    "path": "docs/runbooks/load-and-reload-extension.md",
+    "purpose": "Runbook: load and reload extension",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 30,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ]
+  },
+  {
+    "path": "docs/runbooks/peer-sync.md",
+    "purpose": "Runbook: set up, verify, troubleshoot, remove local peer sync",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 81,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ]
+  },
+  {
+    "path": "docs/runbooks/release-packaging.md",
+    "purpose": "Runbook: release packaging",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 37,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ]
+  },
+  {
+    "path": "docs/runbooks/todo-sync-troubleshooting.md",
+    "purpose": "Runbook: todo sync troubleshooting",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 52,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "runbook"
+    ]
+  },
+  {
+    "path": "docs/superpowers/plans/2026-05-26-phase1-floating-notes.md",
+    "purpose": "Phase 1: Floating Notes Overhaul — Implementation Plan",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 1306,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/plans/2026-05-26-phase2-all-notes-popup.md",
+    "purpose": "Phase 2: All-Notes Popup Implementation Plan",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 869,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/plans/2026-05-26-todo-overhaul.md",
+    "purpose": "To-Do List Overhaul Implementation Plan",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 352,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/plans/2026-06-04-note-identity-fixes-and-outliner.md",
+    "purpose": "StickySites v1.10 — Note-identity fixes + Outliner overhaul: Implementation Plan",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 2608,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-phase1-floating-notes-design.md",
+    "purpose": "Phase 1: Floating Notes Overhaul",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 156,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-phase2-all-notes-popup-design.md",
+    "purpose": "Phase 2: All-Notes Popup, Exports, and Icon",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 292,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-phase3-rich-text-editor-design.md",
+    "purpose": "Phase 3: Rich Text Editor",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 144,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-phase4-todo-outliner-design.md",
+    "purpose": "Phase 4: To-Do List and Outliner",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 90,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-phase5a-context-menu-hotkeys-design.md",
+    "purpose": "Phase 5A: Context Menu and Chord Hotkeys",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 122,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-phase5b-encryption-design.md",
+    "purpose": "Phase 5B: Encryption at Rest",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 126,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-phase5c-sync-design.md",
+    "purpose": "Phase 5C: Google Drive Sync",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 194,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-05-26-todo-overhaul-design.md",
+    "purpose": "To-Do List Overhaul — Design Spec",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 232,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/superpowers/specs/2026-06-04-note-identity-fixes-and-outliner-design.md",
+    "purpose": "StickySites v1.10 — Note-identity fixes + Outliner overhaul",
+    "layer": "documentation",
+    "classification": "historical plan",
+    "lines": 252,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "docs/wiki/index.md",
+    "purpose": "StickySites documentation",
+    "layer": "documentation",
+    "classification": "maintained source",
+    "lines": 20,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "eslint.config.mjs",
+    "purpose": "maintained source: eslint.config.mjs.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 25,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "icons/icon128.png",
+    "purpose": "generated asset: icon128.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "icons/icon16.png",
+    "purpose": "generated asset: icon16.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "icons/icon48.png",
+    "purpose": "generated asset: icon48.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "llms-facts.txt",
+    "purpose": "Generated facts derived from manifest.json and package.json with source anchors.",
+    "layer": "config",
+    "classification": "generated text",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ]
+  },
+  {
+    "path": "llms-full.txt",
+    "purpose": "Generated full text of selected maintained public guides; excludes private operator context.",
+    "layer": "config",
+    "classification": "generated text",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ]
+  },
+  {
+    "path": "llms-small.txt",
+    "purpose": "Generated short abstracts for selected maintained public guides.",
+    "layer": "config",
+    "classification": "generated text",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ]
+  },
+  {
+    "path": "llms.txt",
+    "purpose": "Generated retrieval index linking inventoried repository files.",
+    "layer": "config",
+    "classification": "generated text",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "llms-txt"
+    ]
+  },
+  {
+    "path": "manifest.json",
+    "purpose": "Canonical Manifest V3 extension configuration, permissions, entry points, and version.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 64,
     "exports": [],
     "depends_on": [],
     "patterns": [
       "load-order"
-    ],
-    "last_updated": "2026-09-28"
+    ]
+  },
+  {
+    "path": "memory.md",
+    "purpose": "Versioned operator log (newest first)",
+    "layer": "config",
+    "classification": "private operator context",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "package-lock.json",
+    "purpose": "Locked development dependency graph.",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 3148,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
   },
   {
     "path": "package.json",
-    "purpose": "Dev tooling (vitest, canvas) and npm scripts: test, lint, docs:check-indexes, logs:rotate, icons, verify:live",
+    "purpose": "Development dependencies, supported Node versions, and npm commands.",
     "layer": "config",
+    "classification": "maintained source",
+    "lines": 30,
     "exports": [],
     "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-28"
+    "patterns": []
   },
   {
-    "path": "vitest.config.mjs",
-    "purpose": "Vitest config: node environment, globals",
+    "path": "peer/README.md",
+    "purpose": "Peer sync design, install, merge + encryption rules, security model, troubleshooting",
     "layer": "config",
+    "classification": "maintained source",
+    "lines": 159,
     "exports": [],
     "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
+    "patterns": []
   },
   {
-    "path": "src/background/service-worker.js",
-    "purpose": "ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync, and local peer sync (loopback fetch to the peer daemon, LWW merge via peer-sync.js)",
+    "path": "peer/peer_fixture.py",
+    "purpose": "Disposable actual-daemon loopback fixture with isolated state, ephemeral ports and cleanup.",
     "layer": "backend",
+    "classification": "maintained source",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "peer/stickysites-peer.py",
+    "purpose": "Stdlib Python peer daemon: loopback API for the extension, LAN HTTPS snapshot relay with pinned certs and bearer auth, HMAC-signed multicast discovery, launchd install",
+    "layer": "backend",
+    "classification": "maintained source",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "daemon",
+      "multicast-discovery",
+      "cert-pinning",
+      "etag-cache"
+    ]
+  },
+  {
+    "path": "peer/test_peer.py",
+    "purpose": "Two-daemon end-to-end test: discovery, CORS, auth, snapshot round-trip",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": null,
     "exports": [],
     "depends_on": [
-      "src/shared/todo-bridge.js",
-      "src/shared/peer-sync.js",
-      "src/shared/crypto.js"
+      "peer/stickysites-peer.py"
     ],
     "patterns": [
-      "event-listeners",
-      "debounce",
-      "re-entrancy-guard",
-      "alarm-schedule"
-    ],
-    "last_updated": "2026-09-28"
+      "subprocess"
+    ]
   },
   {
-    "path": "src/content/crypto-content.js",
-    "purpose": "window.StickySites.Crypto: PBKDF2 + AES-256-GCM, envelope detection, enable/unlock/disable, cached key in chrome.storage.local",
+    "path": "popout.css",
+    "purpose": "Popout overrides: panel fills the window, expand/popout buttons hidden",
     "layer": "frontend",
-    "exports": [
-      "Crypto.generateSalt",
-      "Crypto.deriveKey",
-      "Crypto.encrypt",
-      "Crypto.decrypt",
-      "Crypto.isEncrypted",
-      "Crypto.enable",
-      "Crypto.unlock",
-      "Crypto.disable",
-      "Crypto.cacheKey",
-      "Crypto.getCachedKey",
-      "Crypto.clearCachedKey",
-      "Crypto.encryptValue",
-      "Crypto.decryptValue"
-    ],
+    "classification": "maintained source",
+    "lines": 34,
+    "exports": [],
     "depends_on": [],
-    "patterns": [
-      "namespace-iife",
-      "envelope"
-    ],
-    "last_updated": "2026-09-28"
+    "patterns": []
   },
   {
-    "path": "src/content/note-types.js",
-    "purpose": "window.StickySites.noteTypes: six note-type descriptors with storage keys, key/label/placeholder and identity-icon functions",
+    "path": "popout.html",
+    "purpose": "Standalone popout window shell; loads the namespace scripts and popout.js",
     "layer": "frontend",
-    "exports": [
-      "noteTypes"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "registry",
-      "descriptor"
-    ],
-    "last_updated": "2026-06-04"
-  },
-  {
-    "path": "src/content/prefs.js",
-    "purpose": "window.StickySites.Prefs: read/write stickysites_prefs_v1 with defaults",
-    "layer": "frontend",
-    "exports": [
-      "Prefs.read",
-      "Prefs.write"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "namespace-iife",
-      "defaults-merge"
-    ],
-    "last_updated": "2026-05-26"
-  },
-  {
-    "path": "src/content/cluster.js",
-    "purpose": "window.StickySites.Cluster: floating pill with identity icons, drag, long-press reorder, layout toggle, visibility",
-    "layer": "frontend",
-    "exports": [
-      "Cluster.init",
-      "Cluster.setActive",
-      "Cluster.refreshIcons",
-      "Cluster.toggle",
-      "Cluster.applyLayout",
-      "Cluster.getVisibleTypeIds"
-    ],
-    "depends_on": [
-      "src/content/prefs.js",
-      "src/content/note-types.js"
-    ],
-    "patterns": [
-      "drag-threshold",
-      "long-press"
-    ],
-    "last_updated": "2026-06-05"
-  },
-  {
-    "path": "src/content/todo.js",
-    "purpose": "window.StickySites.Todo: to-do item/section normalisation, color palettes, grip drag-reorder controller",
-    "layer": "frontend",
-    "exports": [
-      "Todo.COLORS",
-      "Todo.PRIORITY_COLORS",
-      "Todo.genId",
-      "Todo.normalizeItem",
-      "Todo.normalizeData",
-      "Todo.DragController"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "normalize",
-      "drag-controller"
-    ],
-    "last_updated": "2026-05-26"
-  },
-  {
-    "path": "src/content/outline-ops.js",
-    "purpose": "window.StickySites.OutlineOps: pure outline tree operations, filter, auto-group, Markdown/OPML export (unit-tested)",
-    "layer": "shared",
-    "exports": [
-      "OutlineOps.findParent",
-      "OutlineOps.findNode",
-      "OutlineOps.insertSiblingAfter",
-      "OutlineOps.indentNode",
-      "OutlineOps.outdentNode",
-      "OutlineOps.moveNode",
-      "OutlineOps.removeNode",
-      "OutlineOps.filterTree",
-      "OutlineOps.autoGroup",
-      "OutlineOps.toMarkdown",
-      "OutlineOps.toOPML"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "pure-functions",
-      "tree-recursion"
-    ],
-    "last_updated": "2026-06-04"
-  },
-  {
-    "path": "src/content/outline.js",
-    "purpose": "window.StickySites.Outline: outliner UI over a global library of named docs; switcher, menu, keyboard nav, zoom, filter, lock notice",
-    "layer": "frontend",
-    "exports": [
-      "Outline.readLibrary",
-      "Outline.writeDoc",
-      "Outline.newDocKey",
-      "Outline.render"
-    ],
-    "depends_on": [
-      "src/content/outline-ops.js",
-      "src/content/crypto-content.js",
-      "src/content/prefs.js"
-    ],
-    "patterns": [
-      "read-time-migration",
-      "locked-vault-guard",
-      "undo-bar"
-    ],
-    "last_updated": "2026-09-28"
-  },
-  {
-    "path": "src/content/mentions.js",
-    "purpose": "window.StickySites.Mentions: @-mention autocomplete dropdown (link, date, contact, file) inserting chips at the caret",
-    "layer": "frontend",
-    "exports": [
-      "Mentions.attach",
-      "Mentions.show",
-      "Mentions.hide"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "caret-positioning"
-    ],
-    "last_updated": "2026-05-26"
-  },
-  {
-    "path": "src/content/panel.js",
-    "purpose": "window.StickySites.Panel: moveable/resizable note panel, 19-tool rich-text toolbar, find & replace, to-do UI, debounced encrypted save, cross-tab sync, popout",
-    "layer": "frontend",
-    "exports": [
-      "Panel.init",
-      "Panel.open",
-      "Panel.close",
-      "Panel.flushPendingSave",
-      "Panel.syncFromStorage",
-      "Panel._popoutActiveNote"
-    ],
-    "depends_on": [
-      "src/content/crypto-content.js",
-      "src/content/prefs.js",
-      "src/content/todo.js",
-      "src/content/outline.js",
-      "src/content/mentions.js"
-    ],
-    "patterns": [
-      "debounce",
-      "key-snapshot",
-      "self-echo-guard",
-      "focus-guard",
-      "execCommand"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "src/content/sticky-inject.js",
-    "purpose": "Orchestrator content script: init, lock overlay, toast, clip handler, Ctrl/Cmd+F1-F6, SPA URL watcher, message and storage listeners",
-    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 24,
     "exports": [],
     "depends_on": [
-      "src/content/panel.js",
-      "src/content/cluster.js",
-      "src/content/crypto-content.js",
+      "popout.js",
+      "src/content/panel.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "popout.js",
+    "purpose": "Reads type/key/label from the URL, overrides getKey/getLabel, opens the Panel full-window",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 52,
+    "exports": [],
+    "depends_on": [
       "src/content/note-types.js",
-      "src/content/prefs.js"
+      "src/content/panel.js"
     ],
     "patterns": [
-      "iife-guard",
-      "message-router",
-      "url-poll"
-    ],
-    "last_updated": "2026-06-06"
+      "url-params"
+    ]
   },
   {
-    "path": "src/content/sticky-inject.css",
-    "purpose": "All injected styles for cluster, panel, toolbar, to-do, outliner, mentions, lock overlay, toast (also used by popout.html)",
+    "path": "popup.css",
+    "purpose": "Popup styles",
     "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 473,
     "exports": [],
     "depends_on": [],
-    "patterns": [
-      "prefixed-selectors",
-      "max-z-index"
-    ],
-    "last_updated": "2026-06-06"
-  },
-  {
-    "path": "src/shared/todo-bridge.js",
-    "purpose": "Native-messaging to-do sync: request builder, host-result merge preserving local-only fields, syncTodosWithHost orchestration",
-    "layer": "shared",
-    "exports": [
-      "TODO_HOST",
-      "TODOS_KEY",
-      "buildRequest",
-      "applyHostResult",
-      "isEncryptedValue",
-      "syncTodosWithHost"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "dependency-injection",
-      "canonical-json-compare",
-      "encrypted-skip"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "src/shared/crypto.js",
-    "purpose": "ES-module twin of the crypto primitives (salt, PBKDF2, AES-GCM, envelope check) for vitest",
-    "layer": "shared",
-    "exports": [
-      "generateSalt",
-      "deriveKey",
-      "encrypt",
-      "decrypt",
-      "isEncrypted",
-      "importJwk"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "envelope"
-    ],
-    "last_updated": "2026-09-28"
-  },
-  {
-    "path": "src/shared/notes-storage.js",
-    "purpose": "Reference plaintext CRUD for all six note types and prefs, parseTags, createDebouncedSaver (imported by tests only)",
-    "layer": "shared",
-    "exports": [
-      "getSiteKey",
-      "getPageKey",
-      "getDailyKey",
-      "readGlobalNote",
-      "writeGlobalNote",
-      "readSiteNote",
-      "writeSiteNote",
-      "deleteSiteNote",
-      "readAllSiteNotes",
-      "readPageNote",
-      "writePageNote",
-      "deletePageNote",
-      "readAllPageNotes",
-      "readDailyNote",
-      "writeDailyNote",
-      "deleteDailyNote",
-      "readAllDailyNotes",
-      "readTodo",
-      "writeTodo",
-      "deleteTodo",
-      "readAllTodos",
-      "readOutline",
-      "writeOutline",
-      "deleteOutline",
-      "readAllOutlines",
-      "readPrefs",
-      "writePrefs",
-      "parseTags",
-      "createDebouncedSaver"
-    ],
-    "depends_on": [],
-    "patterns": [
-      "crud",
-      "legacy-field-fallback",
-      "debounce"
-    ],
-    "last_updated": "2026-09-27"
+    "patterns": []
   },
   {
     "path": "popup.html",
     "purpose": "Browser-action popup shell; loads crypto-content.js and popup.js",
     "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 53,
     "exports": [],
     "depends_on": [
-      "src/content/crypto-content.js",
-      "popup.js"
+      "popup.js",
+      "src/content/crypto-content.js"
     ],
-    "patterns": [],
-    "last_updated": "2026-06-05"
+    "patterns": []
   },
   {
     "path": "popup.js",
     "purpose": "Popup logic: lock screen, settings (encryption, note-type visibility, layout), all-notes search/sort/filter, Markdown export, Quick-Open",
     "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 1185,
     "exports": [],
     "depends_on": [
       "src/content/crypto-content.js"
@@ -366,118 +958,58 @@
     "patterns": [
       "iife",
       "direct-storage-writes"
-    ],
-    "last_updated": "2026-09-28"
+    ]
   },
   {
-    "path": "popup.css",
-    "purpose": "Popup styles",
-    "layer": "frontend",
+    "path": "prompts.md",
+    "purpose": "Versioned request log",
+    "layer": "config",
+    "classification": "private operator context",
+    "lines": null,
     "exports": [],
     "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-06-05"
+    "patterns": []
   },
   {
-    "path": "popout.html",
-    "purpose": "Standalone popout window shell; loads the namespace scripts and popout.js",
-    "layer": "frontend",
-    "exports": [],
-    "depends_on": [
-      "src/content/panel.js",
-      "popout.js"
-    ],
-    "patterns": [],
-    "last_updated": "2026-06-04"
-  },
-  {
-    "path": "popout.js",
-    "purpose": "Reads type/key/label from the URL, overrides getKey/getLabel, opens the Panel full-window",
-    "layer": "frontend",
-    "exports": [],
-    "depends_on": [
-      "src/content/panel.js",
-      "src/content/note-types.js"
-    ],
-    "patterns": [
-      "url-params"
-    ],
-    "last_updated": "2026-06-05"
-  },
-  {
-    "path": "popout.css",
-    "purpose": "Popout overrides: panel fills the window, expand/popout buttons hidden",
-    "layer": "frontend",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-05-29"
-  },
-  {
-    "path": "tests/notes-storage.test.js",
-    "purpose": "50 tests: storage keys, parseTags, CRUD for all six types, prefs (mocked chrome.storage.local)",
-    "layer": "test",
-    "exports": [],
-    "depends_on": [
-      "src/shared/notes-storage.js"
-    ],
-    "patterns": [
-      "in-memory-mock"
-    ],
-    "last_updated": "2026-06-04"
-  },
-  {
-    "path": "tests/todo-bridge.test.js",
-    "purpose": "23 tests: request shape, host merge, encrypted skip, error paths",
-    "layer": "test",
-    "exports": [],
-    "depends_on": [
-      "src/shared/todo-bridge.js"
-    ],
-    "patterns": [
-      "dependency-injection"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "tests/outline-ops.test.js",
-    "purpose": "21 tests: tree ops, filter, auto-group, exports (stubbed window)",
-    "layer": "test",
-    "exports": [],
-    "depends_on": [
-      "src/content/outline-ops.js"
-    ],
-    "patterns": [
-      "window-stub"
-    ],
-    "last_updated": "2026-06-04"
-  },
-  {
-    "path": "tests/crypto.test.js",
-    "purpose": "7 tests: salt, derive (extractable), round-trip, wrong key, isEncrypted incl. siteKey guard",
-    "layer": "test",
-    "exports": [],
-    "depends_on": [
-      "src/shared/crypto.js"
-    ],
-    "patterns": [],
-    "last_updated": "2026-05-26"
-  },
-  {
-    "path": "scripts/check-syntax.mjs",
-    "purpose": "npm run lint: node --check every .js/.mjs and manifest/package version agreement",
+    "path": "scripts/browser-checks.mjs",
+    "purpose": "Side-effect-free screenshot readiness, persisted site-body, and whole-bucket encryption/restoration checks.",
     "layer": "tooling",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "cli"
+    "classification": "maintained source",
+    "lines": 50,
+    "exports": [
+      "NOTE_BUCKETS",
+      "closePanel",
+      "encryptedNoteBuckets",
+      "openNoteForScreenshot",
+      "panelReady",
+      "persistedSiteBody",
+      "populatedNoteBuckets",
+      "restoredNoteContent"
     ],
-    "last_updated": "2026-09-27"
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "scripts/build-store-zip.mjs",
+    "purpose": "Build a runtime-only store ZIP from explicit regular files; exclude hidden paths and symlinks.",
+    "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 63,
+    "exports": [],
+    "depends_on": [
+      "manifest.json"
+    ],
+    "patterns": [
+      "cli",
+      "package-guard"
+    ]
   },
   {
     "path": "scripts/check-doc-indexes.mjs",
-    "purpose": "npm run docs:check-indexes: validates docs/high_signal_file_index.json paths and llms.txt links; --prune",
+    "purpose": "Validate the file inventory and required llms/wiki index links inside this repository.",
     "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 98,
     "exports": [],
     "depends_on": [
       "docs/high_signal_file_index.json",
@@ -486,14 +1018,67 @@
     "patterns": [
       "cli",
       "index-validation"
+    ]
+  },
+  {
+    "path": "scripts/check-syntax.mjs",
+    "purpose": "Check JavaScript syntax without following symlinks and enforce manifest/package version agreement.",
+    "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 88,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "cli"
+    ]
+  },
+  {
+    "path": "scripts/generate-docs.mjs",
+    "purpose": "Generate and check deterministic text inventories, guide concatenation, abstracts, and source-backed facts.",
+    "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 194,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "scripts/generate-icons.js",
+    "purpose": "npm run icons: draws icons/icon{16,48,128}.png with canvas",
+    "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 44,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "cli"
+    ]
+  },
+  {
+    "path": "scripts/harness-resources.mjs",
+    "purpose": "Discover testing Chrome and manage owned browser, server, and temporary-directory resources with bounded shutdown.",
+    "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 99,
+    "exports": [
+      "createHarnessResources",
+      "listen",
+      "resolveChrome",
+      "withHarnessResources"
     ],
-    "last_updated": "2026-09-27"
+    "depends_on": [],
+    "patterns": []
   },
   {
     "path": "scripts/rotate-workflow-logs.mjs",
-    "purpose": "npm run logs:rotate: archives oldest memory.md/prompts.md sections into docs/archive/ past ~200 KB; refuses on live swap files",
+    "purpose": "Rotate whole Markdown sections with a cooperating lock, recoverable journal, and changed-snapshot refusal.",
     "layer": "tooling",
-    "exports": [],
+    "classification": "maintained source",
+    "lines": 219,
+    "exports": [
+      "rotateLogs",
+      "splitSections"
+    ],
     "depends_on": [
       "memory.md",
       "prompts.md"
@@ -501,387 +1086,486 @@
     "patterns": [
       "cli",
       "log-rotation"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "scripts/generate-icons.js",
-    "purpose": "npm run icons: draws icons/icon{16,48,128}.png with canvas",
-    "layer": "tooling",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "cli"
-    ],
-    "last_updated": "2026-05-26"
-  },
-  {
-    "path": "scripts/verify-live.mjs",
-    "purpose": "npm run verify:live: puppeteer-core harness driving Chrome for Testing through identity, editor, SPA, sync, outliner, popup and encryption checks",
-    "layer": "tooling",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "e2e-harness"
-    ],
-    "last_updated": "2026-06-04"
-  },
-  {
-    "path": ".github/workflows/ci.yml",
-    "purpose": "CI: npm ci, lint, test, docs:check-indexes, manifest validation on push/PR to main",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-28"
-  },
-  {
-    "path": ".github/copilot-instructions.md",
-    "purpose": "Copilot rules mirroring CLAUDE.md; starts with Default Execution Strategy",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "CLAUDE.md",
-    "purpose": "Canonical agent guide: shape, commands, runtime architecture, storage keys, conventions, message types, workflow log rule",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-28"
-  },
-  {
-    "path": "AGENTS.md",
-    "purpose": "Agent catalog (no repo-local agents) and pointers to the per-agent guides",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "GEMINI.md",
-    "purpose": "Gemini CLI pointer to CLAUDE.md with quick facts",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "memory.md",
-    "purpose": "Versioned operator log (newest first)",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "prompts.md",
-    "purpose": "Versioned request log",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "README.md",
-    "purpose": "Project overview, features, quick start, docs table",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-28"
-  },
-  {
-    "path": "docs/ARCHITECTURE.md",
-    "purpose": "Contexts, data flows, load order, storage schema, permissions, ADRs",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/COMPONENTS.md",
-    "purpose": "Per-module API reference",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/DEVELOPMENT.md",
-    "purpose": "Setup, commands, conventions, debugging",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/TESTING.md",
-    "purpose": "Suites, coverage target, CI gates, live harness",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/SECURITY.md",
-    "purpose": "Threat model, permissions audit, encryption lifecycle",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/INSTALLATION.md",
-    "purpose": "Install, update, uninstall, optional to-do host",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/requirements.md",
-    "purpose": "Functional and non-functional requirements",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/MCP.md",
-    "purpose": "No shipped MCP server; global_ai_hub developer server",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/logging.md",
-    "purpose": "Console-only diagnostics, silent-failure inventory, sensitive-data rules",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/caching-and-optimization.md",
-    "purpose": "Cache layers, debounce patterns, bottlenecks, profiling",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/external-calls.md",
-    "purpose": "Native-messaging call inventory and five-standard audit",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/integrations-and-assumptions.md",
-    "purpose": "Chrome APIs, external tools, hardcoded assumptions, context differences",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/known-issues.md",
-    "purpose": "Open limitations and gotchas",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/onboarding.md",
-    "purpose": "Zero-to-contributing walkthrough",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/codebase-overview.md",
-    "purpose": "Every file grouped by directory",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/repo-bootstrap-audit-2026-09-27.md",
-    "purpose": "Standards audit ledger: findings, retractions, deferrals",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/runbooks/load-and-reload-extension.md",
-    "purpose": "Runbook: load and reload extension",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "runbook"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/runbooks/release-packaging.md",
-    "purpose": "Runbook: release packaging",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "runbook"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/runbooks/todo-sync-troubleshooting.md",
-    "purpose": "Runbook: todo sync troubleshooting",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "runbook"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "docs/runbooks/encryption-lock-and-recovery.md",
-    "purpose": "Runbook: encryption lock and recovery",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "runbook"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "llms.txt",
-    "purpose": "LLM context index linking every doc and key source file",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "llms-txt"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "llms-full.txt",
-    "purpose": "Concatenated docs for LLM ingestion",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "llms-txt"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "llms-small.txt",
-    "purpose": "One-paragraph abstracts per doc",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "llms-txt"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "llms-facts.txt",
-    "purpose": "Sourced one-line project facts",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "llms-txt"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "PRIVACY.md",
-    "purpose": "Public privacy policy for the Chrome Web Store listing: local-only storage, page access, native messaging, encryption, no collection",
-    "layer": "config",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-28"
-  },
-  {
-    "path": "scripts/build-store-zip.mjs",
-    "purpose": "npm run build:store: packages runtime files into dist/stickysites-<version>.zip with version-drift and dev-file guards",
-    "layer": "tooling",
-    "exports": [],
-    "depends_on": [
-      "manifest.json"
-    ],
-    "patterns": [
-      "cli",
-      "package-guard"
-    ],
-    "last_updated": "2026-09-27"
-  },
-  {
-    "path": "scripts/store-screenshots.mjs",
-    "purpose": "npm run store:screenshots: seeds demo data in a throwaway profile and captures five 1280x800 store screenshots with puppeteer-core + canvas",
-    "layer": "tooling",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "e2e-harness",
-      "image-compose"
-    ],
-    "last_updated": "2026-09-27"
+    ]
   },
   {
     "path": "scripts/store-promo.mjs",
     "purpose": "npm run store:promo: renders the 440x280 and 1400x560 promo tiles and copies the 128px icon",
     "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 91,
     "exports": [],
     "depends_on": [
       "icons/icon128.png"
     ],
     "patterns": [
       "canvas"
+    ]
+  },
+  {
+    "path": "scripts/store-screenshots.mjs",
+    "purpose": "npm run store:screenshots: seeds demo data in a throwaway profile and captures five 1280x800 store screenshots with puppeteer-core + canvas",
+    "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 184,
+    "exports": [],
+    "depends_on": [
+      "scripts/browser-checks.mjs",
+      "scripts/harness-resources.mjs"
     ],
-    "last_updated": "2026-09-27"
+    "patterns": [
+      "e2e-harness",
+      "image-compose"
+    ]
+  },
+  {
+    "path": "scripts/verify-live.mjs",
+    "purpose": "npm run verify:live: puppeteer-core harness driving Chrome for Testing through identity, editor, SPA, sync, outliner, popup and encryption checks",
+    "layer": "tooling",
+    "classification": "maintained source",
+    "lines": 489,
+    "exports": [],
+    "depends_on": [
+      "scripts/browser-checks.mjs",
+      "scripts/harness-resources.mjs"
+    ],
+    "patterns": [
+      "e2e-harness"
+    ]
+  },
+  {
+    "path": "src/background/service-worker.js",
+    "purpose": "ES-module service worker: context menus (6 clips), Alt+S command, popout window, native-messaging to-do sync, and local peer sync (loopback fetch to the peer daemon, LWW merge via peer-sync.js)",
+    "layer": "backend",
+    "classification": "maintained source",
+    "lines": 228,
+    "exports": [],
+    "depends_on": [
+      "src/content/crypto-content.js",
+      "src/shared/crypto.js",
+      "src/shared/note-writer.js",
+      "src/shared/peer-sync.js",
+      "src/shared/todo-bridge.js"
+    ],
+    "patterns": [
+      "event-listeners",
+      "debounce",
+      "re-entrancy-guard",
+      "alarm-schedule"
+    ]
+  },
+  {
+    "path": "src/content/cluster.js",
+    "purpose": "window.StickySites.Cluster: floating pill with identity icons, drag, long-press reorder, layout toggle, visibility",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 390,
+    "exports": [
+      "Cluster.applyLayout",
+      "Cluster.getVisibleTypeIds",
+      "Cluster.init",
+      "Cluster.refreshIcons",
+      "Cluster.setActive",
+      "Cluster.toggle"
+    ],
+    "depends_on": [
+      "src/content/note-types.js",
+      "src/content/prefs.js"
+    ],
+    "patterns": [
+      "drag-threshold",
+      "long-press"
+    ]
+  },
+  {
+    "path": "src/content/crypto-content.js",
+    "purpose": "window.StickySites.Crypto: PBKDF2 + AES-256-GCM, envelope detection, enable/unlock/disable, cached key in chrome.storage.local",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 215,
+    "exports": [
+      "Crypto.cacheKey",
+      "Crypto.clearCachedKey",
+      "Crypto.decrypt",
+      "Crypto.decryptValue",
+      "Crypto.deriveKey",
+      "Crypto.disable",
+      "Crypto.enable",
+      "Crypto.encrypt",
+      "Crypto.encryptValue",
+      "Crypto.generateSalt",
+      "Crypto.getCachedKey",
+      "Crypto.isEncrypted",
+      "Crypto.unlock"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "namespace-iife",
+      "envelope"
+    ]
+  },
+  {
+    "path": "src/content/mentions.js",
+    "purpose": "window.StickySites.Mentions: @-mention autocomplete dropdown (link, date, contact, file) inserting chips at the caret",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 258,
+    "exports": [
+      "Mentions.attach",
+      "Mentions.hide",
+      "Mentions.show"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "caret-positioning"
+    ]
+  },
+  {
+    "path": "src/content/note-types.js",
+    "purpose": "window.StickySites.noteTypes: six note-type descriptors with storage keys, key/label/placeholder and identity-icon functions",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 114,
+    "exports": [
+      "noteTypes"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "registry",
+      "descriptor"
+    ]
+  },
+  {
+    "path": "src/content/outline-ops.js",
+    "purpose": "window.StickySites.OutlineOps: pure outline tree operations, filter, auto-group, Markdown/OPML export (unit-tested)",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 276,
+    "exports": [
+      "OutlineOps.autoGroup",
+      "OutlineOps.filterTree",
+      "OutlineOps.findNode",
+      "OutlineOps.findParent",
+      "OutlineOps.indentNode",
+      "OutlineOps.insertSiblingAfter",
+      "OutlineOps.moveNode",
+      "OutlineOps.outdentNode",
+      "OutlineOps.removeNode",
+      "OutlineOps.toMarkdown",
+      "OutlineOps.toOPML"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "pure-functions",
+      "tree-recursion"
+    ]
+  },
+  {
+    "path": "src/content/outline.js",
+    "purpose": "window.StickySites.Outline: outliner UI over a global library of named docs; switcher, menu, keyboard nav, zoom, filter, lock notice",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 802,
+    "exports": [
+      "Outline.newDocKey",
+      "Outline.readLibrary",
+      "Outline.render",
+      "Outline.writeDoc"
+    ],
+    "depends_on": [
+      "src/content/crypto-content.js",
+      "src/content/outline-ops.js",
+      "src/content/prefs.js"
+    ],
+    "patterns": [
+      "read-time-migration",
+      "locked-vault-guard",
+      "undo-bar"
+    ]
+  },
+  {
+    "path": "src/content/panel.js",
+    "purpose": "window.StickySites.Panel: moveable/resizable note panel, 19-tool rich-text toolbar, find & replace, to-do UI, debounced encrypted save, cross-tab sync, popout",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 1872,
+    "exports": [
+      "Panel._popoutActiveNote",
+      "Panel.close",
+      "Panel.flushPendingSave",
+      "Panel.init",
+      "Panel.open",
+      "Panel.syncFromStorage"
+    ],
+    "depends_on": [
+      "src/content/crypto-content.js",
+      "src/content/mentions.js",
+      "src/content/outline.js",
+      "src/content/prefs.js",
+      "src/content/todo.js"
+    ],
+    "patterns": [
+      "debounce",
+      "key-snapshot",
+      "self-echo-guard",
+      "focus-guard",
+      "execCommand"
+    ]
+  },
+  {
+    "path": "src/content/prefs.js",
+    "purpose": "window.StickySites.Prefs: read/write stickysites_prefs_v1 with defaults",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 15,
+    "exports": [
+      "Prefs.read",
+      "Prefs.write"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "namespace-iife",
+      "defaults-merge"
+    ]
+  },
+  {
+    "path": "src/content/safe-html.js",
+    "purpose": "Inert rich-text allowlist sanitizer and block-aware plain-text extraction.",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 54,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "src/content/sticky-inject.css",
+    "purpose": "All injected styles for cluster, panel, toolbar, to-do, outliner, mentions, lock overlay, toast (also used by popout.html)",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 1190,
+    "exports": [],
+    "depends_on": [],
+    "patterns": [
+      "prefixed-selectors",
+      "max-z-index"
+    ]
+  },
+  {
+    "path": "src/content/sticky-inject.js",
+    "purpose": "Orchestrator content script: init, lock overlay, toast, clip handler, Ctrl/Cmd+F1-F6, SPA URL watcher, message and storage listeners",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 224,
+    "exports": [],
+    "depends_on": [
+      "src/content/cluster.js",
+      "src/content/crypto-content.js",
+      "src/content/note-types.js",
+      "src/content/panel.js",
+      "src/content/prefs.js"
+    ],
+    "patterns": [
+      "iife-guard",
+      "message-router",
+      "url-poll"
+    ]
+  },
+  {
+    "path": "src/content/storage-content.js",
+    "purpose": "Classic-script IPC client for the authoritative service-worker writer.",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 9,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "src/content/todo.js",
+    "purpose": "window.StickySites.Todo: to-do item/section normalisation, color palettes, grip drag-reorder controller",
+    "layer": "frontend",
+    "classification": "maintained source",
+    "lines": 218,
+    "exports": [
+      "Todo.COLORS",
+      "Todo.DragController",
+      "Todo.PRIORITY_COLORS",
+      "Todo.genId",
+      "Todo.normalizeData",
+      "Todo.normalizeItem"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "normalize",
+      "drag-controller"
+    ]
+  },
+  {
+    "path": "src/shared/crypto.js",
+    "purpose": "ES-module cryptographic primitives used by tests and service-worker peer merging.",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 76,
+    "exports": [
+      "decrypt",
+      "deriveKey",
+      "encrypt",
+      "generateSalt",
+      "importJwk",
+      "isEncrypted"
+    ],
+    "depends_on": [],
+    "patterns": [
+      "envelope"
+    ]
+  },
+  {
+    "path": "src/shared/network.js",
+    "purpose": "Bound fetch headers and response-body reads with an abort deadline.",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 16,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "src/shared/note-writer.js",
+    "purpose": "Authoritative service-worker mutation queue, guarded sync commits, and storage readback verification.",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 127,
+    "exports": [
+      "createNoteWriter"
+    ],
+    "depends_on": [
+      "src/shared/crypto.js",
+      "src/shared/peer-sync.js",
+      "src/shared/settings.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "src/shared/notes-storage.js",
+    "purpose": "Reference plaintext CRUD for all six note types and prefs, parseTags, createDebouncedSaver (imported by tests only)",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 405,
+    "exports": [
+      "createDebouncedSaver",
+      "deleteDailyNote",
+      "deleteOutline",
+      "deletePageNote",
+      "deleteSiteNote",
+      "deleteTodo",
+      "getDailyKey",
+      "getPageKey",
+      "getSiteKey",
+      "parseTags",
+      "readAllDailyNotes",
+      "readAllOutlines",
+      "readAllPageNotes",
+      "readAllSiteNotes",
+      "readAllTodos",
+      "readDailyNote",
+      "readGlobalNote",
+      "readOutline",
+      "readPageNote",
+      "readPrefs",
+      "readSiteNote",
+      "readTodo",
+      "writeDailyNote",
+      "writeGlobalNote",
+      "writeOutline",
+      "writePageNote",
+      "writePrefs",
+      "writeSiteNote",
+      "writeTodo"
+    ],
+    "depends_on": [
+      "src/shared/settings.js"
+    ],
+    "patterns": [
+      "crud",
+      "legacy-field-fallback",
+      "debounce"
+    ]
+  },
+  {
+    "path": "src/shared/peer-sync.js",
+    "purpose": "Local peer sync: snapshot build, vault compatibility, record-level LWW merge with tombstones, syncWithDaemon round-trip against the loopback daemon",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 272,
+    "exports": [
+      "CACHED_KEY",
+      "CRYPTO_KEY",
+      "DEFAULT_DAEMON_URL",
+      "NOTE_KEYS",
+      "PEER_STATE_KEY",
+      "SNAPSHOT_VERSION",
+      "TOMBSTONES_KEY",
+      "addTombstone",
+      "buildSnapshot",
+      "cryptoCompatibility",
+      "fromRecords",
+      "genDeviceId",
+      "isEnvelope",
+      "mergeNotes",
+      "recordsOf",
+      "syncWithDaemon"
+    ],
+    "depends_on": [
+      "src/shared/network.js",
+      "src/shared/settings.js"
+    ],
+    "patterns": [
+      "dependency-injection",
+      "last-writer-wins",
+      "tombstones",
+      "envelope-aware"
+    ]
+  },
+  {
+    "path": "src/shared/settings.js",
+    "purpose": "Shared preference normalization and integration deadlines for classic scripts and the worker.",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 26,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "src/shared/todo-bridge.js",
+    "purpose": "Native-messaging to-do sync: request builder, host-result merge preserving local-only fields, syncTodosWithHost orchestration",
+    "layer": "shared",
+    "classification": "maintained source",
+    "lines": 151,
+    "exports": [
+      "TODOS_KEY",
+      "TODO_HOST",
+      "applyHostResult",
+      "buildRequest",
+      "isEncryptedValue",
+      "syncTodosWithHost"
+    ],
+    "depends_on": [
+      "src/shared/settings.js"
+    ],
+    "patterns": [
+      "dependency-injection",
+      "canonical-json-compare",
+      "encrypted-skip"
+    ]
   },
   {
     "path": "store/README.md",
     "purpose": "Chrome Web Store submission checklist: asset table with specs and status, dashboard walkthrough, review expectations",
     "layer": "config",
+    "classification": "maintained source",
+    "lines": 104,
     "exports": [],
     "depends_on": [
       "store/listing.md",
@@ -889,117 +1573,385 @@
     ],
     "patterns": [
       "checklist"
-    ],
-    "last_updated": "2026-09-27"
+    ]
   },
   {
     "path": "store/listing.md",
     "purpose": "Paste-ready store listing copy, privacy-tab answers, distribution settings, reviewer notes",
     "layer": "config",
+    "classification": "maintained source",
+    "lines": 150,
     "exports": [],
     "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-27"
+    "patterns": []
   },
   {
     "path": "store/permissions-justifications.md",
     "purpose": "One justification per manifest permission, the host permission, and the remote-code declaration",
     "layer": "config",
+    "classification": "maintained source",
+    "lines": 57,
     "exports": [],
     "depends_on": [
       "manifest.json"
     ],
-    "patterns": [],
-    "last_updated": "2026-09-27"
+    "patterns": []
   },
   {
-    "path": "src/shared/peer-sync.js",
-    "purpose": "Local peer sync: snapshot build, vault compatibility, record-level LWW merge with tombstones, syncWithDaemon round-trip against the loopback daemon",
-    "layer": "shared",
+    "path": "store/promo/icon-128.png",
+    "purpose": "generated asset: icon-128.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "store/promo/marquee-1400x560.png",
+    "purpose": "generated asset: marquee-1400x560.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "store/promo/small-tile-440x280.png",
+    "purpose": "generated asset: small-tile-440x280.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "store/screenshots/01-page-note.png",
+    "purpose": "generated asset: 01-page-note.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "store/screenshots/02-todo.png",
+    "purpose": "generated asset: 02-todo.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "store/screenshots/03-outliner.png",
+    "purpose": "generated asset: 03-outliner.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "store/screenshots/04-daily-note.png",
+    "purpose": "generated asset: 04-daily-note.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "store/screenshots/05-popup.png",
+    "purpose": "generated asset: 05-popup.png.",
+    "layer": "config",
+    "classification": "generated asset",
+    "lines": null,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "tests/browser-integration.test.js",
+    "purpose": "Synthetic DOM integration through manifest load order, all panel types, clips, vault and lock.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 41,
+    "exports": [],
+    "depends_on": [
+      "src/shared/note-writer.js",
+      "tests/helpers/runtime.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/crypto-vault-compat.test.js",
+    "purpose": "maintained test: crypto-vault-compat.test.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 96,
+    "exports": [],
+    "depends_on": [
+      "src/shared/crypto.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/crypto.test.js",
+    "purpose": "Tests: salt, derive (extractable), round-trip, wrong key, isEncrypted incl. siteKey guard",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 56,
+    "exports": [],
+    "depends_on": [
+      "src/shared/crypto.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/fixtures/gen-legacy-crypto-fixtures.mjs",
+    "purpose": "maintained test: gen-legacy-crypto-fixtures.mjs.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 50,
+    "exports": [],
+    "depends_on": [
+      "src/shared/crypto.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/fixtures/legacy-crypto-envelopes.json",
+    "purpose": "frozen fixture: legacy-crypto-envelopes.json.",
+    "layer": "test",
+    "classification": "frozen fixture",
+    "lines": 230,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "tests/helpers/runtime.js",
+    "purpose": "maintained test: runtime.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 20,
     "exports": [
-      "NOTE_KEYS",
-      "TOMBSTONES_KEY",
-      "CRYPTO_KEY",
-      "CACHED_KEY",
-      "PEER_STATE_KEY",
-      "DEFAULT_DAEMON_URL",
-      "buildSnapshot",
-      "recordsOf",
-      "fromRecords",
-      "cryptoCompatibility",
-      "mergeNotes",
-      "syncWithDaemon",
-      "addTombstone",
-      "isEnvelope",
-      "genDeviceId"
+      "runtime"
     ],
     "depends_on": [],
-    "patterns": [
-      "dependency-injection",
-      "last-writer-wins",
-      "tombstones",
-      "envelope-aware"
+    "patterns": []
+  },
+  {
+    "path": "tests/notes-storage.test.js",
+    "purpose": "Tests: storage keys, parseTags, CRUD for all six types, prefs (mocked chrome.storage.local)",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 422,
+    "exports": [],
+    "depends_on": [
+      "src/shared/notes-storage.js"
     ],
-    "last_updated": "2026-09-28"
+    "patterns": [
+      "in-memory-mock"
+    ]
+  },
+  {
+    "path": "tests/outline-ops.test.js",
+    "purpose": "Tests: tree ops, filter, auto-group, exports (stubbed window)",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 184,
+    "exports": [],
+    "depends_on": [
+      "src/content/outline-ops.js"
+    ],
+    "patterns": [
+      "window-stub"
+    ]
   },
   {
     "path": "tests/peer-sync.test.js",
-    "purpose": "24 tests for peer-sync: snapshot, compatibility matrix, merge semantics, orchestration with fake daemon and fake crypto",
+    "purpose": "Tests: snapshot, compatibility matrix, merge semantics, orchestration with fake daemon and fake crypto",
     "layer": "test",
+    "classification": "maintained test",
+    "lines": 242,
     "exports": [],
     "depends_on": [
       "src/shared/peer-sync.js"
     ],
     "patterns": [
       "fakes"
-    ],
-    "last_updated": "2026-09-28"
+    ]
   },
   {
-    "path": "peer/stickysites-peer.py",
-    "purpose": "Stdlib Python peer daemon: loopback API for the extension, LAN HTTPS snapshot relay with pinned certs and bearer auth, HMAC-signed multicast discovery, launchd install",
-    "layer": "backend",
-    "exports": [],
-    "depends_on": [],
-    "patterns": [
-      "daemon",
-      "multicast-discovery",
-      "cert-pinning",
-      "etag-cache"
-    ],
-    "last_updated": "2026-09-28"
-  },
-  {
-    "path": "peer/test_peer.py",
-    "purpose": "Two-daemon end-to-end test: discovery, CORS, auth, snapshot round-trip",
+    "path": "tests/popup-regressions.test.js",
+    "purpose": "maintained test: popup-regressions.test.js.",
     "layer": "test",
+    "classification": "maintained test",
+    "lines": 138,
     "exports": [],
     "depends_on": [
-      "peer/stickysites-peer.py"
+      "src/shared/note-writer.js",
+      "tests/helpers/runtime.js"
     ],
-    "patterns": [
-      "subprocess"
-    ],
-    "last_updated": "2026-09-28"
+    "patterns": []
   },
   {
-    "path": "peer/README.md",
-    "purpose": "Peer sync design, install, merge + encryption rules, security model, troubleshooting",
-    "layer": "config",
+    "path": "tests/runtime-regressions.test.js",
+    "purpose": "Actual browser-module regressions for vault, writer, panel ownership, mentions and drag behavior.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 61,
     "exports": [],
-    "depends_on": [],
-    "patterns": [],
-    "last_updated": "2026-09-28"
+    "depends_on": [
+      "src/shared/note-writer.js",
+      "tests/helpers/runtime.js"
+    ],
+    "patterns": []
   },
   {
-    "path": "docs/runbooks/peer-sync.md",
-    "purpose": "Runbook: set up, verify, troubleshoot, remove local peer sync",
-    "layer": "config",
+    "path": "tests/service-worker.test.js",
+    "purpose": "Actual worker message/alarm integration with controlled sync completion.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 50,
+    "exports": [],
+    "depends_on": [
+      "tests/helpers/runtime.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/sync-regressions.test.js",
+    "purpose": "Synthetic delayed/malformed peer and native sync responses, conflicts and deadlines.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 33,
+    "exports": [],
+    "depends_on": [
+      "src/shared/peer-sync.js",
+      "src/shared/todo-bridge.js",
+      "tests/helpers/runtime.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/todo-bridge.test.js",
+    "purpose": "Tests: request shape, host merge, encrypted skip, error paths",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 190,
+    "exports": [],
+    "depends_on": [
+      "src/shared/todo-bridge.js"
+    ],
+    "patterns": [
+      "dependency-injection"
+    ]
+  },
+  {
+    "path": "tests/tooling-browser.test.js",
+    "purpose": "maintained test: tooling-browser.test.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 65,
+    "exports": [],
+    "depends_on": [
+      "scripts/browser-checks.mjs"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/tooling-docs.test.js",
+    "purpose": "maintained test: tooling-docs.test.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 120,
+    "exports": [
+      "known",
+      "value$",
+      "worker"
+    ],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "tests/tooling-harness.test.js",
+    "purpose": "maintained test: tooling-harness.test.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 90,
     "exports": [],
     "depends_on": [],
-    "patterns": [
-      "runbook"
+    "patterns": []
+  },
+  {
+    "path": "tests/tooling.test.js",
+    "purpose": "maintained test: tooling.test.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 267,
+    "exports": [
+      "moduleEntry"
     ],
-    "last_updated": "2026-09-28"
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "tests/ui-boundaries.test.js",
+    "purpose": "maintained test: ui-boundaries.test.js.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 73,
+    "exports": [],
+    "depends_on": [
+      "src/shared/note-writer.js",
+      "tests/helpers/runtime.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "tests/vault-import.test.js",
+    "purpose": "Optional private-package absence versus installed import failure behavior.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 33,
+    "exports": [
+      "deriveKey",
+      "describe",
+      "expect",
+      "it"
+    ],
+    "depends_on": [],
+    "patterns": []
+  },
+  {
+    "path": "tests/vault-legacy.test.js",
+    "purpose": "Always-on decryption of frozen legacy corpus with real shared cryptographic primitives.",
+    "layer": "test",
+    "classification": "maintained test",
+    "lines": 18,
+    "exports": [],
+    "depends_on": [
+      "src/shared/crypto.js"
+    ],
+    "patterns": []
+  },
+  {
+    "path": "vitest.config.mjs",
+    "purpose": "Vitest config: node environment, globals",
+    "layer": "config",
+    "classification": "maintained source",
+    "lines": 8,
+    "exports": [],
+    "depends_on": [],
+    "patterns": []
   }
 ]

@@ -1,6 +1,36 @@
+import '../content/crypto-content.js';
+import { createNoteWriter } from '../shared/note-writer.js';
 import { syncTodosWithHost, TODOS_KEY } from '../shared/todo-bridge.js';
 import { syncWithDaemon, NOTE_KEYS, TOMBSTONES_KEY, CRYPTO_KEY, CACHED_KEY, PEER_STATE_KEY, DEFAULT_DAEMON_URL } from '../shared/peer-sync.js';
 import { importJwk, encrypt, decrypt } from '../shared/crypto.js';
+
+const noteWriter = createNoteWriter(chrome.storage.local);
+globalThis.StickySites.Storage = { commit: noteWriter.commit, request: command => noteWriter.dispatch(command) };
+async function cryptoRequest(command) {
+  const vault = globalThis.StickySites.Crypto;
+  switch (command.action) {
+    case 'getCachedKey': return !!await vault.getCachedKey();
+    case 'encryptValue': return vault.encryptValue(command.value);
+    case 'decryptValue': return vault.decryptValue(command.value);
+    case 'unlock': return vault.unlock(command.value);
+    case 'enable': return vault.enable(command.value);
+    case 'disable': return vault.disable();
+    default: throw new Error('INVALID_OPERATION');
+  }
+}
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type !== 'STICKYSITES_WRITE') return;
+  (msg.command?.op === 'crypto' ? cryptoRequest(msg.command) : noteWriter.dispatch(msg.command)).then(result => sendResponse({ ok: true, result }), () => sendResponse({ ok: false, error: 'STORAGE_WRITE_FAILED' }));
+  return true;
+});
+
+// Credentials are entered only in the extension origin, never in a host page's DOM.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type !== 'STICKYSITES_UNLOCK') return;
+  chrome.windows.create({ url: chrome.runtime.getURL('popup.html') + '?unlock=1', type: 'popup', width: 400, height: 600 })
+    .then(() => sendResponse({ ok: true }), () => sendResponse({ ok: false, error: 'UNLOCK_WINDOW_FAILED' }));
+  return true;
+});
 
 // Create context menus on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -50,7 +80,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     });
   } catch (err) {
     // Content script not injected on this page
-    console.warn('[stickysites] clip', { tabId: tab.id, noteTypeId, error: err?.message });
+    console.warn('[stickysites] clip', { tabId: tab.id, noteTypeId, error: 'OPERATION_FAILED' });
   }
 });
 
@@ -63,7 +93,7 @@ chrome.commands.onCommand.addListener(async (command) => {
         await chrome.tabs.sendMessage(tab.id, { type: 'STICKYSITES_TOGGLE', fromCommand: true });
       } catch (err) {
         // Content script not injected on this page
-        console.warn('[stickysites] toggle', { tabId: tab.id, error: err?.message });
+        console.warn('[stickysites] toggle', { tabId: tab.id, error: 'OPERATION_FAILED' });
       }
     }
   }
@@ -83,7 +113,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       width: 1400,
       height: 1100
     }).catch((err) => {
-      console.warn('[stickysites] popout', { noteTypeId: msg.noteTypeId, error: err?.message });
+      console.warn('[stickysites] popout', { noteTypeId: msg.noteTypeId, error: 'OPERATION_FAILED' });
     });
     sendResponse({ ok: true });
     return true;
@@ -102,15 +132,16 @@ async function runTodoSync() {
   try {
     const result = await syncTodosWithHost({
       storage: chrome.storage.local,
+      commit: noteWriter.commit,
       extId: chrome.runtime.id,
       sendNativeMessage: (host, msg) => chrome.runtime.sendNativeMessage(host, msg)
     });
     if (result?.error) {
-      console.warn('[stickysites] todo-sync', { error: result.error });
+      console.warn('[stickysites] todo-sync', { error: 'SYNC_FAILED' });
     }
   } catch (err) {
     // Host not installed or failed: keep working offline.
-    console.warn('[stickysites] todo-sync', { error: err?.message });
+    console.warn('[stickysites] todo-sync', { error: 'OPERATION_FAILED' });
   } finally {
     todoSyncRunning = false;
   }
@@ -133,6 +164,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // Merge logic lives in src/shared/peer-sync.js; this is only the wiring. No daemon → quiet no-op.
 const PEER_SYNC_ALARM = 'stickysites-peer-sync';
 let peerSyncRunning = false;
+let peerSyncPromise = null;
 let peerSyncTimer = null;
 let peerNoDaemonLogged = false;
 
@@ -149,24 +181,28 @@ async function peerCryptoApi() {
   };
 }
 
-async function runPeerSync() {
-  if (peerSyncRunning) return;
+function runPeerSync() {
+  if (peerSyncPromise) return peerSyncPromise;
   peerSyncRunning = true;
+  peerSyncPromise = (async () => {
   try {
     const cryptoApi = await peerCryptoApi().catch(() => null);
-    const result = await syncWithDaemon({ storage: chrome.storage.local, fetch: globalThis.fetch.bind(globalThis), daemonUrl: DEFAULT_DAEMON_URL, cryptoApi });
+    const result = await syncWithDaemon({ storage: chrome.storage.local, fetch: globalThis.fetch.bind(globalThis), daemonUrl: DEFAULT_DAEMON_URL, cryptoApi, commit: noteWriter.commit });
     if (result.status === 'no-daemon') {
       if (!peerNoDaemonLogged) { console.warn('[stickysites] peer-sync', { status: result.status, hint: 'install peer/stickysites-peer.py to sync across laptops' }); peerNoDaemonLogged = true; }
     } else if (result.status === 'error') {
-      console.warn('[stickysites] peer-sync', { status: result.status, error: result.error });
+      console.warn('[stickysites] peer-sync', { status: result.status, error: 'SYNC_FAILED' });
     } else {
       peerNoDaemonLogged = false;
     }
   } catch (err) {
-    console.warn('[stickysites] peer-sync', { error: err?.message || String(err) });
+    console.warn('[stickysites] peer-sync', { error: 'PEER_SYNC_FAILED' });
   } finally {
     peerSyncRunning = false;
+    peerSyncPromise = null;
   }
+  })();
+  return peerSyncPromise;
 }
 
 chrome.alarms.create(PEER_SYNC_ALARM, { periodInMinutes: 1 });
@@ -186,7 +222,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // The popup asks for an immediate sync after toggling the feature or when the user clicks "Sync now".
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg?.type === 'STICKYSITES_PEER_SYNC_NOW') {
-    runPeerSync().then(() => chrome.storage.local.get(PEER_STATE_KEY)).then((s) => sendResponse({ ok: true, state: s[PEER_STATE_KEY] || null }));
+    runPeerSync().then(() => chrome.storage.local.get(PEER_STATE_KEY)).then((s) => sendResponse({ ok: true, state: s[PEER_STATE_KEY] || null })).catch(() => sendResponse({ ok: false, error: 'PEER_SYNC_FAILED' }));
     return true;
   }
 });

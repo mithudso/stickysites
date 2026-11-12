@@ -9,17 +9,21 @@
 //   npm i --no-save file:../libraries/ai-auth-js     # or github:mithudso/ai-auth-js
 // Without it the suite is skipped, not failed.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { importJwk, decrypt as oldDecrypt, encrypt as oldEncrypt } from '../src/shared/crypto.js';
 
 const fixtures = JSON.parse(readFileSync(new URL('./fixtures/legacy-crypto-envelopes.json', import.meta.url), 'utf8'));
 
-let vault = null;
-try {
-  vault = await import('@mithudso/ai-auth-js/vault');
-} catch {
-  vault = null;
-}
+// Check package presence independently from importing its subpath. Missing exports,
+// broken transitive imports, and initialization failures must fail this suite.
+const packageRoots = createRequire(import.meta.url).resolve.paths('@mithudso/ai-auth-js') ?? [];
+const installed = packageRoots.some((directory) => {
+  try { lstatSync(path.join(directory, '@mithudso/ai-auth-js')); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+});
+const vault = installed ? await import('@mithudso/ai-auth-js/vault') : null;
 
 // Old stored shape {iv, data} -> vault shape {v, salt, iv, ct}. A CryptoKey is the
 // "secret", so salt/iter are not needed (salt is '' exactly as vault.encrypt emits

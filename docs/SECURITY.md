@@ -4,7 +4,8 @@
 
 StickySites runs as a Chrome Extension on every web page. It injects DOM into untrusted host
 pages, stores user notes locally with optional encryption, and (optionally) exchanges the
-to-do list with a local native-messaging host. There is no network surface.
+to-do list with a local native-messaging host. An optional daemon exposes loopback HTTP
+and authenticated LAN HTTPS/UDP discovery, and can use a shared/cloud folder.
 
 ### Attack surface
 
@@ -12,16 +13,19 @@ to-do list with a local native-messaging host. There is no network surface.
 |--------|------|------------|
 | Host page reads note content from the injected DOM | Medium — page JS can query `#stickysites-panel` while it is open | Encryption protects data at rest only; in-memory plaintext is exposed while a panel is open on that page. Future: Shadow DOM (`known-issues.md`). |
 | Host page spoofs `#stickysites-cluster` to suppress injection | Low | Denial of the UI only; no data exposure. |
-| XSS via note content | Low — notes are user-authored rich HTML rendered in a `contenteditable` | No third-party HTML is ever rendered; clipped selection text is HTML-escaped before insertion. `<mark>` find-highlights are stripped before save. |
+| XSS via note content | Low — notes are user-authored rich HTML rendered in a `contenteditable` | Imported/synced rich HTML is parsed inertly and filtered by `safe-html.js` before live rendering. Scripts, event attributes, resource nodes, and unsafe URLs are removed. Clipped text is escaped. This does not isolate the open panel from host scripts. |
 | Storage tampering by another extension | Low | `chrome.storage.local` is isolated per extension. |
 | Cached key on disk | Medium while unlocked | `stickysites_cached_key` (JWK) sits in the Chrome profile until **Lock Now**. Anyone with the profile directory and the extension id can read it. Lock when leaving the machine; see the encryption runbook. |
+| Host page reads an unlock passphrase | Prevented by origin separation | Page notices request a fixed extension-origin popup; passphrases are entered only there, not in injected page inputs. |
 | Passphrase brute force against the stored `verify` envelope | Low | PBKDF2 600,000 iterations, SHA-256, random 16-byte salt. |
 | Native host impersonation | Low | Chrome only launches the host registered in the browser's `NativeMessagingHosts` manifest whose `allowed_origins` contains this extension id; the host runs as the local user. |
 | Plaintext to-dos reaching `TODO.md` | By design when encryption is off | Sync is skipped entirely while `stickysites_todos_v1` is an encrypted envelope. |
-| Peer daemon loopback API abused by another local extension | Low–Medium | Bound to `127.0.0.1`, CORS-gated to `chrome-extension://` origins; any extension on that machine could read/replace the snapshot — same trust boundary as the Chrome profile. Vault on ⇒ snapshot is envelopes. |
+| Peer daemon loopback API abused by another local extension | Low–Medium | Bound to `127.0.0.1`, validates loopback Host and extension Origin; cross-site browser GETs are rejected; no-Origin CLI requests remain supported; any extension on that machine could read/replace the snapshot — same trust boundary as the Chrome profile. Vault on ⇒ note buckets are envelopes; metadata remains readable. |
 | Stranger on the LAN joins the sync | Low | Announcements are HMAC-signed with the pairing key and dropped otherwise; LAN requests need a bearer token derived from it; TLS cert fingerprint pinned from the signed announcement. Rotate the key with `stickysites-peer.py pair`. |
 | Notes readable on the Wi-Fi | Low | Peer transport is HTTPS with pinned certs. Without the vault, notes are plaintext inside the tunnel; tombstones (record keys + timestamps) are always plaintext. |
 | Snapshot file at rest | Same as Chrome storage | `~/.stickysites/snapshot.json` mode 0600; envelopes when the vault is on. |
+| Shared/cloud-folder snapshot | Provider and local account can read plaintext metadata, and notes when the vault is off | HMAC authenticates files without encrypting them; choose the folder/provider deliberately and enable the vault for note confidentiality. |
+| Stalled LAN client | Worker resource use | TLS handshakes run in workers with finite socket timeouts, leaving acceptance available. |
 | Content script on sensitive pages | N/A | Chrome blocks content scripts on `chrome://`, `chrome-extension://`, the Web Store. |
 
 ### Permissions audit
@@ -31,19 +35,22 @@ to-do list with a local native-messaging host. There is no network surface.
 | `storage` | Notes, prefs, crypto config, cached key in `chrome.storage.local` | Yes |
 | `activeTab` | Message the active tab from the SW and popup | Yes — no broad host access |
 | `contextMenus` | The "StickySites" clip submenu | Yes |
-| `alarms` | 2-minute to-do sync schedule | Yes |
+| `alarms` | To-do and peer sync schedules | Yes |
 | `nativeMessaging` | Local IPC with `com.mitch.todo_bridge`; only a host manifest naming this extension id can answer | Yes — no network |
 
 No `tabs`, `webRequest`, `cookies`, `history`, `identity`, `scripting`, or extra host permissions.
 
 ### Data handling
 
-- All notes stay in `chrome.storage.local` on the device. No network transmission, telemetry,
-  crash reporting, third-party scripts, or remote resources.
-- Data that can leave the browser, both to local processes only: the to-do list (items,
-  sections, notes) to the native host when that sync is installed and encryption is off; and
-  the note snapshot to the peer daemon on `127.0.0.1` when it is installed, from where it goes
-  only to the user's own paired machines on the LAN (`peer/README.md`).
+- Notes live in `chrome.storage.local` by default. No hosted telemetry, crash reporting,
+  remote scripts, or remote resources are loaded.
+- Optional native messaging sends plaintext to-dos to a local file while encryption is off.
+- Optional loopback requests hand snapshots to the local daemon. The daemon can relay them
+  to paired LAN machines or write signed files to a user-selected shared/cloud folder. The
+  selected provider may store and transfer those files outside the LAN.
+- Vault encryption covers the six note buckets. Tombstones (record keys/timestamps), crypto
+  config, device identities, and folder-envelope metadata remain plaintext. Folder signatures
+  authenticate snapshots; they do not encrypt them.
 
 ## Encryption at rest
 
@@ -59,16 +66,22 @@ Opt-in; enabled from the popup Settings panel with a passphrase.
 
 ### Key lifecycle
 
-1. `enable(passphrase)`: generate salt → derive key → encrypt a verify string → store
-   `{ enabled: true, salt, verify }` in `stickysites_crypto_v1` → cache the key (JWK) in
-   `stickysites_cached_key` → re-encrypt all six note keys in place. The passphrase is never stored.
+1. `enable(passphrase)` derives a key and stages all encrypted note buckets, the verify
+   token, configuration, and cached JWK before one guarded multi-key commit. A staging failure
+   leaves the prior state intact. The passphrase is never stored.
 2. Reads: `decryptValue()` uses the cached key; if none, the value stays an envelope and the UI
    shows the lock overlay (or the outliner's lock notice).
-3. **Lock Now** (popup) / `clearCachedKey()`: removes `stickysites_cached_key` and the
+3. **Lock Now** (popup) / `clearCachedKey()`: clears the JWK value in `stickysites_cached_key` and the
    in-memory key. The cached key otherwise **persists across browser restarts**.
 4. `unlock(passphrase)`: re-derive from the stored salt, decrypt `verify`, compare; on success
    cache the key again.
-5. `disable()`: decrypt all notes in place, remove the config key and cached key.
+5. `disable()` stages every decryption before one guarded commit of plaintext buckets and
+   cleared config/key. An unreadable bucket preserves the existing vault for recovery.
+
+If a content page lacks `crypto.subtle` (ordinary HTTP), the content namespace routes vault
+operations to the extension worker. The worker runs the same lifecycle implementation and
+returns results over extension IPC. This preserves the envelope and local-JWK design.
+See [MDN secure-context restrictions](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts#secure_contexts).
 
 ### Invariants the code enforces
 
@@ -81,9 +94,21 @@ Opt-in; enabled from the popup Settings panel with a passphrase.
 - `src/content/crypto-content.js` and `src/shared/crypto.js` implement the same primitives
   and must change together.
 
+### Mutation and transport boundaries
+
+All runtime mutations enter the service worker queue, read fresh records, and verify the
+stored result. Native/peer results commit only if their original inputs still match;
+`STATE_CHANGED` preserves newer edits. This is a single-extension coordination mechanism,
+not a filesystem or database transaction against unrelated programs.
+
+The daemon validates request lengths before reading and bounds body/handshake waits.
+Diagnostic requests send a bearer only after the remote certificate matches authenticated
+discovery. Unknown certificates stop at the TLS step. Config and snapshot disk failures
+preserve the prior successful state.
+
 ### Caveats
 
-- Encryption covers the six note keys only; prefs and the crypto config are plaintext.
+- Encryption covers the six note keys only; prefs, tombstones, and crypto/sync metadata are plaintext.
 - There is no passphrase recovery; losing it means losing the notes
   (`runbooks/encryption-lock-and-recovery.md`).
 - PBKDF2 at 600 K iterations takes 1–4 s on slow hardware with no spinner.

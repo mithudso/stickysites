@@ -1,71 +1,50 @@
 # Logging
 
-## Approach
+## Sinks and levels
 
-StickySites has **no logging framework and no log sink outside the browser**. There is no
-server, no file, and no remote service. Diagnostics are the browser's own consoles:
+The extension uses browser consoles rather than a logging framework or hosted telemetry.
+The optional Python daemon separately appends to `~/.stickysites/peer.log` (or
+`STICKYSITES_HOME/peer.log`). The external native host owns its own diagnostics.
 
-| Context | Where output appears |
+| Context | Where to inspect |
 |---|---|
-| Content scripts (`src/content/*.js`) | DevTools console of the host page |
-| Service worker (`src/background/service-worker.js`) | `chrome://extensions` → StickySites → **Service worker** link |
-| Popup / popout pages | Right-click the page → Inspect |
+| Content scripts | Host-page DevTools; `[stickysites] save` and `prefs` warnings use generic errors |
+| Service worker | `chrome://extensions` → Service worker; clip, toggle, popout, native/peer sync warnings |
+| Popup/popout | Inspect the extension page; popup settings also show connection/save failures |
+| Peer daemon | `peer.log`, foreground terminal, and loopback status/test results |
 
-As of v1.11.1 the production code emits **`console.warn` on the service worker's failure
-paths only** (to-do sync, clip delivery, toggle delivery). Everything else fails silently
-by design — see "Silent-failure inventory" below.
+`console.warn` reports a failed save or optional boundary. Expected states such as a locked
+vault or a wrong passphrase are handled by the UI. Peer absence is logged once per outage.
+A successful unchanged sync is quiet. Do not claim silent persistence success after a failed
+write or read-back verification.
 
-## Levels
+## Shape and privacy
 
-| Level | Meaning here |
-|---|---|
-| `console.warn` | An optional integration failed and the extension degraded gracefully (native host missing, tab without content script). Safe to ignore unless the user expected the feature. |
-| `console.error` | Reserved for corrupted storage or a failed write the user would notice as lost data. Not used yet. |
-| `console.log` / `debug` | Not used in shipped code. Add locally while debugging, remove before commit. |
-
-## Structured shape
-
-When you add a log line, prefix it so it can be filtered with the DevTools regex box:
+Use a stable subsystem and a small metadata object:
 
 ```js
-console.warn('[stickysites] todo-sync', { error: result.error, extId: chrome.runtime.id });
+console.warn('[stickysites] save', { error: 'NOTE_WRITE_FAILED' });
 ```
 
-`[stickysites] <subsystem>` then one object. Never log a note body, a passphrase, or the
-cached key.
+Never log note bodies, to-do/outline text, passphrases, cached JWKs, verify envelopes, or salt.
+Daemon logs can contain configured paths, peer names, and addresses; treat them as local
+operational information. Avoid placing raw external error strings or snapshot content into
+new logs. Extension ids, key names, counts, and fixed error codes are usually sufficient.
 
-## Silent-failure inventory
+## Actionable outcomes
 
-These `catch` blocks intentionally swallow errors and return a neutral value. They are the
-paths the logging standard flags as "unlogged error paths"; each is listed with why it stays
-quiet:
+| Code/state | Meaning |
+|---|---|
+| `STATE_CHANGED` | Native/peer input changed while work was pending; newer state is retained |
+| `STORAGE_VERIFY_FAILED` | A queued write did not match read-back; surface failure |
+| `VAULT_LOCKED` / `VAULT_UNREADABLE` | The writer refuses to overwrite protected/unreadable state |
+| `NETWORK_TIMEOUT` | Request or JSON response body exceeded its deadline |
+| `NATIVE_TIMEOUT` | Native reply exceeded its separate deadline |
+| Daemon config/snapshot persistence error | HTTP 500; last successful in-memory/disk state is retained |
+| Unknown diagnostic certificate | TLS step fails before sending a bearer; verify key/discovery |
 
-| Location | Behaviour | Why quiet |
-|---|---|---|
-| `src/content/crypto-content.js` `getCachedKey`, `clearCachedKey`, `unlock`, `decryptValue`, `_decryptAllNotes` | return `null` / `false` / the raw value | Called on every read; a wrong passphrase or locked vault is a normal state, not an error |
-| `src/content/prefs.js` `read`/`write`, `src/shared/notes-storage.js` (all CRUD) | return defaults / `null` / `[]` | Storage is per-extension and effectively never fails; UI must still render |
-| `src/content/panel.js` prefs writes, `_flushSave` calls | comment `best-effort` | Panel position/size are cosmetic; the pending save is retried on the next debounce |
-| `src/content/panel.js:828` | skip a `Range` that crosses element boundaries | Find-highlighting edge case; the match is simply not highlighted |
-| `src/content/outline.js:36` | treat undecryptable outline map as `{}` | Locked vault; the renderer shows the lock notice instead |
-| `src/content/sticky-inject.js:217` | proceed without prefs | Only affects `enabledTypes` filtering of function-key shortcuts |
-| `src/background/service-worker.js` (clip, toggle, popout, todo-sync, peer-sync) | `console.warn('[stickysites] …')` | **Logged** — these are the integration boundaries (tabs without content script, native host missing, peer daemon absent — logged once per outage — or erroring) |
-
-If you add a new external boundary (a new `chrome.runtime.sendNativeMessage`, a new message
-type), log its failure path; if you add another storage read, the neutral-return pattern above
-is fine.
-
-## Sensitive data rules
-
-Never write to any console:
-
-- note bodies, to-do text, outline text (user content — may be confidential)
-- the passphrase or the JWK in `stickysites_cached_key`
-- the verify envelope or salt from `stickysites_crypto_v1`
-
-Extension ids, storage key names, item counts, and error messages from the native host are fine.
-
-## Testing logs
-
-Unit tests (`tests/`) run in node with a mocked `chrome`; none assert on console output today.
-When a service-worker failure path gains logic beyond `console.warn`, assert on it with
-`vi.spyOn(console, 'warn')` in a new test rather than by reading the browser console.
+Read-side helpers can still return defaults or an envelope while locked. These neutral states
+do not authorize a later writer to replace unreadable content; the queued writer checks fresh
+state. Cosmetic selection/highlight failures may remain quiet. Test logs with
+`vi.spyOn(console, 'warn')` when their behavior matters; actual-script fixtures can exercise
+runtime warnings without opening a browser or exposing real data.

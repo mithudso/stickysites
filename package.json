@@ -1,26 +1,30 @@
 {
   "name": "stickysites",
   "private": true,
-  "version": "1.13.0",
+  "version": "1.13.1",
   "description": "Sticky notes for every website \u2014 global, site, page, daily, todo, and outline notes with rich text, encryption, and sync",
   "engines": {
-    "node": ">=22"
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "test:peer": "python3 -m unittest peer/test_peer.py",
-    "lint": "node scripts/check-syntax.mjs",
+    "lint": "node scripts/check-syntax.mjs && eslint .",
     "docs:check-indexes": "node scripts/check-doc-indexes.mjs",
     "logs:rotate": "node scripts/rotate-workflow-logs.mjs",
     "icons": "node scripts/generate-icons.js",
     "verify:live": "node scripts/verify-live.mjs",
     "build:store": "node scripts/build-store-zip.mjs",
     "store:screenshots": "node scripts/store-screenshots.mjs",
-    "store:promo": "node scripts/store-promo.mjs"
+    "store:promo": "node scripts/store-promo.mjs",
+    "docs:generate": "node scripts/generate-docs.mjs",
+    "docs:check-generated": "node scripts/generate-docs.mjs --check"
   },
   "devDependencies": {
     "canvas": "^3.2.3",
-    "vitest": "^5.0.3"
+    "eslint": "^9.39.5",
+    "jsdom": "^31.0.0",
+    "vitest": "^5.1.0"
   }
 }

@@ -1,3 +1,4 @@
+import './settings.js';
 // Sync the global to-do list with the local TODO.md through the native-messaging host
 // com.mitch.todo_bridge (installed by ~/.claude/skills/todo/scripts/todo.py install-native-host).
 // The host owns the three-way merge; this module only builds the request and folds the reply
@@ -45,7 +46,8 @@ export function applyHostResult(record, hostItems) {
     const local = existing.get(String(h.id));
     const hostSection = h.section ? String(h.section) : '';
     let section = hostSection ? sectionId(hostSection) : '';
-    if (!hostSection && local?.section && !hostNames.has(sectionName(local.section))) {
+    const localSection = sections.find(s => s.id === local?.section);
+    if (!hostSection && localSection && localSection.origin !== 'host' && !isHostSection(localSection.name) && !hostNames.has(sectionName(local.section))) {
       section = local.section;
     }
     const merged = {
@@ -99,25 +101,30 @@ export function isEncryptedValue(v) {
     !v.body && !v.items && !v.siteKey);
 }
 
-export async function syncTodosWithHost({ storage, sendNativeMessage, extId }) {
+export async function syncTodosWithHost({ storage, sendNativeMessage, extId, commit = null }) {
   let stored;
   try {
     stored = await storage.get(TODOS_KEY);
+    stored.stickysites_crypto_v1 = (await storage.get('stickysites_crypto_v1')).stickysites_crypto_v1;
   } catch (err) {
     return { error: err?.message || 'storage read failed' };
   }
-  const map = stored?.[TODOS_KEY] || {};
+  const initialConfig = stored.stickysites_crypto_v1;
+  const initial = structuredClone(stored?.[TODOS_KEY] ?? null);
+  const map = structuredClone(stored?.[TODOS_KEY] || {});
   // Encrypted notes stay encrypted at rest; the plaintext file must not receive them.
-  if (isEncryptedValue(map)) return { skipped: 'encrypted' };
+  if (isEncryptedValue(map) || initialConfig?.enabled) return { skipped: 'encrypted' };
   const record = map[RECORD_KEY] || { key: RECORD_KEY, items: [], sections: [], tagColors: {} };
   let reply;
   try {
-    reply = await sendNativeMessage(TODO_HOST, buildRequest(record, extId));
+    let timer;
+    try { reply = await Promise.race([sendNativeMessage(TODO_HOST, buildRequest(record, extId)), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('NATIVE_TIMEOUT')), globalThis.StickySites.Settings.nativeTimeoutMs); })]); }
+    finally { clearTimeout(timer); }
   } catch (err) {
     return { error: err?.message || 'native messaging failed' };
   }
   if (!reply?.ok) return { error: reply?.error || 'no reply from host' };
-  if (!Array.isArray(reply.items)) return { error: 'malformed reply from host' };
+  if (!Array.isArray(reply.items) || reply.items.some(i => !i || typeof i !== 'object' || Array.isArray(i) || !['string', 'number'].includes(typeof i.id) || !String(i.id).trim()) || new Set(reply.items.map(i => String(i.id))).size !== reply.items.length) return { error: 'malformed reply from host' };
   let merged;
   try {
     merged = applyHostResult(record, reply.items);
@@ -129,7 +136,14 @@ export async function syncTodosWithHost({ storage, sendNativeMessage, extId }) {
   const now = new Date().toISOString();
   map[RECORD_KEY] = { ...record, key: RECORD_KEY, items, sections, createdAt: record.createdAt || now, updatedAt: now };
   try {
-    await storage.set({ [TODOS_KEY]: map });
+    const expected = { [TODOS_KEY]: initial, stickysites_crypto_v1: initialConfig ?? null };
+    const updates = { [TODOS_KEY]: map };
+    if (commit) await commit(expected, updates);
+    else {
+      const current = await storage.get(TODOS_KEY), config = await storage.get('stickysites_crypto_v1');
+      if (JSON.stringify(current[TODOS_KEY] ?? null) !== JSON.stringify(initial) || JSON.stringify(config.stickysites_crypto_v1 ?? null) !== JSON.stringify(initialConfig ?? null)) throw new Error('STATE_CHANGED');
+      await storage.set(updates);
+    }
   } catch (err) {
     return { error: err?.message || 'storage write failed' };
   }

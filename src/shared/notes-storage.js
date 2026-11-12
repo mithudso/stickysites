@@ -5,17 +5,21 @@ const PREFS_KEY = 'stickysites_prefs_v1';
 const TODOS_KEY = 'stickysites_todos_v1';
 const OUTLINES_KEY = 'stickysites_outlines_v1';
 const DAILY_KEY = 'stickysites_daily_v1';
-// Must match DEFAULT_PREFS in src/content/prefs.js (the content-script namespace copy).
-const DEFAULT_PREFS = {
-  clusterPosition: { x: null, y: null },
-  panelMode: 'fixed',
-  clusterLayout: 'vertical',
-  collapseToCircle: false,
-  iconOrder: null,
-  enabledTypes: { global: true, site: true, page: true, todo: true, outline: true, daily: true },
-  panelSize: null,
-  panelPosition: null
-};
+// TEST-ONLY reference implementation. Runtime mutations use note-writer.js.
+// This module serializes its own mutations per key; it is not a cross-context writer.
+import './settings.js';
+const pending = new Map();
+const object = value => value && typeof value === 'object' && !Array.isArray(value);
+const collection = value => object(value) ? Object.assign(Object.create(null), value) : Object.create(null);
+const recordAt = (map, key) => Object.hasOwn(map, key) && object(map[key]) ? map[key] : null;
+function serialize(key, action) {
+  const operation = (pending.get(key) ?? Promise.resolve()).then(action);
+  const settled = operation.catch(() => {});
+  pending.set(key, settled);
+  settled.then(() => { if (pending.get(key) === settled) pending.delete(key); });
+  return operation;
+}
+const normalizePrefs = value => globalThis.StickySites.Settings.normalizePrefs(value);
 
 export function getSiteKey(url) {
   try {
@@ -34,16 +38,18 @@ export async function readGlobalNote() {
 
 export async function writeGlobalNote(body = '') {
   const record = { body: String(body), updatedAt: new Date().toISOString() };
-  await chrome.storage.local.set({ [GLOBAL_NOTE_KEY]: record });
-  return record;
+  return serialize(GLOBAL_NOTE_KEY, async () => {
+    await chrome.storage.local.set({ [GLOBAL_NOTE_KEY]: record });
+    return record;
+  });
 }
 
 export async function readSiteNote(siteKey) {
   if (!siteKey) return null;
   try {
     const stored = await chrome.storage.local.get(SITE_NOTES_KEY);
-    const map = stored?.[SITE_NOTES_KEY] || {};
-    const record = map[siteKey];
+    const map = collection(stored?.[SITE_NOTES_KEY]);
+    const record = recordAt(map, siteKey);
     if (!record) return null;
     return {
       key: String(record.key || record.siteKey || siteKey),
@@ -58,40 +64,44 @@ export async function readSiteNote(siteKey) {
 
 export async function writeSiteNote(siteKey, { siteLabel = '', body = '', tags = [] } = {}) {
   if (!siteKey) return null;
-  try {
-    const stored = await chrome.storage.local.get(SITE_NOTES_KEY);
-    const map = stored?.[SITE_NOTES_KEY] || {};
-    const existing = map[siteKey];
-    const record = {
-      key: siteKey,
-      label: String(siteLabel || siteKey),
-      body: String(body),
-      tags: Array.isArray(tags) ? tags : [],
-      createdAt: existing?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    map[siteKey] = record;
-    await chrome.storage.local.set({ [SITE_NOTES_KEY]: map });
-    return record;
-  } catch { return null; }
+  return serialize(SITE_NOTES_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(SITE_NOTES_KEY);
+      const map = collection(stored?.[SITE_NOTES_KEY]);
+      const existing = recordAt(map, siteKey);
+      const record = {
+        key: siteKey,
+        label: String(siteLabel || siteKey),
+        body: String(body),
+        tags: Array.isArray(tags) ? tags : [],
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      map[siteKey] = record;
+      await chrome.storage.local.set({ [SITE_NOTES_KEY]: map });
+      return record;
+    } catch { return null; }
+  });
 }
 
 export async function deleteSiteNote(siteKey) {
-  try {
-    const stored = await chrome.storage.local.get(SITE_NOTES_KEY);
-    const map = stored?.[SITE_NOTES_KEY] || {};
-    delete map[siteKey];
-    await chrome.storage.local.set({ [SITE_NOTES_KEY]: map });
-  } catch { /* best effort */ }
+  return serialize(SITE_NOTES_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(SITE_NOTES_KEY);
+      const map = collection(stored?.[SITE_NOTES_KEY]);
+      delete map[siteKey];
+      await chrome.storage.local.set({ [SITE_NOTES_KEY]: map });
+    } catch { /* best effort */ }
+  });
 }
 
 export async function readAllSiteNotes() {
   try {
     const stored = await chrome.storage.local.get(SITE_NOTES_KEY);
-    const map = stored?.[SITE_NOTES_KEY] || {};
-    return Object.values(map).map(r => ({
-      key: String(r.key || r.siteKey || ''),
-      label: String(r.label || r.siteLabel || ''),
+    const map = collection(stored?.[SITE_NOTES_KEY]);
+    return Object.entries(map).filter(([, r]) => object(r)).map(([k, r]) => ({
+      key: String(r.key || r.siteKey || k),
+      label: String(r.label || r.siteLabel || k),
       body: String(r.body ?? ''),
       tags: Array.isArray(r.tags) ? r.tags : [],
       createdAt: String(r.createdAt || ''),
@@ -111,8 +121,8 @@ export async function readPageNote(pageKey) {
   if (!pageKey) return null;
   try {
     const stored = await chrome.storage.local.get(PAGE_NOTES_KEY);
-    const map = stored?.[PAGE_NOTES_KEY] || {};
-    const record = map[pageKey];
+    const map = collection(stored?.[PAGE_NOTES_KEY]);
+    const record = recordAt(map, pageKey);
     if (!record) return null;
     return {
       key: String(record.key || record.pageKey || pageKey),
@@ -127,40 +137,44 @@ export async function readPageNote(pageKey) {
 
 export async function writePageNote(pageKey, { pageLabel = '', body = '', tags = [] } = {}) {
   if (!pageKey) return null;
-  try {
-    const stored = await chrome.storage.local.get(PAGE_NOTES_KEY);
-    const map = stored?.[PAGE_NOTES_KEY] || {};
-    const existing = map[pageKey];
-    const record = {
-      key: pageKey,
-      label: String(pageLabel || pageKey),
-      body: String(body),
-      tags: Array.isArray(tags) ? tags : [],
-      createdAt: existing?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    map[pageKey] = record;
-    await chrome.storage.local.set({ [PAGE_NOTES_KEY]: map });
-    return record;
-  } catch { return null; }
+  return serialize(PAGE_NOTES_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(PAGE_NOTES_KEY);
+      const map = collection(stored?.[PAGE_NOTES_KEY]);
+      const existing = recordAt(map, pageKey);
+      const record = {
+        key: pageKey,
+        label: String(pageLabel || pageKey),
+        body: String(body),
+        tags: Array.isArray(tags) ? tags : [],
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      map[pageKey] = record;
+      await chrome.storage.local.set({ [PAGE_NOTES_KEY]: map });
+      return record;
+    } catch { return null; }
+  });
 }
 
 export async function deletePageNote(pageKey) {
-  try {
-    const stored = await chrome.storage.local.get(PAGE_NOTES_KEY);
-    const map = stored?.[PAGE_NOTES_KEY] || {};
-    delete map[pageKey];
-    await chrome.storage.local.set({ [PAGE_NOTES_KEY]: map });
-  } catch { /* best effort */ }
+  return serialize(PAGE_NOTES_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(PAGE_NOTES_KEY);
+      const map = collection(stored?.[PAGE_NOTES_KEY]);
+      delete map[pageKey];
+      await chrome.storage.local.set({ [PAGE_NOTES_KEY]: map });
+    } catch { /* best effort */ }
+  });
 }
 
 export async function readAllPageNotes() {
   try {
     const stored = await chrome.storage.local.get(PAGE_NOTES_KEY);
-    const map = stored?.[PAGE_NOTES_KEY] || {};
-    return Object.values(map).map(r => ({
-      key: String(r.key || r.pageKey || ''),
-      label: String(r.label || r.pageLabel || ''),
+    const map = collection(stored?.[PAGE_NOTES_KEY]);
+    return Object.entries(map).filter(([, r]) => object(r)).map(([k, r]) => ({
+      key: String(r.key || r.pageKey || k),
+      label: String(r.label || r.pageLabel || k),
       body: String(r.body ?? ''),
       tags: Array.isArray(r.tags) ? r.tags : [],
       createdAt: String(r.createdAt || ''),
@@ -178,8 +192,8 @@ export async function readDailyNote(dateKey) {
   if (!dateKey) dateKey = getDailyKey();
   try {
     const stored = await chrome.storage.local.get(DAILY_KEY);
-    const map = stored?.[DAILY_KEY] || {};
-    const record = map[dateKey];
+    const map = collection(stored?.[DAILY_KEY]);
+    const record = recordAt(map, dateKey);
     if (!record) return null;
     return {
       key: String(record.key || record.dateKey || dateKey),
@@ -193,38 +207,42 @@ export async function readDailyNote(dateKey) {
 
 export async function writeDailyNote(dateKey, { body = '', tags = [] } = {}) {
   if (!dateKey) dateKey = getDailyKey();
-  try {
-    const stored = await chrome.storage.local.get(DAILY_KEY);
-    const map = stored?.[DAILY_KEY] || {};
-    const existing = map[dateKey];
-    const record = {
-      key: dateKey,
-      body: String(body),
-      tags: Array.isArray(tags) ? tags : [],
-      createdAt: existing?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    map[dateKey] = record;
-    await chrome.storage.local.set({ [DAILY_KEY]: map });
-    return record;
-  } catch { return null; }
+  return serialize(DAILY_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(DAILY_KEY);
+      const map = collection(stored?.[DAILY_KEY]);
+      const existing = recordAt(map, dateKey);
+      const record = {
+        key: dateKey,
+        body: String(body),
+        tags: Array.isArray(tags) ? tags : [],
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      map[dateKey] = record;
+      await chrome.storage.local.set({ [DAILY_KEY]: map });
+      return record;
+    } catch { return null; }
+  });
 }
 
 export async function deleteDailyNote(dateKey) {
-  try {
-    const stored = await chrome.storage.local.get(DAILY_KEY);
-    const map = stored?.[DAILY_KEY] || {};
-    delete map[dateKey];
-    await chrome.storage.local.set({ [DAILY_KEY]: map });
-  } catch { /* best effort */ }
+  return serialize(DAILY_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(DAILY_KEY);
+      const map = collection(stored?.[DAILY_KEY]);
+      delete map[dateKey];
+      await chrome.storage.local.set({ [DAILY_KEY]: map });
+    } catch { /* best effort */ }
+  });
 }
 
 export async function readAllDailyNotes() {
   try {
     const stored = await chrome.storage.local.get(DAILY_KEY);
-    const map = stored?.[DAILY_KEY] || {};
-    return Object.values(map).map(r => ({
-      key: String(r.key || r.dateKey || ''),
+    const map = collection(stored?.[DAILY_KEY]);
+    return Object.entries(map).filter(([, r]) => object(r)).map(([k, r]) => ({
+      key: String(r.key || r.dateKey || k),
       body: String(r.body ?? ''),
       tags: Array.isArray(r.tags) ? r.tags : [],
       createdAt: String(r.createdAt || ''),
@@ -252,25 +270,27 @@ export function createDebouncedSaver(fn, ms = 500) {
 export async function readPrefs() {
   try {
     const stored = await chrome.storage.local.get(PREFS_KEY);
-    const raw = stored?.[PREFS_KEY] || {};
-    return { ...DEFAULT_PREFS, ...raw };
-  } catch { return { ...DEFAULT_PREFS }; }
+    return normalizePrefs(stored?.[PREFS_KEY]);
+  } catch { return normalizePrefs(null); }
 }
 
 export async function writePrefs(updates = {}) {
-  try {
-    const current = await readPrefs();
-    const merged = { ...current, ...updates };
-    await chrome.storage.local.set({ [PREFS_KEY]: merged });
-    return merged;
-  } catch { return null; }
+  return serialize(PREFS_KEY, async () => {
+    try {
+      const current = await readPrefs();
+      const patch = object(updates) ? updates : {};
+      const merged = normalizePrefs({ ...current, ...patch, enabledTypes: { ...current.enabledTypes, ...(object(patch.enabledTypes) ? patch.enabledTypes : {}) } });
+      await chrome.storage.local.set({ [PREFS_KEY]: merged });
+      return merged;
+    } catch { return null; }
+  });
 }
 
 export async function readTodo() {
   try {
     const stored = await chrome.storage.local.get(TODOS_KEY);
-    const map = stored?.[TODOS_KEY] || {};
-    const record = map['__global__'];
+    const map = collection(stored?.[TODOS_KEY]);
+    const record = recordAt(map, '__global__');
     if (!record) return null;
     return {
       items: Array.isArray(record.items) ? record.items : [],
@@ -283,31 +303,35 @@ export async function readTodo() {
 }
 
 export async function writeTodo({ items = [], sections, tagColors } = {}) {
-  try {
-    const stored = await chrome.storage.local.get(TODOS_KEY);
-    const map = stored?.[TODOS_KEY] || {};
-    const existing = map['__global__'];
-    const record = {
-      key: '__global__',
-      items: Array.isArray(items) ? items : [],
-      sections: Array.isArray(sections) ? sections : (existing?.sections || []),
-      tagColors: (tagColors && typeof tagColors === 'object') ? tagColors : (existing?.tagColors || {}),
-      createdAt: existing?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    map['__global__'] = record;
-    await chrome.storage.local.set({ [TODOS_KEY]: map });
-    return record;
-  } catch { return null; }
+  return serialize(TODOS_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(TODOS_KEY);
+      const map = collection(stored?.[TODOS_KEY]);
+      const existing = recordAt(map, '__global__');
+      const record = {
+        key: '__global__',
+        items: Array.isArray(items) ? items : [],
+        sections: Array.isArray(sections) ? sections : (existing?.sections || []),
+        tagColors: (tagColors && typeof tagColors === 'object') ? tagColors : (existing?.tagColors || {}),
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      map['__global__'] = record;
+      await chrome.storage.local.set({ [TODOS_KEY]: map });
+      return record;
+    } catch { return null; }
+  });
 }
 
 export async function deleteTodo() {
-  try {
-    const stored = await chrome.storage.local.get(TODOS_KEY);
-    const map = stored?.[TODOS_KEY] || {};
-    delete map['__global__'];
-    await chrome.storage.local.set({ [TODOS_KEY]: map });
-  } catch { /* best effort */ }
+  return serialize(TODOS_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(TODOS_KEY);
+      const map = collection(stored?.[TODOS_KEY]);
+      delete map['__global__'];
+      await chrome.storage.local.set({ [TODOS_KEY]: map });
+    } catch { /* best effort */ }
+  });
 }
 
 export async function readAllTodos() {
@@ -321,8 +345,8 @@ export async function readOutline(outlineKey) {
   if (!outlineKey) return null;
   try {
     const stored = await chrome.storage.local.get(OUTLINES_KEY);
-    const map = stored?.[OUTLINES_KEY] || {};
-    const record = map[outlineKey];
+    const map = collection(stored?.[OUTLINES_KEY]);
+    const record = recordAt(map, outlineKey);
     if (!record) return null;
     return {
       key: String(record.key || record.siteKey || outlineKey),
@@ -336,37 +360,41 @@ export async function readOutline(outlineKey) {
 
 export async function writeOutline(outlineKey, { name = '', items = [] } = {}) {
   if (!outlineKey) return null;
-  try {
-    const stored = await chrome.storage.local.get(OUTLINES_KEY);
-    const map = stored?.[OUTLINES_KEY] || {};
-    const existing = map[outlineKey];
-    const record = {
-      key: outlineKey,
-      name: String(name || existing?.name || outlineKey),
-      items: Array.isArray(items) ? items : [],
-      createdAt: existing?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    map[outlineKey] = record;
-    await chrome.storage.local.set({ [OUTLINES_KEY]: map });
-    return record;
-  } catch { return null; }
+  return serialize(OUTLINES_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(OUTLINES_KEY);
+      const map = collection(stored?.[OUTLINES_KEY]);
+      const existing = recordAt(map, outlineKey);
+      const record = {
+        key: outlineKey,
+        name: String(name || existing?.name || outlineKey),
+        items: Array.isArray(items) ? items : [],
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      map[outlineKey] = record;
+      await chrome.storage.local.set({ [OUTLINES_KEY]: map });
+      return record;
+    } catch { return null; }
+  });
 }
 
 export async function deleteOutline(outlineKey) {
-  try {
-    const stored = await chrome.storage.local.get(OUTLINES_KEY);
-    const map = stored?.[OUTLINES_KEY] || {};
-    delete map[outlineKey];
-    await chrome.storage.local.set({ [OUTLINES_KEY]: map });
-  } catch { /* best effort */ }
+  return serialize(OUTLINES_KEY, async () => {
+    try {
+      const stored = await chrome.storage.local.get(OUTLINES_KEY);
+      const map = collection(stored?.[OUTLINES_KEY]);
+      delete map[outlineKey];
+      await chrome.storage.local.set({ [OUTLINES_KEY]: map });
+    } catch { /* best effort */ }
+  });
 }
 
 export async function readAllOutlines() {
   try {
     const stored = await chrome.storage.local.get(OUTLINES_KEY);
-    const map = stored?.[OUTLINES_KEY] || {};
-    return Object.entries(map).map(([k, r]) => ({
+    const map = collection(stored?.[OUTLINES_KEY]);
+    return Object.entries(map).filter(([, r]) => object(r)).map(([k, r]) => ({
       key: String(r.key || r.siteKey || k),
       name: String(r.name || k),
       items: Array.isArray(r.items) ? r.items : [],
